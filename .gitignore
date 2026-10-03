@@ -1,0 +1,20 @@
+# Design notes and research stay local (docs/design/decisions.md R10).
+docs/
+
+.env
+.env.*
+!.env.example
+
+.gradle/
+build/
+.kotlin/
+.idea/
+*.iml
+out/
+
+node_modules/
+.next/
+web/next-env.d.ts
+
+.playwright-mcp/
+.DS_Store
