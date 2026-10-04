@@ -1,8 +1,7 @@
-name: PR title
+name: Commit messages
 
-# Pull requests are squash-merged and the title becomes the commit on main, so
-# the title is what has to be Conventional. Its own workflow, so renaming a pull
-# request re-checks the title without rebuilding everything.
+# Rebase merge lands every commit on dev as written, and a release's merge commit
+# takes the PR title, so both are checked.
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
@@ -11,12 +10,15 @@ permissions:
   contents: read
 
 jobs:
-  pr-title:
+  commit-messages:
     runs-on: ubuntu-latest
     steps:
+      # The branch tip, not GitHub's merge commit, whose message is not Conventional.
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
 
-      # The release binary, pinned to the version the commit-msg hook uses.
       # cocogitto-action@v4 installs 6.4.0 and fails in install-only mode.
       - name: Install cocogitto
         env:
@@ -26,14 +28,19 @@ jobs:
             | tar -xz -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/x86_64-unknown-linux-musl" >> "$GITHUB_PATH"
 
-      # Checked against cog.toml, the same scope list the commit-msg hook uses.
-      # Passed through the environment: a title interpolated into the script
-      # would be executed as shell.
-      # cog prints an author beside the verdict and panics without one, even
-      # for a message that was never committed; the runner has no git identity.
+      # cog panics without a git identity, even for a message it only verifies.
       - run: |
           git config user.name github-actions
           git config user.email github-actions[bot]@users.noreply.github.com
-          cog verify "$TITLE"
+
+      # Through env: a title interpolated into the script would run as shell.
+      - name: Title
+        run: cog verify "$TITLE"
         env:
           TITLE: ${{ github.event.pull_request.title }}
+
+      - name: Commits
+        run: cog check "$BASE_SHA..$HEAD_SHA"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}

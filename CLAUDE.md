@@ -75,17 +75,26 @@ from memory.
 
 ## Commits and pull requests
 
-- Branch from a fresh `origin/main` (`git fetch` first): `<type>/<english-slug>`.
+- `dev` collects work; `main` is what is deployed. Branch from a fresh `origin/dev`:
+  `git fetch && git switch -c <type>/<english-slug> --no-track origin/dev`. Without
+  `--no-track` the branch pushes to `dev` by default and the pre-push hook cannot resolve it.
+  Pull requests target `dev`.
+- Work pull requests are **rebase merged**: every commit on the branch lands on `dev` as
+  written. Clean up fix-ups before merging
+  (`git commit --fixup <sha>`, then `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash origin/dev`).
+- Deploying is a release pull request from `dev` to `main`, **merge commit** only, titled
+  `chore(deploy): <요약>`. Never rebase merge a release: GitHub's rebase merge rewrites
+  SHAs, so `main` and `dev` would disagree and the next release would carry the same
+  commits again.
 - Commit and PR title: `<type>(<scope>): <짧은 한국어 명사형 요약>`, scope from `cog.toml`.
   Examples: `chore(repo): 프로젝트 스켈레톤 세팅`, `feat(account): 계정 생성 API 추가`,
-  `fix(chat): 잘린 응답이 완료로 표시되는 문제 수정`.
-- Squash merge only. The squash commit takes the PR title and the PR description, so the
-  description is the commit body. Write it the way a developer writes to a teammate: two or
-  three short lines on what changed and why, one on how it was checked. Memo style
+  `fix(chat): 잘린 응답이 완료로 표시되는 문제 수정`. CI checks the title and every commit.
+- Commit body and PR description: the way a developer writes to a teammate, two or three
+  short lines on what changed and why, one on how it was checked. Memo style
   (`~추가`, `~함`, `~확인`), and the English words developers actually say (스켈레톤, 세팅, 빈,
   룰, 엔드포인트, 마이그레이션) rather than forced Korean. Only the one or two points worth
   knowing; the diff says the rest. No headers, no long justifications, no attribution lines.
-- One change per branch.
+- One change per branch, usually one commit.
 - Commits are authored by the personal account, set per clone (the global identity is a
   work one):
 
@@ -106,6 +115,6 @@ pnpm --dir web build      # web: production build
 docker compose --profile local up -d postgres   # the local database the server expects (port 55433)
 
 # tests need Docker running: they start PostgreSQL through Testcontainers
-# once per clone: hooks guard main, format staged files, verify commit messages
+# once per clone: hooks guard main and dev, format staged files, verify commit messages
 brew install lefthook cocogitto ktlint && lefthook install
 ```

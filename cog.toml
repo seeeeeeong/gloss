@@ -1,5 +1,5 @@
-# Conventional Commits, verified by the commit-msg hook and, for the squashed
-# title that lands on main, by CI. The summary after the colon is Korean
+# Conventional Commits, verified by the commit-msg hook and, for the pull request
+# title and every commit that a rebase merge lands on dev, by CI. The summary after the colon is Korean
 # (docs/design/decisions.md R4): `feat(account): 계정 생성 API 추가`.
 #
 # Scopes are application modules, as packages are. A scope outside this list is a
