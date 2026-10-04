@@ -1,6 +1,5 @@
 import type { NextConfig } from 'next'
-
-const SERVER_URL = process.env.GLOSS_SERVER_URL ?? 'http://127.0.0.1:8140'
+import { SERVER_URL } from './src/lib/server-url'
 
 // One origin, so the session cookie is first-party. Caddy does this in a deployment.
 const API_PATHS = ['/api/:path*']
