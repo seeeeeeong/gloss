@@ -1,0 +1,89 @@
+# Repository rulesets need GitHub Pro on a private repo, so main is guarded here
+# instead. This is a guard against slips, not real enforcement: `--no-verify`
+# bypasses it. Replace it with a server-side ruleset when the repo goes public.
+#
+# Setup: brew install lefthook cocogitto ktlint && lefthook install
+# Keep ktlint at the version in gradle/libs.versions.toml; ./gradlew check is
+# the authority, this is only the quick pass.
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: guard main
+      only:
+        - ref: main
+      run: |
+        echo ''
+        echo '✖ main is protected. Start a branch instead:'
+        echo ''
+        echo '    git switch -c feat/<what-becomes-true>'
+        echo ''
+        exit 1
+    - name: ktlint
+      glob: '*.{kt,kts}'
+      run: |
+        ktlint --format {staged_files} || {
+          echo ''
+          echo '✖ ktlint found issues it could not fix automatically.'
+          echo '  Run:  ./gradlew spotlessApply      then review, stage, and commit again.'
+          echo ''
+          exit 1
+        }
+      stage_fixed: true
+    - name: biome
+      # Paths are given relative to web/, where biome.json and the binary live.
+      root: 'web/'
+      glob: '*.{ts,tsx,js,mjs,json,jsonc,css}'
+      run: |
+        pnpm exec biome check --write --no-errors-on-unmatched {staged_files} || {
+          echo ''
+          echo '✖ Biome found issues it could not fix automatically.'
+          echo '  Run:  pnpm --dir web fix      then review, stage, and commit again.'
+          echo ''
+          exit 1
+        }
+      stage_fixed: true
+
+commit-msg:
+  jobs:
+    - name: cocogitto
+      run: |
+        cog verify --file {1} || {
+          echo ''
+          echo '✖ Commit message must follow Conventional Commits, with a scope from cog.toml.'
+          echo '    feat(account): 운영자가 계정을 만들 수 있게 하기'
+          echo '    fix(chat): 잘린 답변을 완료로 보이지 않게 하기'
+          echo '  The squashed commit on main takes the pull request title and description.'
+          echo ''
+          exit 1
+        }
+
+pre-push:
+  jobs:
+    - name: guard main
+      only:
+        - ref: main
+      run: |
+        echo ''
+        echo '✖ Do not push main directly. Open a pull request so CI runs first.'
+        echo ''
+        echo '    git switch -c feat/<what-becomes-true>'
+        echo '    gh pr create'
+        echo ''
+        exit 1
+    - name: server check
+      run: |
+        ./gradlew check --console=plain -q || {
+          echo ''
+          echo '✖ ./gradlew check failed. Formatting alone:  ./gradlew spotlessApply'
+          echo ''
+          exit 1
+        }
+    - name: web check
+      run: |
+        pnpm --dir web check || {
+          echo ''
+          echo '✖ pnpm --dir web check failed. Formatting alone:  pnpm --dir web fix'
+          echo ''
+          exit 1
+        }
