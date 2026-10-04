@@ -33,7 +33,7 @@ spring:
   config:
     import: optional:file:.env[.properties]
   datasource:
-    url: ${GLOSS_DB_URL:jdbc:postgresql://127.0.0.1:55433/gloss}
+    url: ${GLOSS_DB_URL:jdbc:postgresql://127.0.0.1:55434/gloss}
     username: ${GLOSS_DB_USER:gloss}
     password: ${GLOSS_DB_PASSWORD:gloss}
   session:

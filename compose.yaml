@@ -7,8 +7,8 @@ services:
       POSTGRES_USER: gloss
       POSTGRES_PASSWORD: gloss
     ports:
-      # 55432 is taken by another local project.
-      - "127.0.0.1:55433:5432"
+      # 55432 and 55433 are taken by other local projects.
+      - "127.0.0.1:55434:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
     healthcheck:
