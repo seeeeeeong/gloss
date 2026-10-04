@@ -1,5 +1,8 @@
 pluginManagement {
-    includeBuild("build-logic")
+    repositories {
+        gradlePluginPortal()
+        mavenCentral()
+    }
 }
 
 plugins {
@@ -15,4 +18,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "gloss"
 
-include("core", "server", "architecture")
+include("server")

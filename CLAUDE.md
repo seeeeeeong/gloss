@@ -4,8 +4,7 @@ A reader enters a book title; Gloss fetches the book's real table of contents, g
 original learning article per TOC item on demand, and puts a tutor chat beside each article.
 Invite-only: the operator creates accounts. Each reader brings their own DeepSeek API key.
 
-`core/` holds rules with no framework, `server/` is the only Spring Boot module, `web/` is
-Next.js. The design lives in local, uncommitted notes: `docs/design/decisions.md`,
+`server/` is the Spring Boot app and the only Gradle module, `web/` is Next.js. The design lives in local, uncommitted notes: `docs/design/decisions.md`,
 `architecture.md`, `conventions.md`, and the research behind them in `docs/research/`. Read
 the relevant note before changing a module; follow the build order in `architecture.md` §8.
 
@@ -49,6 +48,9 @@ from memory.
 - **Layers** inside a module: `web/XxxController` → `XxxService` (transaction boundary) →
   `domain/XxxRepository` (JPA + Kotlin JDSL) or `persistence/JdbcXxx` (JdbcClient). No use-case
   interfaces, no ports; an interface only for an external system (`LlmGateway`, `BookSourceGateway`).
+- **Rules** (`XxxPolicy`, `XxxDecision`, `XxxParser`, `XxxPrompt`, `XxxCheck`, `XxxCipher`) sit
+  in `domain/` and depend only on Kotlin, the JDK's pure packages and other rule classes;
+  `ArchitectureTest` checks it with an allow list.
 - **Persistence**: JPA for accounts, keys, books, TOCs, plans, posts and chat sessions.
   JdbcClient for append-only ledgers, the job queue and chat messages. Append-only tables are
   guarded by triggers and, in JPA, `@Immutable`.
@@ -87,7 +89,8 @@ from memory.
 
 ## Conventions
 
-- Time comes from an injected `java.time.Clock`. Tests move a clock; they never sleep.
+- Time comes from an injected `java.time.Clock`; detekt forbids `now()` and
+  `currentTimeMillis`. Tests move a clock; they never sleep.
 - IDs are UUIDv7 made by the application (`gloss.common.UuidV7`).
 - Tests mirror production files: `PostService.kt` → `PostServiceTest.kt`, same package.
   Each migration `V<n>__<name>.sql` has a `<Name>SchemaTest` against real PostgreSQL.
@@ -147,7 +150,7 @@ from memory.
 ## Commands
 
 ```bash
-./gradlew check           # core, server, architecture: compile, test, ktlint, detekt, Konsist, ArchUnit, Modulith
+./gradlew check           # compile, test, ktlint, detekt, Konsist, ArchUnit, Modulith
 ./gradlew spotlessApply   # fix Kotlin formatting
 pnpm --dir web check      # web: Biome, type check, Vitest
 pnpm --dir web fix        # web: fix formatting and lint

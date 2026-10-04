@@ -1,7 +1,7 @@
 # Gloss
 
 책 제목으로 실제 목차를 가져와 목차 항목마다 독립 학습 글을 생성하고, 글 옆에서 튜터에게 묻는 서비스.
-Kotlin + Spring Boot 4 (`core`, `server`), Next.js (`web`), PostgreSQL 18.
+Kotlin + Spring Boot 4 (`server`), Next.js (`web`), PostgreSQL 18.
 
 ## Code Review Rules
 
@@ -38,7 +38,7 @@ Kotlin + Spring Boot 4 (`core`, `server`), Next.js (`web`), PostgreSQL 18.
 - 엔티티를 Controller 가 그대로 반환하면 지적한다. `XxxResponse` 로 바꾼다.
 - Controller 가 에러 body 를 직접 만들거나 서비스 호출 외의 업무 로직을 가지면 지적한다. 에러는 모듈의 `XxxError` 를 `GlossException` 으로 던진다.
 - 사용자에게 보이는 에러 메시지에 내부 정보(쿼리, 키, 경로, 스택)가 들어가면 지적한다.
-- `core` 에 Spring, JPA, HTTP 클라이언트 의존이 생기면 지적한다.
+- 규칙 클래스(`*Policy`, `*Decision`, `*Parser`, `*Prompt`, `*Check`, `*Cipher`)가 Kotlin, 순수 JDK, 다른 규칙 클래스 외의 것(Spring, JPA, DB, HTTP, 리포지토리 등)에 기대면 지적한다.
 - 시각을 `Instant.now()`·`LocalDateTime.now()` 로 직접 얻으면 지적한다. 주입한 `Clock` 을 쓴다.
 
 ### 지적하지 않을 것

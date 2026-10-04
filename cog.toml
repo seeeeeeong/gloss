@@ -13,7 +13,6 @@ scopes = [
   "chat",
   "web",
   "server",
-  "core",
   "arch",
   "ci",
   "deps",

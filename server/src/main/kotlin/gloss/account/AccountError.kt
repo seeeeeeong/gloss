@@ -1,5 +1,6 @@
 package gloss.account
 
+import gloss.account.domain.PasswordDecision
 import gloss.common.ErrorCode
 import org.springframework.http.HttpStatus
 
