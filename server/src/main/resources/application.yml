@@ -39,6 +39,9 @@ spring:
   session:
     jdbc:
       initialize-schema: never
+  modulith:
+    # Modules live under gloss.domain, a level down; each declares itself in ModuleMetadata.
+    detection-strategy: explicitly-annotated
   flyway:
     validate-on-migrate: true
   jpa:
