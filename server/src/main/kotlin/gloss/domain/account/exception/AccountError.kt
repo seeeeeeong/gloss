@@ -20,6 +20,16 @@ enum class AccountError(
     PASSWORD_TOO_LONG(HttpStatus.BAD_REQUEST, "account.password_too_long", "비밀번호는 72바이트를 넘을 수 없습니다"),
     PASSWORD_BLANK(HttpStatus.BAD_REQUEST, "account.password_blank", "공백만으로는 비밀번호를 만들 수 없습니다"),
     PASSWORD_UNCHANGED(HttpStatus.BAD_REQUEST, "account.password_unchanged", "지금과 다른 비밀번호를 입력해 주세요"),
+    LOGIN_ID_TAKEN(HttpStatus.CONFLICT, "account.login_id_taken", "이미 쓰고 있는 아이디입니다"),
+    INVALID_LOGIN_ID(
+        HttpStatus.BAD_REQUEST,
+        "account.invalid_login_id",
+        "아이디는 3~32자의 영문 소문자, 숫자, 점, 밑줄, 하이픈입니다",
+    ),
+    INVALID_DISPLAY_NAME(HttpStatus.BAD_REQUEST, "account.invalid_display_name", "이름은 1~50자로 입력해 주세요"),
+    INVALID_ROLE(HttpStatus.BAD_REQUEST, "account.invalid_role", "역할은 operator 또는 member입니다"),
+    ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "account.not_found", "계정을 찾을 수 없습니다"),
+    LAST_OPERATOR(HttpStatus.CONFLICT, "account.last_operator", "마지막 운영자는 정지할 수 없습니다"),
     PASSWORD_CHANGE_REQUIRED(
         HttpStatus.FORBIDDEN,
         "account.password_change_required",

@@ -2,6 +2,7 @@ package gloss.domain.account.repository
 
 import gloss.domain.account.entity.Account
 import gloss.domain.account.entity.AccountRole
+import gloss.domain.account.entity.AccountStatus
 import jakarta.persistence.LockModeType
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.data.jpa.repository.Lock
@@ -19,6 +20,19 @@ interface AccountRepository : JpaRepository<Account, UUID> {
     fun findForUpdate(id: UUID): Account?
 
     fun existsByRole(role: AccountRole): Boolean
+
+    fun existsByLoginId(loginId: String): Boolean
+
+    fun countByRoleAndStatus(
+        role: AccountRole,
+        status: AccountStatus,
+    ): Long
+
+    fun findAllByOrderByCreatedAtDesc(): List<Account>
+
+    // Held until commit, so two operators disabling each other at once cannot leave none.
+    @Query("select 1 from pg_advisory_xact_lock(hashtext('gloss.operators'))", nativeQuery = true)
+    fun lockOperators(): Int
 
     // Held until commit, so a second instance starting at the same time waits and then sees the first operator.
     @Query("select 1 from pg_advisory_xact_lock(hashtext('gloss.first-operator'))", nativeQuery = true)

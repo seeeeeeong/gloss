@@ -43,6 +43,26 @@ class MeControllerTest(
     }
 
     @Test
+    fun `a reader renames themselves`() {
+        val browser = Browser(port).apply { signIn(members.create(), members.password) }
+
+        val response = browser.put("/api/me", mapOf("displayName" to "  새 이름 "))
+
+        assertThat(response.status).isEqualTo(200)
+        assertThat(response.body!!["displayName"].asString()).isEqualTo("새 이름")
+        assertThat(browser.get("/api/me").body!!["displayName"].asString()).isEqualTo("새 이름")
+    }
+
+    @Test
+    fun `a name of thirty emoji fits, though it is sixty UTF-16 units`() {
+        val browser = Browser(port).apply { signIn(members.create(), members.password) }
+
+        val response = browser.put("/api/me", mapOf("displayName" to "📚".repeat(30)))
+
+        assertThat(response.status).isEqualTo(200)
+    }
+
+    @Test
     fun `changing the password keeps this session and ends the others`() {
         val loginId = members.create()
         val here = Browser(port).apply { signIn(loginId, members.password) }

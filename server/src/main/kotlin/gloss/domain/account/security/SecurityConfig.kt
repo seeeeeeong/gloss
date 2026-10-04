@@ -47,6 +47,8 @@ class SecurityConfig {
                     .permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/auth/login")
                     .permitAll()
+                    .requestMatchers("/api/admin/**")
+                    .hasRole("OPERATOR")
                     .anyRequest()
                     .authenticated()
             }.csrf {

@@ -23,6 +23,7 @@ class Browser(
         val status: Int,
         val body: JsonNode?,
         val setCookie: List<String>,
+        val headers: Map<String, List<String>> = emptyMap(),
     ) {
         val code: String? get() = body?.get("code")?.asString()
     }
@@ -76,6 +77,7 @@ class Browser(
             status = response.statusCode(),
             body = response.body().takeIf { it.isNotBlank() }?.let { json.readTree(it) },
             setCookie = response.headers().allValues("set-cookie"),
+            headers = response.headers().map(),
         )
     }
 }

@@ -28,7 +28,7 @@ Kotlin + Spring Boot 4 (`server`), Next.js (`web`), PostgreSQL 18.
 
 ### 보안
 
-- 복호화한 API 키, 비밀번호, 임시 비밀번호가 로그·예외 메시지·응답·작업 payload 에 들어가면 P0.
+- 복호화한 API 키, 비밀번호, 임시 비밀번호가 로그·예외 메시지·응답·작업 payload 에 들어가면 P0. 예외는 하나: 운영자의 계정 생성·비밀번호 리셋 응답(`CreatedAccountResponse`, `TemporaryPasswordResponse`)에 임시 비밀번호를 한 번 담는 것(설계 결정 A3, `Cache-Control: no-store`). 그 밖의 응답이나 로그에 들어가면 P0.
 - 운영자 전용 API 에 권한 검사가 빠지면 P1.
 - 생성된 Markdown 을 신뢰하지 않는 입력으로 다루는지 본다(raw HTML, 링크 스킴, Mermaid strict).
 

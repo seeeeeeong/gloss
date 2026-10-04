@@ -7,6 +7,7 @@ import gloss.common.error.GlossException
 import gloss.domain.account.dto.LoginRequest
 import gloss.domain.account.dto.MeResponse
 import gloss.domain.account.dto.PasswordChangeRequest
+import gloss.domain.account.dto.ProfileUpdateRequest
 import gloss.domain.account.entity.Account
 import gloss.domain.account.exception.AccountError
 import jakarta.persistence.EntityManager
@@ -375,5 +376,14 @@ class AccountServiceTest(
     @Test
     fun `a login id with a NUL in it fails like any wrong one`() {
         assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("reader\u0000x", password), IP) }
+    }
+
+    @Test
+    fun `renaming to only non-breaking spaces is refused`() {
+        val account = operator()
+
+        assertFails(AccountError.INVALID_DISPLAY_NAME) {
+            accountService.updateProfile(account.id, ProfileUpdateRequest("\u00A0"))
+        }
     }
 }

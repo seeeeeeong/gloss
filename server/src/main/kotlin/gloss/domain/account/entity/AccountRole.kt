@@ -10,6 +10,10 @@ enum class AccountRole(
     MEMBER("member"),
     ;
 
+    companion object {
+        fun of(code: String): AccountRole? = entries.firstOrNull { it.code == code }
+    }
+
     @Converter
     class Column : AttributeConverter<AccountRole, String> {
         override fun convertToDatabaseColumn(role: AccountRole): String = role.code
