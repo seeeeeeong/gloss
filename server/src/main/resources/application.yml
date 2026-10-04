@@ -3,6 +3,17 @@ server:
   # Loopback: only the reverse proxy should reach it.
   address: ${GLOSS_SERVER_HOST:127.0.0.1}
   port: ${GLOSS_SERVER_PORT:8140}
+  # X-Forwarded-* decide the scheme, so the session cookie is Secure behind HTTPS. Safe only
+  # because nothing but the proxy reaches the server, which replaces those headers.
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      # A reader on a phone and a laptop signs in about monthly; a password change or suspension still ends it at once.
+      timeout: 30d
+      cookie:
+        name: gloss_session
+        max-age: 30d
+        same-site: lax
 
 management:
   endpoints:
@@ -16,15 +27,27 @@ management:
 spring:
   application:
     name: gloss-server
+  autoconfigure:
+    # It would make a default user and log its generated password.
+    exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
   config:
     import: optional:file:.env[.properties]
   datasource:
     url: ${GLOSS_DB_URL:jdbc:postgresql://127.0.0.1:55433/gloss}
     username: ${GLOSS_DB_USER:gloss}
     password: ${GLOSS_DB_PASSWORD:gloss}
+  session:
+    jdbc:
+      initialize-schema: never
   flyway:
     validate-on-migrate: true
   jpa:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+
+gloss:
+  first-operator:
+    login-id: ${GLOSS_FIRST_OPERATOR_LOGIN_ID:}
+    password: ${GLOSS_FIRST_OPERATOR_PASSWORD:}
+    display-name: ${GLOSS_FIRST_OPERATOR_NAME:}
