@@ -34,7 +34,7 @@ class AuthController(
         httpRequest: HttpServletRequest,
         httpResponse: HttpServletResponse,
     ): MeResponse {
-        val signedIn = accountService.login(request)
+        val signedIn = accountService.login(request, httpRequest.remoteAddr)
         signedInSession.start(signedIn, httpRequest, httpResponse)
         return signedIn.me
     }

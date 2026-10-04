@@ -9,19 +9,24 @@ import gloss.domain.account.entity.Account
 import gloss.domain.account.entity.AccountRole
 import gloss.domain.account.exception.AccountError
 import gloss.domain.account.policy.LoginIdPolicy
+import gloss.domain.account.policy.LoginThrottleDecision
+import gloss.domain.account.policy.LoginThrottlePolicy
 import gloss.domain.account.policy.PasswordDecision
 import gloss.domain.account.policy.PasswordPolicy
 import gloss.domain.account.repository.AccountRepository
+import gloss.domain.account.repository.JdbcLoginFailures
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
+import java.time.Instant
 import java.util.UUID
 
 @Service
 @Transactional(readOnly = true)
 class AccountService(
     private val accountRepository: AccountRepository,
+    private val jdbcLoginFailures: JdbcLoginFailures,
     private val passwordEncoder: PasswordEncoder,
     private val clock: Clock,
 ) {
@@ -52,16 +57,47 @@ class AccountService(
         return true
     }
 
-    @Transactional
-    fun login(request: LoginRequest): SignedInAccount {
+    /** A failed sign-in is recorded and kept, though it ends in an exception. */
+    @Transactional(noRollbackFor = [GlossException::class])
+    fun login(
+        request: LoginRequest,
+        clientIp: String,
+    ): SignedInAccount {
+        val now = clock.instant()
+        val loginIdKey =
+            request.loginId
+                .filterNot { it.isISOControl() }
+                .trim()
+                .lowercase()
+                .take(LOGIN_ID_KEY_LENGTH)
+                .ifEmpty { BLANK_LOGIN_ID_KEY }
+        jdbcLoginFailures.lock(clientIp)
+        requireNotThrottled(loginIdKey, clientIp, now)
         val account = LoginIdPolicy.normalize(request.loginId)?.let { accountRepository.findByLoginId(it) }
         val password = request.password
         val tooLong = PasswordPolicy.check(password) == PasswordDecision.TooLong
         val matches = passwordEncoder.matches(if (tooLong) "" else password, account?.passwordHash ?: dummyHash)
-        val signedIn =
-            account?.takeIf { matches && !tooLong && it.isActive } ?: throw GlossException(AccountError.LOGIN_FAILED)
-        accountRepository.recordLogin(signedIn.id, clock.instant())
+        val signedIn = account?.takeIf { matches && !tooLong && it.isActive }
+        if (signedIn == null) {
+            jdbcLoginFailures.append(loginIdKey, clientIp, now)
+            throw GlossException(AccountError.LOGIN_FAILED)
+        }
+        accountRepository.recordLogin(signedIn.id, now)
         return SignedInAccount(MeResponse.from(signedIn), signedIn.role, signedIn.sessionEpoch)
+    }
+
+    private fun requireNotThrottled(
+        loginIdKey: String,
+        clientIp: String,
+        now: Instant,
+    ) {
+        val since = now.minus(LoginThrottlePolicy.WINDOW)
+        val decision =
+            LoginThrottlePolicy.decide(
+                failuresForLoginIdAndIp = jdbcLoginFailures.countForLoginIdAndIp(loginIdKey, clientIp, since),
+                failuresForIp = jdbcLoginFailures.countForIp(clientIp, since),
+            )
+        if (decision == LoginThrottleDecision.Blocked) throw GlossException(AccountError.TOO_MANY_ATTEMPTS)
     }
 
     fun getMe(id: UUID): MeResponse = MeResponse.from(accountRepository.findById(id).orElseThrow())
@@ -93,4 +129,13 @@ class AccountService(
     }
 
     private fun hash(password: String): String = checkNotNull(passwordEncoder.encode(password))
+
+    private companion object {
+        // Matches login_failure.login_id_key, so a long typed id cannot bloat the table.
+        const val LOGIN_ID_KEY_LENGTH = 64
+
+        // Bean Validation's blank is Java's whitespace; Kotlin's trim also takes U+00A0 and the like,
+        // and control characters, NUL among them, are dropped because PostgreSQL text refuses NUL.
+        const val BLANK_LOGIN_ID_KEY = "(blank)"
+    }
 }

@@ -100,6 +100,19 @@ class AuthControllerTest(
     }
 
     @Test
+    fun `after five failures from one address the sixth try is refused as too many`() {
+        val loginId = members.create()
+        val browser = Browser(port)
+        repeat(5) { browser.signIn(loginId, "wrong password here") }
+
+        val response = browser.signIn(loginId, members.password)
+
+        assertThat(response.status).isEqualTo(429)
+        assertThat(response.code).isEqualTo("account.too_many_attempts")
+        assertThat(Browser(port).signIn(loginId, members.password).status).isEqualTo(200)
+    }
+
+    @Test
     fun `a blank login id is a validation error, not a failed sign-in`() {
         val browser = Browser(port)
         browser.fetchCsrf()
