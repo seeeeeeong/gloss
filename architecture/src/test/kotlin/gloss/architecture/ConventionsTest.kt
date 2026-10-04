@@ -13,6 +13,16 @@ class ConventionsTest {
     }
 
     @Test
+    fun `controllers return response types, not a ResponseEntity`() {
+        Conventions.controllersReturnResponses(Konsist.scopeFromProduction())
+    }
+
+    @Test
+    fun `injected dependencies are named after their types`() {
+        Conventions.dependenciesNamedAfterTypes(Konsist.scopeFromProduction())
+    }
+
+    @Test
     fun `tests mirror the file they test`() {
         Conventions.testsMirrorProduction(
             tests = Konsist.scopeFromTest() - Konsist.scopeFromModule("architecture"),
@@ -29,6 +39,44 @@ class ConventionsTest {
 
 internal object Conventions {
     private val MIGRATION = Regex("V\\d+__([a-z0-9_]+)\\.sql")
+
+    private val BEANS = setOf("Service", "RestController", "RestControllerAdvice", "Component", "Configuration")
+    private val VALUES = setOf("String", "Int", "Long", "Boolean", "Double")
+    private val TYPE_ARGUMENT = Regex("<\\s*(\\w+)")
+
+    private val RESPONSE = Regex("Unit|\\w+Response|List<\\w+Response>")
+
+    /** Returns a response type or nothing: never an entity, a raw value or a ResponseEntity. */
+    fun controllersReturnResponses(scope: KoScope) {
+        scope
+            .classes()
+            .filter { it.name.endsWith("Controller") }
+            .flatMap { it.functions() }
+            .assertTrue(additionalMessage = "Return an XxxResponse or nothing; throw a GlossException for an error.") {
+                val type = it.returnType?.name
+                if (type == null) it.hasBlockBody else RESPONSE.matches(type)
+            }
+    }
+
+    /**
+     * Constructor and @Bean method parameters: `accountService: AccountService`. A generic one
+     * starts with its argument: `handlers: List<Handler>`.
+     */
+    fun dependenciesNamedAfterTypes(scope: KoScope) {
+        scope
+            .classes()
+            .filter { bean -> bean.annotations.any { it.name in BEANS } }
+            .flatMap { bean ->
+                val injected = bean.functions().filter { function -> function.annotations.any { it.name == "Bean" } }
+                bean.primaryConstructor?.parameters.orEmpty() + injected.flatMap { it.parameters }
+            }.filter { param -> param.annotations.none { it.name == "Value" } && param.type.name !in VALUES }
+            .assertTrue(additionalMessage = "Name a dependency after its type: accountService: AccountService.") {
+                val type = it.type.name
+                val argument = TYPE_ARGUMENT.find(type)?.groupValues?.get(1)
+                val expected = (argument ?: type).replaceFirstChar(Char::lowercase)
+                if (argument == null) it.name == expected else it.name.startsWith(expected)
+            }
+    }
 
     fun oneTypePerFile(scope: KoScope) {
         scope.files.assertTrue(additionalMessage = "A file holds one top-level type, named after it.") { file ->

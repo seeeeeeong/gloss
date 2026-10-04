@@ -52,8 +52,27 @@ from memory.
 - **Persistence**: JPA for accounts, keys, books, TOCs, plans, posts and chat sessions.
   JdbcClient for append-only ledgers, the job queue and chat messages. Append-only tables are
   guarded by triggers and, in JPA, `@Immutable`.
-- **DTOs**: `XxxRequest` / `XxxResponse` data classes, in `web/` only. Entities never leave
-  through a controller. Validation annotations name their target (`@field:NotBlank`).
+- **DTOs**: `XxxRequest` / `XxxResponse` data classes in the module's `dto/`. The service
+  takes requests and returns responses (`MeResponse.from(account)`); a method another module
+  calls returns a type from the module root instead, since `dto/` is hidden. Entities never
+  leave through a controller. Validation annotations name their target (`@field:NotBlank`).
+- **Controllers** are thin: one service call, its result returned as is. They return the response
+  type, never a `ResponseEntity`; a status other than 200 is `@ResponseStatus`. Sign-in and
+  password change also call `SignedInSession`, since session work is not the service's.
+  One step per line with a named value, rather than calls nested inside calls.
+- **Errors**: each module has an `XxxError` enum implementing `common.ErrorCode` (status,
+  `module.snake_case` code, Korean message shown as is). The service throws
+  `GlossException(XxxError.Y)`; `GlobalExceptionHandler` and the security filters answer
+  `{code, message}`. A sealed result only where the caller really branches on it.
+- **Paths**: `/api/auth/*` for the session (sign-in, sign-out, CSRF), `/api/me/*` for the
+  signed-in account; each module's own controller answers its part of `/api/me`.
+- **Injected dependencies** are named after their type: `accountService: AccountService`.
+- **Entities** are made by a named factory (`Account.createFirstOperator(...)`) behind a
+  private constructor, held in a variable, then saved on the next line.
+- **Parameters**: a function takes four at most; a constructor keeps detekt's default, since a
+  bean's parameters are its collaborators. A call with four or more arguments names them;
+  detekt catches one that names none. A service method that needs more takes a request or a
+  command object.
 - **Transactions** stay short: no model call and no SSE inside one.
 - Naming, JPA rules and test layout: `docs/design/conventions.md`.
 

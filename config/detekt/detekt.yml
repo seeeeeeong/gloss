@@ -1,12 +1,18 @@
 complexity:
+  # Flags a call of four or more arguments that names none of them.
+  NamedArguments:
+    active: true
+    allowedArguments: 3
   # Same limit as Biome.
   CognitiveComplexMethod:
     active: true
     allowedComplexity: 12
+  # Four function parameters at most. Constructors keep the default: a bean's are its collaborators.
   LongParameterList:
+    allowedFunctionParameters: 4
     ignoreDefaultParameters: true
-    # An entity's constructor is its table's columns.
-    ignoreAnnotated: ['Entity']
+    # An entity's constructor is its table's columns; a @Bean method takes what Spring injects.
+    ignoreAnnotated: ['Entity', 'Bean']
   TooManyFunctions:
     ignoreOverridden: true
 

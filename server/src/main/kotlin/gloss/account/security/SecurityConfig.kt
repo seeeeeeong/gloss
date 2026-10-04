@@ -32,13 +32,13 @@ class SecurityConfig {
 
     @Bean
     fun securityFilterChain(
-        http: HttpSecurity,
+        httpSecurity: HttpSecurity,
         accountRepository: AccountRepository,
         objectMapper: ObjectMapper,
         securityContextRepository: SecurityContextRepository,
         csrfTokenRepository: CsrfTokenRepository,
     ): SecurityFilterChain =
-        http
+        httpSecurity
             .authorizeHttpRequests {
                 it
                     .requestMatchers("/actuator/health", "/error")

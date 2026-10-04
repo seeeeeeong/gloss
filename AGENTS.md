@@ -36,6 +36,8 @@ Kotlin + Spring Boot 4 (`core`, `server`), Next.js (`web`), PostgreSQL 18.
 
 - 다른 모듈의 `domain/`, `persistence/`, `web/` 하위 타입을 직접 쓰면 지적한다. 모듈 루트의 공개 타입만 쓴다.
 - 엔티티를 Controller 가 그대로 반환하면 지적한다. `XxxResponse` 로 바꾼다.
+- Controller 가 에러 body 를 직접 만들거나 서비스 호출 외의 업무 로직을 가지면 지적한다. 에러는 모듈의 `XxxError` 를 `GlossException` 으로 던진다.
+- 사용자에게 보이는 에러 메시지에 내부 정보(쿼리, 키, 경로, 스택)가 들어가면 지적한다.
 - `core` 에 Spring, JPA, HTTP 클라이언트 의존이 생기면 지적한다.
 - 시각을 `Instant.now()`·`LocalDateTime.now()` 로 직접 얻으면 지적한다. 주입한 `Clock` 을 쓴다.
 
