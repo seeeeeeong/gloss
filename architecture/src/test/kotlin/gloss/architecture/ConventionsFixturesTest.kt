@@ -47,4 +47,31 @@ class ConventionsFixturesTest {
         assertThatThrownBy { Conventions.oneTypePerFile(scope("onetype/misnamed")) }
             .hasMessageContaining("Budget")
     }
+
+    @Test
+    fun `a controller returning a ResponseEntity is caught`() {
+        assertThatThrownBy { Conventions.controllersReturnResponses(scope("returns/bad")) }
+            .hasMessageContaining("orders")
+            .hasMessageContaining("account")
+            .hasMessageContaining("total")
+    }
+
+    @Test
+    fun `a controller returning a response type or nothing passes`() {
+        assertThatCode { Conventions.controllersReturnResponses(scope("returns/good")) }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `a dependency named other than its type is caught`() {
+        assertThatThrownBy { Conventions.dependenciesNamedAfterTypes(scope("names/bad")) }
+            .hasMessageContaining("orders")
+            .hasMessageContaining("payments")
+            .hasMessageContaining("lazyOrders")
+            .hasMessageContaining("ordersStore")
+    }
+
+    @Test
+    fun `dependencies named after their types, and plain values, pass`() {
+        assertThatCode { Conventions.dependenciesNamedAfterTypes(scope("names/good")) }.doesNotThrowAnyException()
+    }
 }

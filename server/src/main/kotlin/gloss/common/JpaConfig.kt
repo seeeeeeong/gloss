@@ -10,6 +10,6 @@ import org.springframework.orm.jpa.SharedEntityManagerCreator
 @Configuration
 class JpaConfig {
     @Bean
-    fun entityManager(factory: EntityManagerFactory): EntityManager =
-        SharedEntityManagerCreator.createSharedEntityManager(factory)
+    fun entityManager(entityManagerFactory: EntityManagerFactory): EntityManager =
+        SharedEntityManagerCreator.createSharedEntityManager(entityManagerFactory)
 }
