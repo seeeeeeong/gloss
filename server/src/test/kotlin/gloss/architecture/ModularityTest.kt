@@ -1,6 +1,7 @@
 package gloss.architecture
 
 import gloss.GlossApplication
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.modulith.core.ApplicationModules
 import org.springframework.modulith.docs.Documenter
@@ -11,6 +12,16 @@ class ModularityTest {
     @Test
     fun `modules keep to their declared boundaries`() {
         modules.verify()
+    }
+
+    @Test
+    fun `every package under domain is a declared module`() {
+        assertThat(Modularity.undeclaredDomainPackages(GlossApplication::class.java, modules)).isEmpty()
+    }
+
+    @Test
+    fun `the modules are the ones declared`() {
+        assertThat(modules.map { it.identifier.toString() }).containsExactlyInAnyOrder("account", "common")
     }
 
     @Test
