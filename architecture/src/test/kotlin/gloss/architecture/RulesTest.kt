@@ -4,7 +4,6 @@ import com.tngtech.archunit.core.importer.ClassFileImporter
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
-/** Each rule, against fixtures that break it, so a passing check means something. */
 class RulesTest {
     private fun fixtures(pkg: String) = ClassFileImporter().importPackages(pkg)
 

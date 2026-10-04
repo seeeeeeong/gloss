@@ -1,13 +1,8 @@
 @import "tailwindcss";
 
-/*
- * Design tokens, in three tiers (docs/design/tokens-playbook.md, the way Primer,
- * Polaris and Radix Themes do it): primitives are Radix Colors steps and raw sizes;
- * semantic tokens name a role and are all a rule below may read; component tokens are
- * layout dimensions. A theme swaps semantic values only, never a name.
- */
+/* Rules read semantic tokens only. A theme swaps their values, never a name. */
 :root {
-  /* primitive · colour: @radix-ui/colors@3, only the steps in use */
+  /* @radix-ui/colors@3 */
   --white: #ffffff;
   --gray-2: #f9f9f9;
   --gray-3: #f0f0f0;
@@ -54,12 +49,7 @@
   --black-a6: rgba(0, 0, 0, 0.4);
   --black-a8: rgba(0, 0, 0, 0.6);
 
-  /*
-   * semantic · colour, light. Radix guarantees contrast in APCA; the WCAG ratios
-   * (4.5:1 text, 3:1 borders and focus) move a few roles off Radix's default step:
-   * white on blue-9 is 3.26:1, so the accent fill is step 11, and step 8 is 1.9:1 on
-   * white, so control borders and focus are step 9.
-   */
+  /* Off Radix's default step for WCAG: white on blue-9 is 3.26:1, blue-8 on white 1.9:1. */
   --bg-canvas: var(--white);
   --bg-subtle: var(--gray-2);
   --bg-surface: var(--white);
@@ -77,10 +67,7 @@
   --fg-default: var(--gray-12);
   --fg-muted: var(--gray-11);
   --fg-subtle: var(--gray-9);
-  /*
-   * Step 11 text on a step 3 tint is 4.25:1. A fifth of step 12 mixed in keeps accent
-   * and warning text at 4.7:1 or more on every light surface it sits on.
-   */
+  /* Step 11 on a step 3 tint is 4.25:1; a fifth of step 12 lifts it to 4.7:1. */
   --fg-accent: color-mix(in oklab, var(--blue-11) 80%, var(--blue-12));
   --fg-on-accent: var(--white);
   --fg-danger: var(--red-11);
@@ -95,7 +82,6 @@
   --shadow-resting: none;
   --shadow-floating: none;
 
-  /* semantic · size: a 4px base, as Tailwind's --spacing and Radix's space scale */
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
@@ -116,7 +102,7 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
 
-  /* component · layout. 42rem is about 65ch of Hangul, which runs twice as wide as Latin. */
+  /* 42rem is about 65ch of Hangul. */
   --top: 56px;
   --rail-w: 56px;
   --nav-w: 240px;
@@ -126,7 +112,6 @@
   color-scheme: light;
 }
 
-/* Dark overrides colour and shadow only; every other token is shared. */
 :root[data-theme="dark"] {
   --bg-canvas: var(--gray-dark-1);
   --bg-subtle: var(--gray-dark-2);
@@ -157,10 +142,7 @@
   --border-focus: var(--blue-dark-9);
   color-scheme: dark;
 }
-/*
- * The device decides unless the reader chose a theme (html[data-theme], set from a
- * cookie by the layout). Same values as the block above.
- */
+/* Same values as above, when the reader has not chosen a theme. */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg-canvas: var(--gray-dark-1);
@@ -194,10 +176,6 @@
   }
 }
 
-/*
- * Tailwind utilities read the semantic tokens, resolved at run time so a theme switch
- * reaches them; its default palette is cleared so no utility bypasses the tokens.
- */
 @custom-variant dark {
   &:where([data-theme="dark"], [data-theme="dark"] *) {
     @slot;
@@ -233,7 +211,6 @@ body {
   font-family: var(--font-sans);
   font-size: var(--text-md);
   letter-spacing: 0;
-  /* Hangul breaks between words, not inside one (KRDS reset, Tailwind break-keep). */
   word-break: keep-all;
   overflow-wrap: break-word;
   -webkit-font-smoothing: antialiased;
@@ -273,7 +250,6 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* The placeholder screen until the first feature lands. */
 .topbar {
   position: sticky;
   top: 0;

@@ -1,5 +1,3 @@
-# Local development only. A deployment has its own compose file; this one starts
-# nothing but the database the server expects.
 services:
   postgres:
     image: postgres:18-alpine
@@ -9,7 +7,7 @@ services:
       POSTGRES_USER: gloss
       POSTGRES_PASSWORD: gloss
     ports:
-      # 55433: margin's local PostgreSQL already holds 55432 on this machine.
+      # 55432 is taken by another local project.
       - "127.0.0.1:55433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql

@@ -1,6 +1,3 @@
-// Formatting and static analysis, applied to every module by gloss.kotlin-jvm.
-//
-// Both run under `check`, so the build that CI runs is the build that fails.
 plugins {
     id("com.diffplug.spotless")
     id("dev.detekt")
@@ -21,15 +18,10 @@ spotless {
 }
 
 detekt {
-    // Only what differs from the defaults is written down, so the config file
-    // reads as a list of decisions rather than a copy of the manual.
     buildUponDefaultConfig.set(true)
     config.setFrom(rootProject.file("config/detekt/detekt.yml"))
 }
 
-// The plain `detekt` task runs without type resolution, and every rule that
-// needs types is skipped without a word: the println ban among them. `check`
-// runs the type-resolved tasks instead, and the plain one is off so nobody
-// reads its clean result as meaningful.
+// Plain `detekt` skips every type-resolved rule silently, the println ban included.
 tasks.named("detekt") { enabled = false }
 tasks.named("check") { dependsOn("detektMain", "detektTest") }

@@ -1,41 +1,30 @@
-# Only departures from detekt's defaults. Each one says why.
-
 complexity:
-  # The same limit Biome enforces on the web side, so a reviewer's sense of
-  # "too complex" does not change with the language.
+  # Same limit as Biome.
   CognitiveComplexMethod:
     active: true
     allowedComplexity: 12
-  # Options classes with defaults are how clocks, clients and limits are made
-  # injectable. Required parameters are still counted against the limit.
   LongParameterList:
     ignoreDefaultParameters: true
-    # An entity's constructor is its table's columns. Splitting it to fit a count
-    # would make the mapping harder to check against the migration, not easier.
+    # An entity's constructor is its table's columns.
     ignoreAnnotated: ['Entity']
-  # compareTo and toString are contracts a type fulfils, not surface it adds.
   TooManyFunctions:
     ignoreOverridden: true
 
 style:
-  # `?: return` at the top of a function is how untrusted input is refused field
-  # by field. Guard clauses are not the branching this rule is after.
   ReturnCount:
     excludeGuardClauses: true
-  # An HTTP status is its own name: 429 reads as "too many requests" to anyone
-  # who would touch this code, and a constant for it adds a hop, not meaning.
   MagicNumber:
     ignoreNumbers: ['-1', '0', '1', '2', '400', '401', '403', '404', '409', '429', '500', '503']
     ignoreEnums: true
   ForbiddenComment:
     comments:
       - value: 'TODO'
-        reason: 'Link an issue (https://github.com/seeeeeeong/margin/issues/N) or do it now.'
+        reason: 'Link an issue (https://github.com/seeeeeeong/gloss/issues/N) or do it now.'
       - value: 'FIXME'
-        reason: 'Link an issue (https://github.com/seeeeeeong/margin/issues/N) or fix it now.'
+        reason: 'Link an issue (https://github.com/seeeeeeong/gloss/issues/N) or fix it now.'
       - value: 'STOPSHIP'
         reason: 'Address this before merging.'
-    allowedPatterns: 'github\.com/seeeeeeong/margin/issues/\d+'
+    allowedPatterns: 'github\.com/seeeeeeong/gloss/issues/\d+'
   ForbiddenMethodCall:
     active: true
     methods:
@@ -43,7 +32,5 @@ style:
         reason: 'Use a logger.'
       - value: 'kotlin.io.println'
         reason: 'Use a logger.'
-      # Test time is injected through a Clock. A sleep makes a test slow and,
-      # on a loaded CI runner, flaky.
       - value: 'java.lang.Thread.sleep'
         reason: 'Inject a Clock and advance it instead of waiting.'

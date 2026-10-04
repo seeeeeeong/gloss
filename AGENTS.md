@@ -13,6 +13,7 @@ Kotlin + Spring Boot 4 (`core`, `server`), Next.js (`web`), PostgreSQL 18.
 ### 비용과 외부 API
 
 - 사용자의 DeepSeek 키로 나가는 호출은 반드시 예산 예약(`BudgetService.reserve`) 뒤에 실행되고, 끝나면 정산 또는 해제되어야 한다. 경로 하나라도 빠지면 P1.
+- 가격·한도·타임아웃 값에 왜 그 값인지 한 줄이 없으면 지적한다.
 - `max_tokens` 를 지정하지 않은 호출, 모델 id·`max_tokens`·thinking 모드·한도 기본값을 다른 변경에 섞어 바꾼 것을 지적한다.
 - 프롬프트의 고정 접두(system, plan, 글 본문) 앞이나 안에 시각, 요청 id, 사용자 이름처럼 요청마다 바뀌는 값을 넣으면 캐시가 깨진다. 지적한다.
 - `finish_reason` 이 `stop` 이 아닌 응답을 완료로 저장하거나 보여주면 지적한다.
@@ -41,4 +42,5 @@ Kotlin + Spring Boot 4 (`core`, `server`), Next.js (`web`), PostgreSQL 18.
 ### 지적하지 않을 것
 
 - 포매팅, import 순서, 줄 길이 (ktlint, Biome 가 CI 에서 본다).
+- 주석이 없다는 것 (위의 가격·한도·타임아웃은 제외). 오히려 코드를 되풀이하는 주석을 지적한다.
 - 취향 차이의 이름 변경 제안.
