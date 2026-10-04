@@ -89,11 +89,19 @@ from memory.
 - Commit and PR title: `<type>(<scope>): <짧은 한국어 명사형 요약>`, scope from `cog.toml`.
   Examples: `chore(repo): 프로젝트 스켈레톤 세팅`, `feat(account): 계정 생성 API 추가`,
   `fix(chat): 잘린 응답이 완료로 표시되는 문제 수정`. CI checks the title and every commit.
-- Commit body and PR description: the way a developer writes to a teammate, two or three
-  short lines on what changed and why, one on how it was checked. Memo style
-  (`~추가`, `~함`, `~확인`), and the English words developers actually say (스켈레톤, 세팅, 빈,
-  룰, 엔드포인트, 마이그레이션) rather than forced Korean. Only the one or two points worth
-  knowing; the diff says the rest. No headers, no long justifications, no attribution lines.
+- PR description: a `## 설명` header, then bullets. Commit body: the same bullets, no header.
+  One bullet per change, in polite past tense (`~추가했습니다`, `~수정했습니다`), the last one
+  on how it was checked (`~통과를 확인했습니다`). The English words developers actually say
+  (스켈레톤, 세팅, 룰, 엔드포인트, 마이그레이션) rather than forced Korean. Only what is worth
+  knowing; the diff says the rest. No other headers, no long justifications, no English
+  translation, no attribution lines.
+
+  ```
+  ## 설명
+
+  - 상수 KDoc을 강제하던 Konsist 룰을 삭제했습니다.
+  - ./gradlew check 통과를 확인했습니다.
+  ```
 - One change per branch, usually one commit.
 - Commits are authored by the personal account, set per clone (the global identity is a
   work one):
