@@ -2,6 +2,7 @@ package gloss.domain.account.controller
 
 import gloss.domain.account.dto.MeResponse
 import gloss.domain.account.dto.PasswordChangeRequest
+import gloss.domain.account.dto.ProfileUpdateRequest
 import gloss.domain.account.security.SessionAccount
 import gloss.domain.account.security.SignedInSession
 import gloss.domain.account.service.AccountService
@@ -28,6 +29,12 @@ class MeController(
     fun me(
         @AuthenticationPrincipal account: SessionAccount,
     ): MeResponse = accountService.getMe(account.id)
+
+    @PutMapping
+    fun updateProfile(
+        @AuthenticationPrincipal account: SessionAccount,
+        @Valid @RequestBody request: ProfileUpdateRequest,
+    ): MeResponse = accountService.updateProfile(account.id, request)
 
     @PutMapping("/password")
     @ResponseStatus(HttpStatus.NO_CONTENT)

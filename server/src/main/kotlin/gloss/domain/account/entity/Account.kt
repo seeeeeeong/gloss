@@ -63,6 +63,32 @@ class Account private constructor(
         sessionEpoch += 1
     }
 
+    /** A reset hands out a temporary password: it must be changed, and every session ends. */
+    fun resetPassword(
+        temporaryHash: String,
+        at: Instant,
+    ) {
+        passwordHash = temporaryHash
+        mustChangePassword = true
+        passwordChangedAt = at
+        sessionEpoch += 1
+    }
+
+    fun disable(at: Instant) {
+        status = AccountStatus.DISABLED
+        disabledAt = at
+        sessionEpoch += 1
+    }
+
+    fun enable() {
+        status = AccountStatus.ACTIVE
+        disabledAt = null
+    }
+
+    fun rename(displayName: String) {
+        this.displayName = displayName
+    }
+
     companion object {
         /** Made from the environment at the first start; its password must be changed at first sign-in. */
         fun createFirstOperator(
@@ -78,6 +104,23 @@ class Account private constructor(
             role = AccountRole.OPERATOR,
             mustChangePassword = true,
             createdBy = null,
+            createdAt = now,
+        )
+
+        /** Made by an operator with a temporary password, which must be changed at first sign-in. */
+        fun createByOperator(
+            draft: AccountDraft,
+            temporaryHash: String,
+            createdBy: UUID,
+            now: Instant,
+        ) = Account(
+            id = UuidV7.at(now),
+            loginId = draft.loginId,
+            displayName = draft.displayName,
+            passwordHash = temporaryHash,
+            role = draft.role,
+            mustChangePassword = true,
+            createdBy = createdBy,
             createdAt = now,
         )
     }

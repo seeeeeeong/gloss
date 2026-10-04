@@ -4,10 +4,12 @@ import gloss.common.error.GlossException
 import gloss.domain.account.dto.LoginRequest
 import gloss.domain.account.dto.MeResponse
 import gloss.domain.account.dto.PasswordChangeRequest
+import gloss.domain.account.dto.ProfileUpdateRequest
 import gloss.domain.account.dto.SignedInAccount
 import gloss.domain.account.entity.Account
 import gloss.domain.account.entity.AccountRole
 import gloss.domain.account.exception.AccountError
+import gloss.domain.account.policy.DisplayNamePolicy
 import gloss.domain.account.policy.LoginIdPolicy
 import gloss.domain.account.policy.LoginThrottleDecision
 import gloss.domain.account.policy.LoginThrottlePolicy
@@ -101,6 +103,18 @@ class AccountService(
     }
 
     fun getMe(id: UUID): MeResponse = MeResponse.from(accountRepository.findById(id).orElseThrow())
+
+    @Transactional
+    fun updateProfile(
+        id: UUID,
+        request: ProfileUpdateRequest,
+    ): MeResponse {
+        val displayName =
+            DisplayNamePolicy.normalize(request.displayName) ?: throw GlossException(AccountError.INVALID_DISPLAY_NAME)
+        val account = accountRepository.findById(id).orElseThrow()
+        account.rename(displayName)
+        return MeResponse.from(account)
+    }
 
     /** Returns the new session epoch, which ends every other session. */
     @Transactional
