@@ -62,7 +62,8 @@ from memory.
 - **Do not comment "what".** The code says it.
 - **Do comment "why"**, especially a limit, a price, a cache setting or a timeout.
 - Every constant carries a KDoc. No commented-out code. No `TODO`/`FIXME` without an issue link.
-- Code, identifiers and comments are English. Docs, pull requests and commits are Korean.
+- Code, identifiers, comments and the README are English. Design docs, pull requests and
+  commits are Korean.
 
 ## Conventions
 
@@ -75,11 +76,15 @@ from memory.
 ## Commits and pull requests
 
 - Branch from a fresh `origin/main` (`git fetch` first): `<type>/<english-slug>`.
-- Commit and PR title: `<type>(<scope>): <Korean summary ending in ~하기>`, scope from
-  `cog.toml`. Example: `feat(account): 운영자가 계정을 만들 수 있게 하기`.
+- Commit and PR title: `<type>(<scope>): <짧은 한국어 명사형 요약>`, scope from `cog.toml`.
+  Examples: `chore(repo): 프로젝트 스켈레톤 세팅`, `feat(account): 계정 생성 API 추가`,
+  `fix(chat): 잘린 응답이 완료로 표시되는 문제 수정`.
 - Squash merge only. The squash commit takes the PR title and the PR description, so the
-  description is the commit body: Korean paragraphs written to a colleague — why, the choices
-  weighed, how it was checked. No header template, no bullet dumps, no attribution lines.
+  description is the commit body. Write it the way a developer writes to a teammate: two or
+  three short lines on what changed and why, one on how it was checked. Memo style
+  (`~추가`, `~함`, `~확인`), and the English words developers actually say (스켈레톤, 세팅, 빈,
+  룰, 엔드포인트, 마이그레이션) rather than forced Korean. Only the one or two points worth
+  knowing; the diff says the rest. No headers, no long justifications, no attribution lines.
 - One change per branch.
 - Commits are authored by the personal account, set per clone (the global identity is a
   work one):

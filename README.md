@@ -1,18 +1,24 @@
 # Gloss
 
-책 제목을 넣으면 실제 목차를 가져와, 목차 항목마다 독립된 학습 글을 만들고 글 옆에서 튜터에게 묻는 학습 서비스.
+Learning articles that follow a book's real table of contents, with a tutor beside every page.
 
-- 초대형: 운영자가 계정을 만들어 준다.
-- 사용자가 자기 DeepSeek API 키를 등록해서 쓴다.
-- 생성된 글은 책 본문 요약이 아니다.
+## Features
 
-`server/` 는 Kotlin, Spring Boot. `web/` 은 Next.js.
+- Find a book and import its real table of contents
+- An original learning article for each TOC item, generated when you open it
+- Automatic checks on every article before it is shown
+- A tutor chat beside each article, grounded in that article
+- Bring your own DeepSeek API key, with monthly usage and limits
+- Invite-only accounts, light and dark themes
 
-## 개발
+## Getting started
 
 ```bash
-docker compose --profile local up -d postgres   # 로컬 DB (55433)
-./gradlew check                                 # 서버 전체 검사 (Docker 필요)
-pnpm --dir web check && pnpm --dir web build    # 웹 검사와 빌드
-brew install lefthook cocogitto ktlint && lefthook install   # 클론마다 한 번
+docker compose --profile local up -d postgres
+./gradlew check
+pnpm --dir web check
 ```
+
+## Development
+
+See [CLAUDE.md](CLAUDE.md) for the rules this codebase follows.
