@@ -161,7 +161,7 @@ pnpm --dir web check      # web: Biome, type check, Vitest
 pnpm --dir web fix        # web: fix formatting and lint
 pnpm --dir web build      # web: production build
 
-docker compose --profile local up -d postgres   # the local database the server expects (port 55433)
+docker compose --profile local up -d postgres   # the local database the server expects (port 55434)
 
 # tests need Docker running: they start PostgreSQL through Testcontainers
 # once per clone: hooks guard main and dev, format staged files, verify commit messages
