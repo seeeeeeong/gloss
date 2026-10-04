@@ -1,0 +1,31 @@
+# Conventional Commits, verified by the commit-msg hook and, for the squashed
+# title that lands on main, by CI. The summary after the colon is Korean
+# (docs/design/decisions.md R4): `feat(account): 운영자가 계정을 만들 수 있게 하기`.
+#
+# Scopes are application modules, as packages are. A scope outside this list is a
+# sign the change is either misnamed or a module nobody has agreed to yet.
+scopes = [
+  # Application modules, named as their packages are in core and server.
+  "common",
+  "account",
+  "audit",
+  "apikey",
+  "budget",
+  "llm",
+  "book",
+  "plan",
+  "post",
+  "generation",
+  "chat",
+  # Everything else.
+  "web",
+  "server",
+  "core",
+  "arch",
+  "ci",
+  "deps",
+  # Dependabot titles npm devDependency bumps chore(deps-dev).
+  "deps-dev",
+  "deploy",
+  "repo",
+]
