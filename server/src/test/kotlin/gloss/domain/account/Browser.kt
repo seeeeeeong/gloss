@@ -7,10 +7,13 @@ import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
+import kotlin.random.Random
 
-/** One browser against the running server: its own cookie jar, and the CSRF token it was last given. */
+/** One browser against the running server: its own cookie jar and address. */
 class Browser(
     private val port: Int,
+    // Each browser its own address, so sign-in limits counted per address do not add up across tests.
+    val ip: String = "10.${Random.nextInt(256)}.${Random.nextInt(256)}.${Random.nextInt(1, 255)}",
 ) {
     private val json = JsonMapper()
     private val cookies = CookieManager()
@@ -61,6 +64,7 @@ class Browser(
             HttpRequest
                 .newBuilder(URI("http://127.0.0.1:$port$path"))
                 .header("content-type", "application/json")
+                .header("x-forwarded-for", ip)
                 .apply { if (method != "GET") csrfToken()?.let { header("X-XSRF-TOKEN", it) } }
                 .method(
                     method,

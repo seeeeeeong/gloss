@@ -10,10 +10,17 @@ import java.time.ZoneId
 import java.time.ZoneOffset
 
 class MutableClock(
-    private var now: Instant = Instant.parse("2026-10-04T00:00:00Z"),
+    private val start: Instant = Instant.parse("2026-10-04T00:00:00Z"),
 ) : Clock() {
+    private var now = start
+
     fun advance(by: Duration) {
         now = now.plus(by)
+    }
+
+    /** The bean is shared across tests; each test that moves it starts here. */
+    fun reset() {
+        now = start
     }
 
     override fun instant(): Instant = now

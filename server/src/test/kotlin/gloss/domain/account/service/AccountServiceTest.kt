@@ -12,6 +12,7 @@ import gloss.domain.account.exception.AccountError
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -22,8 +23,10 @@ import org.springframework.transaction.annotation.Transactional
 import java.sql.Timestamp
 import java.time.Duration
 import java.time.Instant
+import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
+import kotlin.random.Random
 
 @SpringBootTest
 @Import(TestcontainersConfiguration::class, MutableClock.Config::class)
@@ -36,9 +39,21 @@ class AccountServiceTest(
 ) {
     private val password = "correct horse battery"
 
+    private companion object {
+        const val IP = "203.0.113.7"
+
+        // For tests that commit: failures counted per address must not add up across them.
+        fun uniqueIp() = "198.18.${Random.nextInt(256)}.${Random.nextInt(1, 255)}"
+    }
+
     private fun operator(): MeResponse {
         accountService.ensureFirstOperator("root", password, "Operator")
-        return accountService.login(LoginRequest("root", password)).me
+        return accountService.login(LoginRequest("root", password), IP).me
+    }
+
+    @BeforeEach
+    fun resetClock() {
+        clock.reset()
     }
 
     private fun assertFails(
@@ -115,7 +130,7 @@ class AccountServiceTest(
         entityManager.clear()
         entityManager.find(Account::class.java, account.id)
 
-        accountService.login(LoginRequest("root", password))
+        accountService.login(LoginRequest("root", password), IP)
         accountService.changePassword(account.id, PasswordChangeRequest(password, "a new and longer password"))
 
         assertThat(column("last_login_at")).isNotNull()
@@ -165,7 +180,7 @@ class AccountServiceTest(
     fun `signing in matches the login id case-insensitively and records when`() {
         accountService.ensureFirstOperator("root", password, "Operator")
 
-        val signedIn = accountService.login(LoginRequest("  ROOT ", password))
+        val signedIn = accountService.login(LoginRequest("  ROOT ", password), IP)
 
         assertThat(signedIn.me.loginId).isEqualTo("root")
         assertThat((column("last_login_at") as Timestamp).toInstant())
@@ -176,7 +191,7 @@ class AccountServiceTest(
     fun `signing in leaves the version alone, so sign-ins at the same moment do not collide`() {
         accountService.ensureFirstOperator("root", password, "Operator")
 
-        accountService.login(LoginRequest("root", password))
+        accountService.login(LoginRequest("root", password), IP)
 
         assertThat(column("version")).isEqualTo(0L)
     }
@@ -194,10 +209,10 @@ class AccountServiceTest(
                 """.trimIndent(),
             ).update()
 
-        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("root", "wrong password here")) }
-        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("nobody", password)) }
-        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("gone", password)) }
-        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("root", "x".repeat(100))) }
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("root", "wrong password here"), IP) }
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("nobody", password), IP) }
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("gone", password), IP) }
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("root", "x".repeat(100)), IP) }
     }
 
     @Test
@@ -213,8 +228,10 @@ class AccountServiceTest(
 
         assertThat(sessionEpoch).isEqualTo(1)
         assertThat(column("must_change_password")).isEqualTo(false)
-        assertThat(accountService.login(LoginRequest("root", "a new and longer password")).sessionEpoch).isEqualTo(1)
-        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("root", password)) }
+        assertThat(
+            accountService.login(LoginRequest("root", "a new and longer password"), IP).sessionEpoch,
+        ).isEqualTo(1)
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("root", password), IP) }
     }
 
     @Test
@@ -241,5 +258,122 @@ class AccountServiceTest(
             AccountError.PASSWORD_TOO_SHORT,
         ) { accountService.changePassword(account.id, PasswordChangeRequest(password, "too short")) }
         assertThat(column("session_epoch")).isEqualTo(0)
+    }
+
+    @Test
+    fun `five failures from one address block that login id there, the right password too`() {
+        operator()
+        repeat(5) {
+            assertFails(
+                AccountError.LOGIN_FAILED,
+            ) { accountService.login(LoginRequest("root", "wrong password here"), IP) }
+        }
+
+        assertFails(AccountError.TOO_MANY_ATTEMPTS) { accountService.login(LoginRequest("root", password), IP) }
+    }
+
+    @Test
+    fun `the block lifts after fifteen minutes`() {
+        operator()
+        repeat(5) { runCatching { accountService.login(LoginRequest("root", "wrong password here"), IP) } }
+
+        clock.advance(Duration.ofMinutes(15).plusSeconds(1))
+
+        assertThat(accountService.login(LoginRequest("root", password), IP).me.loginId).isEqualTo("root")
+    }
+
+    @Test
+    fun `another address is not blocked`() {
+        operator()
+        repeat(5) { runCatching { accountService.login(LoginRequest("root", "wrong password here"), IP) } }
+
+        assertThat(accountService.login(LoginRequest("root", password), "198.51.100.9").me.loginId).isEqualTo("root")
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `a failure is recorded although the sign-in fails`() {
+        val loginId = "ghost-" + UUID.randomUUID().toString().take(8)
+
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest(loginId, password), uniqueIp()) }
+
+        val recorded =
+            jdbc
+                .sql("select count(*) from login_failure where login_id_key = :key")
+                .param("key", loginId)
+                .query(Int::class.java)
+                .single()
+        assertThat(recorded).isEqualTo(1)
+    }
+
+    @Test
+    fun `a login id of only non-breaking spaces fails like any wrong one`() {
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("\u00A0\u2007", password), IP) }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `ten tries at once get five guesses, not ten`() {
+        val loginId = "racer-" + UUID.randomUUID().toString().take(8)
+        val ip = uniqueIp()
+        val start = CountDownLatch(1)
+        val pool = Executors.newFixedThreadPool(10)
+        try {
+            val runs =
+                (1..10).map {
+                    pool.submit<ErrorCode> {
+                        start.await()
+                        runCatching { accountService.login(LoginRequest(loginId, password), ip) }
+                            .exceptionOrNull()
+                            .let { (it as GlossException).error }
+                    }
+                }
+            start.countDown()
+
+            val outcomes = runs.map { it.get() }
+            assertThat(outcomes.count { it == AccountError.LOGIN_FAILED }).isEqualTo(5)
+            assertThat(outcomes.count { it == AccountError.TOO_MANY_ATTEMPTS }).isEqualTo(5)
+        } finally {
+            pool.shutdown()
+        }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    fun `ten different login ids at once from an address near its limit get only what is left`() {
+        val ip = uniqueIp()
+        repeat(45) {
+            jdbc
+                .sql("insert into login_failure (login_id_key, ip, attempted_at) values (:key, cast(:ip as inet), :at)")
+                .param("key", "earlier-$it")
+                .param("ip", ip)
+                .param("at", Timestamp.from(clock.instant()))
+                .update()
+        }
+        val start = CountDownLatch(1)
+        val pool = Executors.newFixedThreadPool(10)
+        try {
+            val runs =
+                (1..10).map { n ->
+                    pool.submit<ErrorCode> {
+                        start.await()
+                        runCatching { accountService.login(LoginRequest("stuffer-$n", password), ip) }
+                            .exceptionOrNull()
+                            .let { (it as GlossException).error }
+                    }
+                }
+            start.countDown()
+
+            val outcomes = runs.map { it.get() }
+            assertThat(outcomes.count { it == AccountError.LOGIN_FAILED }).isEqualTo(5)
+            assertThat(outcomes.count { it == AccountError.TOO_MANY_ATTEMPTS }).isEqualTo(5)
+        } finally {
+            pool.shutdown()
+        }
+    }
+
+    @Test
+    fun `a login id with a NUL in it fails like any wrong one`() {
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("reader\u0000x", password), IP) }
     }
 }
