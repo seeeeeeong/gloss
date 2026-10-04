@@ -63,8 +63,8 @@ from memory.
   timeout, a cache setting, a trap. One line where possible.
 - No "what", no history, no sources, nothing the code or a config key already says.
 - No commented-out code. No `TODO`/`FIXME` without an issue link.
-- Code, identifiers, comments, commits and the README are English. Design docs and pull
-  requests are Korean.
+- Code, identifiers, comments, commits, pull request titles and the README are English.
+  Design docs and pull request descriptions are Korean.
 
 ## Conventions
 
@@ -98,9 +98,11 @@ from memory.
   - Reject requests whose session epoch no longer matches the account
   - Add regression tests for epoch mismatch and forced password change
   ```
-- **Pull requests are Korean.** The title is a short noun phrase with no type prefix
-  (`로그인과 세션 추가`); it never lands on `dev`, so only a release title is checked. The
-  description picks its sections by the change, each a list of `~했습니다` bullets:
+- **Pull request titles follow the commit format**, English and checked the same way:
+  `feat(account): add sign-in, sessions and password change`. With one commit, the title
+  is its subject.
+- **Pull request descriptions are Korean.** They pick sections by the change, each a list
+  of `~했습니다` bullets:
 
   | Change | Sections |
   |---|---|
