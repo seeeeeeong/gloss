@@ -1,8 +1,19 @@
 plugins {
-    id("gloss.kotlin-jvm")
-    id("org.springframework.boot")
-    id("org.jetbrains.kotlin.plugin.spring")
-    id("org.jetbrains.kotlin.plugin.jpa")
+    alias(libs.plugins.kotlin.jvm)
+    alias(libs.plugins.kotlin.spring)
+    alias(libs.plugins.kotlin.jpa)
+    alias(libs.plugins.spring.boot)
+    alias(libs.plugins.detekt)
+    alias(libs.plugins.spotless)
+}
+
+kotlin {
+    // Not 21: before JEP 491 (JDK 24) a virtual thread holding a model stream pins its carrier inside `synchronized`.
+    jvmToolchain(25)
+    compilerOptions {
+        allWarningsAsErrors.set(true)
+        progressiveMode.set(true)
+    }
 }
 
 // Hibernate proxies entities by subclassing them, which Kotlin's final classes forbid.
@@ -13,7 +24,6 @@ allOpen {
 }
 
 dependencies {
-    implementation(project(":core"))
     implementation(platform(libs.spring.boot.dependencies))
     implementation(platform(libs.spring.modulith.bom))
     implementation(libs.spring.boot.starter.webmvc)
@@ -32,12 +42,45 @@ dependencies {
     runtimeOnly(libs.postgresql)
 
     testImplementation(platform(libs.spring.boot.dependencies))
+    testImplementation(platform(libs.junit.bom))
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.assertj.core)
+    testRuntimeOnly(libs.junit.platform.launcher)
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.boot.starter.security.test)
     testImplementation(libs.spring.modulith.starter.test)
+    testImplementation(libs.spring.modulith.docs)
     testImplementation(libs.spring.boot.testcontainers)
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.testcontainers.junit.jupiter)
+    testImplementation(libs.archunit)
+    testImplementation(libs.konsist)
+}
+
+spotless {
+    kotlin {
+        target("src/**/*.kt")
+        ktlint(libs.versions.ktlint.get())
+    }
+    kotlinGradle {
+        target("*.gradle.kts")
+        ktlint(libs.versions.ktlint.get())
+    }
+}
+
+detekt {
+    buildUponDefaultConfig.set(true)
+    config.setFrom(rootProject.file("config/detekt/detekt.yml"))
+}
+
+// Plain `detekt` skips every type-resolved rule silently, the println ban included.
+tasks.named("detekt") { enabled = false }
+tasks.named("check") { dependsOn("detektMain", "detektTest") }
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+    // A schema test mirrors a migration file, which ConventionsTest finds from here.
+    systemProperty("gloss.root", rootDir.absolutePath)
 }
 
 tasks.bootRun {
