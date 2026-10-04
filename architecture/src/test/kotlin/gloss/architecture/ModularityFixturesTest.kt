@@ -10,9 +10,8 @@ import org.junit.jupiter.api.Test
 import org.springframework.modulith.core.ApplicationModules
 import org.springframework.modulith.core.Violations
 
-/** What ModularityTest relies on Spring Modulith to catch, shown on small applications. */
 class ModularityFixturesTest {
-    /** The fixtures are test classes, which Spring Modulith leaves out unless told otherwise. */
+    // Spring Modulith skips test classes unless told otherwise, and the fixtures are test classes.
     private fun modulesOf(application: Class<*>) = ApplicationModules.of(application, ImportOption { true })
 
     @Test

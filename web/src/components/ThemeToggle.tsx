@@ -13,7 +13,6 @@ import { Icon } from './Icon'
 
 const ICONS = { system: 'monitor', light: 'sun', dark: 'moon' } as const
 
-/** Steps the theme through system, light and dark. The server already rendered the stored one. */
 export function ThemeToggle() {
   const [theme, setTheme] = useState<Theme>('system')
 

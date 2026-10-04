@@ -5,10 +5,6 @@ import com.tngtech.archunit.core.importer.ClassFileImporter
 import com.tngtech.archunit.core.importer.ImportOption
 import org.junit.jupiter.api.Test
 
-/**
- * The rules applied to the real modules. The fixtures in RulesTest show each
- * rule would fail on a violation. Module boundaries are ModularityTest's.
- */
 class ArchitectureTest {
     private fun classesOf(vararg modules: String): JavaClasses =
         ClassFileImporter()

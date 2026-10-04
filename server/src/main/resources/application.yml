@@ -1,7 +1,6 @@
 server:
-  # Finish in-flight requests, streamed replies included, on shutdown rather than cutting them.
   shutdown: graceful
-  # Loopback by default. In a deployment the reverse proxy is the only thing in front.
+  # Loopback: only the reverse proxy should reach it.
   address: ${GLOSS_SERVER_HOST:127.0.0.1}
   port: ${GLOSS_SERVER_PORT:8140}
 
@@ -18,20 +17,14 @@ spring:
   application:
     name: gloss-server
   config:
-    # Local secrets live in a .env at the repository root, never committed.
-    # Variables set in the environment still win over the file.
     import: optional:file:.env[.properties]
   datasource:
-    # compose.yaml's local database by default; a deployment sets all three.
     url: ${GLOSS_DB_URL:jdbc:postgresql://127.0.0.1:55433/gloss}
     username: ${GLOSS_DB_USER:gloss}
     password: ${GLOSS_DB_PASSWORD:gloss}
   flyway:
-    # A migration that was edited after it ran is a schema nobody can reproduce.
     validate-on-migrate: true
   jpa:
-    # A lazy load from a view would be a query nobody sees in the service.
     open-in-view: false
     hibernate:
-      # Flyway owns the schema. Hibernate only checks that the entities match it.
       ddl-auto: validate

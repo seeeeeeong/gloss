@@ -6,11 +6,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.orm.jpa.SharedEntityManagerCreator
 
-/**
- * Spring Data JPA 4 no longer registers an `EntityManager` bean, and Kotlin JDSL's
- * repository extension needs one. Its documentation for Spring Boot 4 asks for this
- * shared, transaction-bound instance rather than a new one per injection point.
- */
+/** Spring Data JPA 4 stopped registering an `EntityManager` bean, and Kotlin JDSL needs one. */
 @Configuration
 class JpaConfig {
     @Bean

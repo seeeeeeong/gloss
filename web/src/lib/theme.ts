@@ -1,19 +1,13 @@
-/**
- * The reader's color theme. `system` follows the device; `light` and `dark` override
- * it. A cookie, not local storage: the server renders the page in the chosen theme
- * instead of the page flashing the other one after load.
- */
+// A cookie, not local storage, so the server renders the chosen theme without a flash.
 export type Theme = 'system' | 'light' | 'dark'
 
 export const THEME_COOKIE = 'gloss.theme'
 
-/** The order the toggle steps through. */
 const THEMES: readonly Theme[] = ['system', 'light', 'dark']
 
-/** A year: the theme is a preference, not a session. */
+// A year: the theme is a preference, not a session.
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 
-/** A stored theme the page can use, or `system`: the cookie is the reader's to edit. */
 export function themeFrom(cookie: string | undefined): Theme {
   return THEMES.find((theme) => theme === cookie) ?? 'system'
 }
@@ -26,18 +20,13 @@ export function themeCookie(theme: Theme): string {
   return `${THEME_COOKIE}=${theme}; path=/; max-age=${COOKIE_MAX_AGE}; samesite=lax`
 }
 
-/** What the root element carries: nothing for `system`, which the stylesheet reads from the device. */
 export function themeAttribute(theme: Theme): 'light' | 'dark' | undefined {
   return theme === 'system' ? undefined : theme
 }
 
-/** --bg-canvas in each palette (globals.css): the browser's top bar matches the page. */
+// --bg-canvas in globals.css.
 const CANVAS = { light: '#ffffff', dark: '#111111' } as const
 
-/**
- * The theme-color for each device scheme. A chosen theme paints both the same, or a
- * light page would sit under dark browser chrome on a dark device, and the reverse.
- */
 export function themeColors(theme: Theme): { media: string; color: string }[] {
   return (['light', 'dark'] as const).map((scheme) => ({
     media: `(prefers-color-scheme: ${scheme})`,
