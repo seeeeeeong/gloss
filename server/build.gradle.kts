@@ -18,6 +18,9 @@ dependencies {
     implementation(platform(libs.spring.modulith.bom))
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.actuator)
+    implementation(libs.spring.boot.starter.security)
+    implementation(libs.spring.boot.starter.session.jdbc)
+    implementation(libs.spring.boot.starter.validation)
     implementation(libs.jackson.module.kotlin)
     implementation(libs.spring.modulith.starter.core)
     implementation(libs.spring.boot.starter.data.jpa)
@@ -30,6 +33,7 @@ dependencies {
 
     testImplementation(platform(libs.spring.boot.dependencies))
     testImplementation(libs.spring.boot.starter.webmvc.test)
+    testImplementation(libs.spring.boot.starter.security.test)
     testImplementation(libs.spring.modulith.starter.test)
     testImplementation(libs.spring.boot.testcontainers)
     testImplementation(libs.testcontainers.postgresql)
