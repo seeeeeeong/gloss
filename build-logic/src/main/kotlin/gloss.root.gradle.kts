@@ -1,4 +1,3 @@
-// Formats the build scripts that belong to no module: the root's and build-logic's.
 plugins {
     id("com.diffplug.spotless")
 }

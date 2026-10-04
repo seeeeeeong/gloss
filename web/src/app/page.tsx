@@ -1,6 +1,5 @@
 import { ThemeToggle } from '@/components/ThemeToggle'
 
-/** A placeholder until the first feature replaces it with the reader's shelf. */
 export default function Home() {
   return (
     <>

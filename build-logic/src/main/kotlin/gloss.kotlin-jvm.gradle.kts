@@ -1,4 +1,3 @@
-// What every module compiles and tests with, so no module can quietly opt out.
 plugins {
     id("org.jetbrains.kotlin.jvm")
     id("gloss.quality")
@@ -7,13 +6,9 @@ plugins {
 val libs = the<VersionCatalogsExtension>().named("libs")
 
 kotlin {
-    // 25 rather than 21: tutor replies and generation jobs hold model streams open on
-    // virtual threads, and from JDK 24 (JEP 491) a virtual thread blocking inside
-    // `synchronized` no longer pins its carrier. On 21, a library that synchronizes
-    // around a slow socket read quietly turns each open stream into a platform thread.
+    // Not 21: before JEP 491 (JDK 24) a virtual thread holding a model stream pins its carrier inside `synchronized`.
     jvmToolchain(25)
     compilerOptions {
-        // A warning left in place is a warning read by nobody.
         allWarningsAsErrors.set(true)
         progressiveMode.set(true)
     }

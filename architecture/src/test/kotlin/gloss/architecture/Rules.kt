@@ -3,12 +3,7 @@ package gloss.architecture
 import com.tngtech.archunit.lang.ArchRule
 import com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses
 
-/**
- * The rules, apart from the classes they are checked against, so each can be
- * shown to fail on a deliberate violation before it is trusted to pass.
- */
 internal object Rules {
-    /** Every package that means a framework, a database or the network. */
     private val FRAMEWORKS =
         arrayOf(
             "org.springframework..",
@@ -22,7 +17,6 @@ internal object Rules {
             "org.jooq..",
         )
 
-    /** Core holds the rules; I/O belongs to server, the only module that knows Spring. */
     fun frameworkFree(): ArchRule =
         noClasses()
             .should()

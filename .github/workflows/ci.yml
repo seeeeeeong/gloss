@@ -25,8 +25,6 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      # The same task the pre-push hook runs: compile, test (Testcontainers PostgreSQL),
-      # ktlint, detekt, Konsist, ArchUnit and Spring Modulith.
       - run: ./gradlew check --console=plain
 
   web:
@@ -37,7 +35,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The pnpm version comes from web/package.json's packageManager field.
       - uses: pnpm/action-setup@v6
         with:
           package_json_file: web/package.json
@@ -50,24 +47,20 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # The same script the pre-push hook runs: Biome and the type check.
       - run: pnpm check
 
-      # A page that only fails when it is rendered fails here, not after deploy.
       - run: pnpm build
 
   secrets:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # On a pull request the action lists the PR's commits through the API to
-      # scan only those; without this it fails with 403 before scanning anything.
+      # The action lists the PR's commits through the API; 403 without this.
       pull-requests: read
     steps:
       - uses: actions/checkout@v7
         with:
-          # Every commit on the branch, not just its tip: a secret committed and
-          # then deleted is still published.
+          # A secret committed and then deleted is still published.
           fetch-depth: 0
 
       - uses: gitleaks/gitleaks-action@v3

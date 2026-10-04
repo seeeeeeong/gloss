@@ -1,11 +1,5 @@
-# Conventional Commits, verified by the commit-msg hook and, for the pull request
-# title and every commit that a rebase merge lands on dev, by CI. The summary after the colon is Korean
-# (docs/design/decisions.md R4): `feat(account): 계정 생성 API 추가`.
-#
-# Scopes are application modules, as packages are. A scope outside this list is a
-# sign the change is either misnamed or a module nobody has agreed to yet.
 scopes = [
-  # Application modules, named as their packages are in core and server.
+  # Application modules.
   "common",
   "account",
   "audit",
@@ -17,14 +11,13 @@ scopes = [
   "post",
   "generation",
   "chat",
-  # Everything else.
   "web",
   "server",
   "core",
   "arch",
   "ci",
   "deps",
-  # Dependabot titles npm devDependency bumps chore(deps-dev).
+  # Dependabot's npm devDependency bumps.
   "deps-dev",
   "deploy",
   "repo",

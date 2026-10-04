@@ -59,9 +59,10 @@ from memory.
 
 ## Comments
 
-- **Do not comment "what".** The code says it.
-- **Do comment "why"**, especially a limit, a price, a cache setting or a timeout.
-- Every constant carries a KDoc. No commented-out code. No `TODO`/`FIXME` without an issue link.
+- **Few comments.** Only the "why" someone would get wrong without it: a price, a limit, a
+  timeout, a cache setting, a trap. One line where possible.
+- No "what", no history, no sources, nothing the code or a config key already says.
+- No commented-out code. No `TODO`/`FIXME` without an issue link.
 - Code, identifiers, comments and the README are English. Design docs, pull requests and
   commits are Korean.
 
