@@ -1,0 +1,23 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{kt,kts}]
+ktlint_code_style = ktlint_official
+# 120 is what detekt's MaxLineLength defaults to, so ktlint and detekt agree
+# without either being configured against the other.
+max_line_length = 120
+
+[*.{ts,tsx,js,mjs,json,jsonc,css,yml,yaml,toml}]
+indent_size = 2
+
+[*.md]
+indent_size = 2
+# A trailing double space is a line break in Markdown, not noise.
+trim_trailing_whitespace = false

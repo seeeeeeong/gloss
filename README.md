@@ -7,3 +7,12 @@
 - 생성된 글은 책 본문 요약이 아니다.
 
 `server/` 는 Kotlin, Spring Boot. `web/` 은 Next.js.
+
+## 개발
+
+```bash
+docker compose --profile local up -d postgres   # 로컬 DB (55433)
+./gradlew check                                 # 서버 전체 검사 (Docker 필요)
+pnpm --dir web check && pnpm --dir web build    # 웹 검사와 빌드
+brew install lefthook cocogitto ktlint && lefthook install   # 클론마다 한 번
+```
