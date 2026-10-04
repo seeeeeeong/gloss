@@ -13,8 +13,8 @@ class Browser(
     private val port: Int,
 ) {
     private val json = JsonMapper()
-    private val client = HttpClient.newBuilder().cookieHandler(CookieManager()).build()
-    private var csrf: Pair<String, String>? = null
+    private val cookies = CookieManager()
+    private val client = HttpClient.newBuilder().cookieHandler(cookies).build()
 
     data class Response(
         val status: Int,
@@ -36,7 +36,7 @@ class Browser(
         body: Any,
     ) = send("PUT", path, body)
 
-    fun fetchCsrf() = get("/api/auth/csrf").also { remember(it.body) }
+    fun fetchCsrf() = get("/api/auth/csrf")
 
     fun signIn(
         loginId: String,
@@ -44,12 +44,13 @@ class Browser(
     ): Response {
         fetchCsrf()
         return post("/api/auth/login", mapOf("loginId" to loginId, "password" to password))
-            .also { remember(it.body?.get("csrf")) }
     }
 
-    private fun remember(token: JsonNode?) {
-        if (token?.has("token") == true) csrf = token["headerName"].asString() to token["token"].asString()
-    }
+    /** What the page does: reads the CSRF cookie and sends it back as a header. */
+    private fun csrfToken(): String? =
+        cookies.cookieStore.cookies
+            .firstOrNull { it.name == "XSRF-TOKEN" }
+            ?.value
 
     private fun send(
         method: String,
@@ -60,7 +61,7 @@ class Browser(
             HttpRequest
                 .newBuilder(URI("http://127.0.0.1:$port$path"))
                 .header("content-type", "application/json")
-                .apply { if (method != "GET") csrf?.let { (name, value) -> header(name, value) } }
+                .apply { if (method != "GET") csrfToken()?.let { header("X-XSRF-TOKEN", it) } }
                 .method(
                     method,
                     body?.let { HttpRequest.BodyPublishers.ofString(json.writeValueAsString(it)) }

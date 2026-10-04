@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class FirstOperatorInitializer(
-    private val accounts: AccountService,
+    private val accountService: AccountService,
     @param:Value("\${gloss.first-operator.login-id:}") private val loginId: String,
     @param:Value("\${gloss.first-operator.password:}") private val password: String,
     @param:Value("\${gloss.first-operator.display-name:}") private val displayName: String,
@@ -18,7 +18,7 @@ class FirstOperatorInitializer(
 
     override fun run(args: ApplicationArguments) {
         if (loginId.isBlank()) return
-        if (accounts.ensureFirstOperator(loginId, password, displayName.ifBlank { loginId })) {
+        if (accountService.ensureFirstOperator(loginId, password, displayName.ifBlank { loginId })) {
             log.info("Created the first operator, {}", loginId)
         }
     }

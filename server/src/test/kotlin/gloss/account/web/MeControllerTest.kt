@@ -15,7 +15,7 @@ import java.time.Clock
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfiguration::class)
-class PasswordControllerTest(
+class MeControllerTest(
     @LocalServerPort private val port: Int,
     @Autowired jdbc: JdbcClient,
     @Autowired encoder: PasswordEncoder,
@@ -31,6 +31,18 @@ class PasswordControllerTest(
     ) = browser.put("/api/me/password", mapOf("currentPassword" to current, "newPassword" to new))
 
     @Test
+    fun `who am i answers the signed-in account`() {
+        val loginId = members.create()
+        val browser = Browser(port).apply { signIn(loginId, members.password) }
+
+        val me = browser.get("/api/me")
+
+        assertThat(me.status).isEqualTo(200)
+        assertThat(me.body!!["loginId"].asString()).isEqualTo(loginId)
+        assertThat(me.body.has("csrf")).isFalse()
+    }
+
+    @Test
     fun `changing the password keeps this session and ends the others`() {
         val loginId = members.create()
         val here = Browser(port).apply { signIn(loginId, members.password) }
@@ -38,8 +50,8 @@ class PasswordControllerTest(
 
         assertThat(change(here).status).isEqualTo(204)
 
-        assertThat(here.get("/api/auth/me").status).isEqualTo(200)
-        assertThat(elsewhere.get("/api/auth/me").status).isEqualTo(401)
+        assertThat(here.get("/api/me").status).isEqualTo(200)
+        assertThat(elsewhere.get("/api/me").status).isEqualTo(401)
         assertThat(Browser(port).signIn(loginId, newPassword).status).isEqualTo(200)
     }
 
@@ -59,7 +71,7 @@ class PasswordControllerTest(
         change(browser, new = long)
 
         assertThat(change(browser, current = long + "anything", new = newPassword).code)
-            .isEqualTo("wrong_password:account")
+            .isEqualTo("account.wrong_password")
     }
 
     @Test
@@ -69,15 +81,15 @@ class PasswordControllerTest(
         val response = change(browser, current = "wrong password here")
 
         assertThat(response.status).isEqualTo(400)
-        assertThat(response.code).isEqualTo("wrong_password:account")
+        assertThat(response.code).isEqualTo("account.wrong_password")
     }
 
     @Test
     fun `a new password the policy refuses is named`() {
         val browser = Browser(port).apply { signIn(members.create(), members.password) }
 
-        assertThat(change(browser, new = "short").code).isEqualTo("password_too_short:account")
-        assertThat(change(browser, new = "a".repeat(73)).code).isEqualTo("password_too_long:account")
-        assertThat(change(browser, new = members.password).code).isEqualTo("password_unchanged:account")
+        assertThat(change(browser, new = "short").code).isEqualTo("account.password_too_short")
+        assertThat(change(browser, new = "a".repeat(73)).code).isEqualTo("account.password_too_long")
+        assertThat(change(browser, new = members.password).code).isEqualTo("account.password_unchanged")
     }
 }

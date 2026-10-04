@@ -1,5 +1,6 @@
 package gloss.account.security
 
+import gloss.account.dto.SignedInAccount
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 import org.springframework.security.core.context.SecurityContextHolder
@@ -10,19 +11,17 @@ import org.springframework.stereotype.Component
 
 @Component
 class SignedInSession(
-    private val contexts: SecurityContextRepository,
-    private val csrfTokens: CsrfTokenRepository,
+    private val securityContextRepository: SecurityContextRepository,
+    private val csrfTokenRepository: CsrfTokenRepository,
 ) {
     /** A new session id and CSRF token, so neither one known before signing in is good after it. */
     fun start(
-        account: SessionAccount,
+        signedIn: SignedInAccount,
         request: HttpServletRequest,
         response: HttpServletResponse,
-    ): CsrfToken {
-        remember(account, request, response)
-        val token = csrfTokens.generateToken(request)
-        csrfTokens.saveToken(token, request, response)
-        return token
+    ) {
+        remember(SessionAccount(signedIn.me.id, signedIn.role, signedIn.sessionEpoch), request, response)
+        csrfTokenRepository.saveToken(csrfTokenRepository.generateToken(request), request, response)
     }
 
     /** The same reader with a changed account, e.g. a new session epoch. The CSRF token stays. */
@@ -35,13 +34,13 @@ class SignedInSession(
         request.changeSessionId()
         val context = SecurityContextHolder.createEmptyContext().apply { authentication = account.authentication() }
         SecurityContextHolder.setContext(context)
-        contexts.saveContext(context, request, response)
+        securityContextRepository.saveContext(context, request, response)
     }
 
     fun csrfToken(
         request: HttpServletRequest,
         response: HttpServletResponse,
     ): CsrfToken =
-        csrfTokens.loadToken(request)
-            ?: csrfTokens.generateToken(request).also { csrfTokens.saveToken(it, request, response) }
+        csrfTokenRepository.loadToken(request)
+            ?: csrfTokenRepository.generateToken(request).also { csrfTokenRepository.saveToken(it, request, response) }
 }
