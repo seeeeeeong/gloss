@@ -62,8 +62,8 @@ from memory.
 - **Do not comment "what".** The code says it.
 - **Do comment "why"**, especially a limit, a price, a cache setting or a timeout.
 - Every constant carries a KDoc. No commented-out code. No `TODO`/`FIXME` without an issue link.
-- Code, identifiers, comments and the README are English. Design docs, pull requests and
-  commits are Korean.
+- Code, identifiers, comments, commits and the README are English. Design docs and pull
+  requests are Korean.
 
 ## Conventions
 
@@ -83,17 +83,36 @@ from memory.
   written. Clean up fix-ups before merging
   (`git commit --fixup <sha>`, then `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash origin/dev`).
 - Deploying is a release pull request from `dev` to `main`, **merge commit** only, titled
-  `chore(deploy): <요약>`. Never rebase merge a release: GitHub's rebase merge rewrites
+  `chore(deploy): <summary>`. Never rebase merge a release: GitHub's rebase merge rewrites
   SHAs, so `main` and `dev` would disagree and the next release would carry the same
   commits again.
-- Commit and PR title: `<type>(<scope>): <짧은 한국어 명사형 요약>`, scope from `cog.toml`.
-  Examples: `chore(repo): 프로젝트 스켈레톤 세팅`, `feat(account): 계정 생성 API 추가`,
-  `fix(chat): 잘린 응답이 완료로 표시되는 문제 수정`. CI checks the title and every commit.
-- Commit body and PR description: the way a developer writes to a teammate, two or three
-  short lines on what changed and why, one on how it was checked. Memo style
-  (`~추가`, `~함`, `~확인`), and the English words developers actually say (스켈레톤, 세팅, 빈,
-  룰, 엔드포인트, 마이그레이션) rather than forced Korean. Only the one or two points worth
-  knowing; the diff says the rest. No headers, no long justifications, no attribution lines.
+- **Commits are English.** `<type>(<scope>): <imperative summary>`, lowercase, no period,
+  72 characters at most, scope from `cog.toml`. The body is `- ` bullets in the imperative,
+  the last one on tests when there are any. CI checks every commit.
+
+  ```
+  feat(account): add login, logout and session endpoints
+
+  - Store the account id and session epoch in a JDBC-backed session
+  - Reject requests whose session epoch no longer matches the account
+  - Add regression tests for epoch mismatch and forced password change
+  ```
+- **Pull requests are Korean.** The title is a short noun phrase with no type prefix
+  (`로그인과 세션 추가`); it never lands on `dev`, so only a release title is checked. The
+  description picks its sections by the change, each a list of `~했습니다` bullets:
+
+  | Change | Sections |
+  |---|---|
+  | Most | `## 설명` |
+  | A fix | `## 문제` (one or two sentences), `## 변경 사항` |
+  | Rules about who may do what | add `## 동작`: each case and what it allows |
+  | A migration | add `## 데이터베이스`: the migration, its constraints and triggers |
+
+  Lead with behavior a user sees, then implementation. When permissions or existing
+  behavior are touched, say what stays the same (`기존 ~은 유지합니다`). No verification
+  line: CI shows the checks; mention only checks CI cannot see, such as a browser pass. The
+  English words developers actually say (스켈레톤, 세팅, 룰, 엔드포인트, 마이그레이션) rather
+  than forced Korean. No English translation, no attribution lines.
 - One change per branch, usually one commit.
 - Commits are authored by the personal account, set per clone (the global identity is a
   work one):
