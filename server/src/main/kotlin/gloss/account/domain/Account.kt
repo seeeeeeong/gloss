@@ -1,8 +1,8 @@
 package gloss.account.domain
 
 import gloss.account.AccountRole
-import gloss.account.AccountSummary
 import gloss.common.BaseEntity
+import gloss.common.UuidV7
 import jakarta.persistence.Convert
 import jakarta.persistence.Entity
 import org.hibernate.annotations.DynamicUpdate
@@ -12,7 +12,7 @@ import java.util.UUID
 // Writes only changed columns, so a change never puts back a sign-in time it read before.
 @Entity
 @DynamicUpdate
-class Account(
+class Account private constructor(
     id: UUID,
     loginId: String,
     displayName: String,
@@ -63,5 +63,22 @@ class Account(
         sessionEpoch += 1
     }
 
-    fun toSummary() = AccountSummary(id, loginId, displayName, role, mustChangePassword)
+    companion object {
+        /** Made from the environment at the first start; its password must be changed at first sign-in. */
+        fun createFirstOperator(
+            loginId: String,
+            displayName: String,
+            passwordHash: String,
+            now: Instant,
+        ) = Account(
+            id = UuidV7.at(now),
+            loginId = loginId,
+            displayName = displayName,
+            passwordHash = passwordHash,
+            role = AccountRole.OPERATOR,
+            mustChangePassword = true,
+            createdBy = null,
+            createdAt = now,
+        )
+    }
 }

@@ -1,4 +1,4 @@
-package gloss.account.web
+package gloss.account.dto
 
 import org.springframework.security.web.csrf.CsrfToken
 

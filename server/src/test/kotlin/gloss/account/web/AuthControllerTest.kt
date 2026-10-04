@@ -25,10 +25,10 @@ class AuthControllerTest(
 
     @Test
     fun `without a session the api answers 401, not a redirect`() {
-        val response = Browser(port).get("/api/auth/me")
+        val response = Browser(port).get("/api/me")
 
         assertThat(response.status).isEqualTo(401)
-        assertThat(response.code).isEqualTo("unauthorized:auth")
+        assertThat(response.code).isEqualTo("common.unauthorized")
     }
 
     @Test
@@ -41,7 +41,7 @@ class AuthControllerTest(
             ).post("/api/auth/login", mapOf("loginId" to loginId, "password" to members.password))
 
         assertThat(response.status).isEqualTo(403)
-        assertThat(response.code).isEqualTo("invalid_csrf:auth")
+        assertThat(response.code).isEqualTo("common.invalid_csrf")
     }
 
     @Test
@@ -55,7 +55,7 @@ class AuthControllerTest(
         assertThat(response.body!!["loginId"].asString()).isEqualTo(loginId)
         assertThat(response.body["role"].asString()).isEqualTo("member")
         assertThat(response.setCookie.single { it.startsWith("gloss_session=") }).contains("HttpOnly", "SameSite=Lax")
-        assertThat(browser.get("/api/auth/me").status).isEqualTo(200)
+        assertThat(browser.get("/api/me").status).isEqualTo(200)
     }
 
     @Test
@@ -64,6 +64,13 @@ class AuthControllerTest(
 
         assertThat(response.status).isEqualTo(200)
         assertThat(response.setCookie).noneMatch { it.startsWith("gloss_session=") }
+    }
+
+    @Test
+    fun `the CSRF token is a cookie the page can read`() {
+        val cookie = Browser(port).fetchCsrf().setCookie.single { it.startsWith("XSRF-TOKEN=") }
+
+        assertThat(cookie).doesNotContain("HttpOnly").contains("SameSite=Lax")
     }
 
     @Test
@@ -89,7 +96,7 @@ class AuthControllerTest(
 
         assertThat(wrong.status).isEqualTo(401)
         assertThat(wrong.body).isEqualTo(unknown.body)
-        assertThat(wrong.code).isEqualTo("login_failed:account")
+        assertThat(wrong.code).isEqualTo("account.login_failed")
     }
 
     @Test
@@ -108,6 +115,6 @@ class AuthControllerTest(
         browser.signIn(members.create(), members.password)
 
         assertThat(browser.post("/api/auth/logout").status).isEqualTo(204)
-        assertThat(browser.get("/api/auth/me").status).isEqualTo(401)
+        assertThat(browser.get("/api/me").status).isEqualTo(401)
     }
 }

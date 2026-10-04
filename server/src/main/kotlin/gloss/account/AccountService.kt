@@ -2,7 +2,11 @@ package gloss.account
 
 import gloss.account.domain.Account
 import gloss.account.domain.AccountRepository
-import gloss.common.UuidV7
+import gloss.account.dto.LoginRequest
+import gloss.account.dto.MeResponse
+import gloss.account.dto.PasswordChangeRequest
+import gloss.account.dto.SignedInAccount
+import gloss.common.GlossException
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -12,8 +16,8 @@ import java.util.UUID
 @Service
 @Transactional(readOnly = true)
 class AccountService(
-    private val accounts: AccountRepository,
-    private val encoder: PasswordEncoder,
+    private val accountRepository: AccountRepository,
+    private val passwordEncoder: PasswordEncoder,
     private val clock: Clock,
 ) {
     // Checked against when the login id is unknown, so a miss takes as long as a wrong password.
@@ -25,60 +29,63 @@ class AccountService(
         password: String,
         displayName: String,
     ): Boolean {
-        accounts.lockFirstOperatorCreation()
-        if (accounts.existsByRole(AccountRole.OPERATOR)) return false
+        accountRepository.lockFirstOperatorCreation()
+        if (accountRepository.existsByRole(AccountRole.OPERATOR)) return false
         check(password.isNotEmpty()) { "The first operator's password is required" }
         val normalized = checkNotNull(LoginIdPolicy.normalize(loginId)) { "The first operator's login id is invalid" }
         check(PasswordPolicy.check(password) == PasswordDecision.Accepted) {
             "The first operator's password does not meet the password policy"
         }
-        val now = clock.instant()
-        accounts.save(
-            Account(
-                id = UuidV7.at(now),
+        val account =
+            Account.createFirstOperator(
                 loginId = normalized,
                 displayName = displayName,
                 passwordHash = hash(password),
-                role = AccountRole.OPERATOR,
-                mustChangePassword = true,
-                createdBy = null,
-                createdAt = now,
-            ),
-        )
+                now = clock.instant(),
+            )
+        accountRepository.save(account)
         return true
     }
 
     @Transactional
-    fun authenticate(
-        loginId: String,
-        password: String,
-    ): LoginResult {
-        val account = LoginIdPolicy.normalize(loginId)?.let { accounts.findByLoginId(it) }
+    fun login(request: LoginRequest): SignedInAccount {
+        val account = LoginIdPolicy.normalize(request.loginId)?.let { accountRepository.findByLoginId(it) }
+        val password = request.password
         val tooLong = PasswordPolicy.check(password) == PasswordDecision.TooLong
-        val matches = encoder.matches(if (tooLong) "" else password, account?.passwordHash ?: dummyHash)
-        val signedIn = account?.takeIf { matches && !tooLong && it.isActive } ?: return LoginResult.Failed
-        accounts.recordLogin(signedIn.id, clock.instant())
-        return LoginResult.Succeeded(signedIn.toSummary(), signedIn.sessionEpoch)
+        val matches = passwordEncoder.matches(if (tooLong) "" else password, account?.passwordHash ?: dummyHash)
+        val signedIn =
+            account?.takeIf { matches && !tooLong && it.isActive } ?: throw GlossException(AccountError.LOGIN_FAILED)
+        accountRepository.recordLogin(signedIn.id, clock.instant())
+        return SignedInAccount(MeResponse.from(signedIn), signedIn.role, signedIn.sessionEpoch)
     }
 
-    fun get(id: UUID): AccountSummary = accounts.findById(id).orElseThrow().toSummary()
+    fun getMe(id: UUID): MeResponse = MeResponse.from(accountRepository.findById(id).orElseThrow())
 
+    /** Returns the new session epoch, which ends every other session. */
     @Transactional
     fun changePassword(
         id: UUID,
-        current: String,
-        new: String,
-    ): PasswordChangeResult {
-        val account = checkNotNull(accounts.findForUpdate(id))
-        val tooLong = PasswordPolicy.check(current) == PasswordDecision.TooLong
-        if (tooLong || !encoder.matches(current, account.passwordHash)) return PasswordChangeResult.WrongPassword
-        val decision = PasswordPolicy.check(new)
-        if (decision != PasswordDecision.Accepted) return PasswordChangeResult.Rejected(decision)
-        // Otherwise the temporary password could be kept and the forced change still lifted.
-        if (new == current) return PasswordChangeResult.SameAsCurrent
+        request: PasswordChangeRequest,
+    ): Int {
+        val current = request.currentPassword
+        val new = request.newPassword
+        val account = checkNotNull(accountRepository.findForUpdate(id))
+        val currentMatches =
+            PasswordPolicy.check(current) != PasswordDecision.TooLong &&
+                passwordEncoder.matches(current, account.passwordHash)
+        val error =
+            when {
+                !currentMatches -> AccountError.WRONG_PASSWORD
+
+                // Otherwise the temporary password could be kept and the forced change still lifted.
+                new == current -> AccountError.PASSWORD_UNCHANGED
+
+                else -> AccountError.of(PasswordPolicy.check(new))
+            }
+        if (error != null) throw GlossException(error)
         account.changePassword(hash(new), clock.instant())
-        return PasswordChangeResult.Changed(account.sessionEpoch)
+        return account.sessionEpoch
     }
 
-    private fun hash(password: String): String = checkNotNull(encoder.encode(password))
+    private fun hash(password: String): String = checkNotNull(passwordEncoder.encode(password))
 }

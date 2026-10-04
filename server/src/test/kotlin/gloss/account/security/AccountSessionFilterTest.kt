@@ -30,8 +30,8 @@ class AccountSessionFilterTest(
         val elsewhere = browser.get("/api/anything")
 
         assertThat(elsewhere.status).isEqualTo(403)
-        assertThat(elsewhere.code).isEqualTo("password_change_required:account")
-        assertThat(browser.get("/api/auth/me").status).isEqualTo(200)
+        assertThat(elsewhere.code).isEqualTo("account.password_change_required")
+        assertThat(browser.get("/api/me").status).isEqualTo(200)
     }
 
     @Test
@@ -43,7 +43,7 @@ class AccountSessionFilterTest(
             mapOf("currentPassword" to members.password, "newPassword" to "a new and longer password"),
         )
 
-        assertThat(browser.get("/api/anything").code).isNotEqualTo("password_change_required:account")
+        assertThat(browser.get("/api/anything").code).isEqualTo("common.not_found")
     }
 
     @Test
@@ -53,6 +53,6 @@ class AccountSessionFilterTest(
 
         members.disable(loginId)
 
-        assertThat(browser.get("/api/auth/me").status).isEqualTo(401)
+        assertThat(browser.get("/api/me").status).isEqualTo(401)
     }
 }

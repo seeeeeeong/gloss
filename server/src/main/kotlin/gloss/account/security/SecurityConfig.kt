@@ -1,8 +1,8 @@
 package gloss.account.security
 
 import gloss.account.domain.AccountRepository
-import gloss.common.ApiError
-import gloss.common.writeApiError
+import gloss.common.CommonError
+import gloss.common.writeError
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.HttpMethod
@@ -25,17 +25,18 @@ class SecurityConfig {
     fun securityContextRepository(): SecurityContextRepository = HttpSessionSecurityContextRepository()
 
     // A cookie rather than the session, so nobody gets a stored session before signing in.
+    // Readable by the page, which sends it back as X-XSRF-TOKEN; another site can neither read nor set it.
     @Bean
     fun csrfTokenRepository(): CsrfTokenRepository =
-        CookieCsrfTokenRepository().apply { setCookieCustomizer { it.sameSite("Lax") } }
+        CookieCsrfTokenRepository().apply { setCookieCustomizer { it.httpOnly(false).sameSite("Lax") } }
 
     @Bean
     fun securityFilterChain(
         http: HttpSecurity,
-        accounts: AccountRepository,
-        json: ObjectMapper,
-        contexts: SecurityContextRepository,
-        csrfTokens: CsrfTokenRepository,
+        accountRepository: AccountRepository,
+        objectMapper: ObjectMapper,
+        securityContextRepository: SecurityContextRepository,
+        csrfTokenRepository: CsrfTokenRepository,
     ): SecurityFilterChain =
         http
             .authorizeHttpRequests {
@@ -49,31 +50,26 @@ class SecurityConfig {
                     .anyRequest()
                     .authenticated()
             }.csrf {
-                it.csrfTokenRepository(csrfTokens)
+                it.csrfTokenRepository(csrfTokenRepository)
                 // Unmasked: the masking handler would refuse the token rotated at sign-in.
                 it.csrfTokenRequestHandler(CsrfTokenRequestAttributeHandler())
-            }.securityContext { it.securityContextRepository(contexts) }
+            }.securityContext { it.securityContextRepository(securityContextRepository) }
             .requestCache { it.disable() }
             .logout {
                 it.logoutUrl("/api/auth/logout")
                 it.logoutSuccessHandler(HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT))
             }.exceptionHandling {
-                it.authenticationEntryPoint { _, response, _ ->
-                    response.writeApiError(
-                        json,
-                        HttpStatus.UNAUTHORIZED,
-                        ApiError("unauthorized:auth", "Sign in first"),
-                    )
+                it.authenticationEntryPoint {
+                    _,
+                    response,
+                    _,
+                    ->
+                    response.writeError(objectMapper, CommonError.UNAUTHORIZED)
                 }
                 it.accessDeniedHandler { _, response, denied ->
-                    val error =
-                        if (denied is CsrfException) {
-                            ApiError("invalid_csrf:auth", "A valid CSRF token is required")
-                        } else {
-                            ApiError("forbidden:auth", "Not allowed")
-                        }
-                    response.writeApiError(json, HttpStatus.FORBIDDEN, error)
+                    val error = if (denied is CsrfException) CommonError.INVALID_CSRF else CommonError.FORBIDDEN
+                    response.writeError(objectMapper, error)
                 }
-            }.addFilterBefore(AccountSessionFilter(accounts, json), AuthorizationFilter::class.java)
+            }.addFilterBefore(AccountSessionFilter(accountRepository, objectMapper), AuthorizationFilter::class.java)
             .build()
 }

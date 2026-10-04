@@ -1,12 +1,11 @@
 package gloss.account.security
 
+import gloss.account.AccountError
 import gloss.account.domain.AccountRepository
-import gloss.common.ApiError
-import gloss.common.writeApiError
+import gloss.common.writeError
 import jakarta.servlet.FilterChain
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
-import org.springframework.http.HttpStatus
 import org.springframework.security.core.context.SecurityContextHolder
 import org.springframework.web.filter.OncePerRequestFilter
 import tools.jackson.databind.ObjectMapper
@@ -16,8 +15,8 @@ import tools.jackson.databind.ObjectMapper
  * account that must change its password to that change.
  */
 class AccountSessionFilter(
-    private val accounts: AccountRepository,
-    private val json: ObjectMapper,
+    private val accountRepository: AccountRepository,
+    private val objectMapper: ObjectMapper,
 ) : OncePerRequestFilter() {
     override fun doFilterInternal(
         request: HttpServletRequest,
@@ -25,7 +24,7 @@ class AccountSessionFilter(
         chain: FilterChain,
     ) {
         val principal = SecurityContextHolder.getContext().authentication?.principal as? SessionAccount
-        val account = principal?.let { accounts.findById(it.id).orElse(null) }
+        val account = principal?.let { accountRepository.findById(it.id).orElse(null) }
         when {
             principal == null -> {
                 chain.doFilter(request, response)
@@ -39,11 +38,7 @@ class AccountSessionFilter(
             }
 
             account.mustChangePassword && "${request.method} ${request.requestURI}" !in OPEN_UNTIL_CHANGED -> {
-                response.writeApiError(
-                    json,
-                    HttpStatus.FORBIDDEN,
-                    ApiError("password_change_required:account", "Change the temporary password first"),
-                )
+                response.writeError(objectMapper, AccountError.PASSWORD_CHANGE_REQUIRED)
             }
 
             else -> {
@@ -54,6 +49,6 @@ class AccountSessionFilter(
 
     private companion object {
         val OPEN_UNTIL_CHANGED =
-            setOf("GET /api/auth/me", "GET /api/auth/csrf", "POST /api/auth/logout", "PUT /api/me/password")
+            setOf("GET /api/me", "GET /api/auth/csrf", "POST /api/auth/logout", "PUT /api/me/password")
     }
 }

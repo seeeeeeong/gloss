@@ -3,6 +3,11 @@ package gloss.account
 import gloss.MutableClock
 import gloss.TestcontainersConfiguration
 import gloss.account.domain.Account
+import gloss.account.dto.LoginRequest
+import gloss.account.dto.MeResponse
+import gloss.account.dto.PasswordChangeRequest
+import gloss.common.ErrorCode
+import gloss.common.GlossException
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -23,16 +28,25 @@ import java.util.concurrent.Executors
 @Import(TestcontainersConfiguration::class, MutableClock.Config::class)
 @Transactional
 class AccountServiceTest(
-    @Autowired private val accounts: AccountService,
+    @Autowired private val accountService: AccountService,
     @Autowired private val clock: MutableClock,
     @Autowired private val jdbc: JdbcClient,
     @Autowired private val entityManager: EntityManager,
 ) {
     private val password = "correct horse battery"
 
-    private fun operator(): AccountSummary {
-        accounts.ensureFirstOperator("root", password, "Operator")
-        return (accounts.authenticate("root", password) as LoginResult.Succeeded).account
+    private fun operator(): MeResponse {
+        accountService.ensureFirstOperator("root", password, "Operator")
+        return accountService.login(LoginRequest("root", password)).me
+    }
+
+    private fun assertFails(
+        error: ErrorCode,
+        call: () -> Unit,
+    ) {
+        assertThatThrownBy(call).isInstanceOfSatisfying(GlossException::class.java) {
+            assertThat(it.error).isEqualTo(error)
+        }
     }
 
     private fun column(
@@ -49,12 +63,12 @@ class AccountServiceTest(
 
     @Test
     fun `the first operator is created once and must change the password`() {
-        assertThat(accounts.ensureFirstOperator("Root", password, "Operator")).isTrue()
-        assertThat(accounts.ensureFirstOperator("other", password, "Other")).isFalse()
+        assertThat(accountService.ensureFirstOperator("Root", password, "Operator")).isTrue()
+        assertThat(accountService.ensureFirstOperator("other", password, "Other")).isFalse()
 
         val account = operator()
         assertThat(account.loginId).isEqualTo("root")
-        assertThat(account.role).isEqualTo(AccountRole.OPERATOR)
+        assertThat(account.role).isEqualTo("operator")
         assertThat(account.mustChangePassword).isTrue()
     }
 
@@ -68,7 +82,7 @@ class AccountServiceTest(
                 listOf("first", "second").map { loginId ->
                     pool.submit<Boolean> {
                         start.await()
-                        accounts.ensureFirstOperator(loginId, password, "Operator")
+                        accountService.ensureFirstOperator(loginId, password, "Operator")
                     }
                 }
             start.countDown()
@@ -82,14 +96,14 @@ class AccountServiceTest(
 
     @Test
     fun `once an operator exists, the bootstrap password may be gone`() {
-        accounts.ensureFirstOperator("root", password, "Operator")
+        accountService.ensureFirstOperator("root", password, "Operator")
 
-        assertThat(accounts.ensureFirstOperator("root", "", "Operator")).isFalse()
+        assertThat(accountService.ensureFirstOperator("root", "", "Operator")).isFalse()
     }
 
     @Test
     fun `without an operator, a missing bootstrap password stops the start`() {
-        assertThatThrownBy { accounts.ensureFirstOperator("root", "", "Operator") }
+        assertThatThrownBy { accountService.ensureFirstOperator("root", "", "Operator") }
             .isInstanceOf(IllegalStateException::class.java)
     }
 
@@ -100,8 +114,8 @@ class AccountServiceTest(
         entityManager.clear()
         entityManager.find(Account::class.java, account.id)
 
-        accounts.authenticate("root", password)
-        accounts.changePassword(account.id, password, "a new and longer password")
+        accountService.login(LoginRequest("root", password))
+        accountService.changePassword(account.id, PasswordChangeRequest(password, "a new and longer password"))
 
         assertThat(column("last_login_at")).isNotNull()
     }
@@ -115,15 +129,16 @@ class AccountServiceTest(
         try {
             val runs =
                 listOf("first new password", "second new password").map { new ->
-                    pool.submit<PasswordChangeResult> {
+                    pool.submit<Any> {
                         start.await()
-                        accounts.changePassword(id, password, new)
+                        runCatching { accountService.changePassword(id, PasswordChangeRequest(password, new)) }
+                            .getOrElse { (it as GlossException).error }
                     }
                 }
             start.countDown()
 
             assertThat(runs.map { it.get() })
-                .containsExactlyInAnyOrder(PasswordChangeResult.Changed(1), PasswordChangeResult.WrongPassword)
+                .containsExactlyInAnyOrder(1, AccountError.WRONG_PASSWORD)
         } finally {
             pool.shutdown()
             jdbc.sql("delete from account where role = 'operator'").update()
@@ -132,9 +147,9 @@ class AccountServiceTest(
 
     @Test
     fun `a first operator the policies refuse stops the start`() {
-        assertThatThrownBy { accounts.ensureFirstOperator("ab", password, "Operator") }
+        assertThatThrownBy { accountService.ensureFirstOperator("ab", password, "Operator") }
             .isInstanceOf(IllegalStateException::class.java)
-        assertThatThrownBy { accounts.ensureFirstOperator("root", "short", "Operator") }
+        assertThatThrownBy { accountService.ensureFirstOperator("root", "short", "Operator") }
             .isInstanceOf(IllegalStateException::class.java)
     }
 
@@ -147,27 +162,27 @@ class AccountServiceTest(
 
     @Test
     fun `signing in matches the login id case-insensitively and records when`() {
-        accounts.ensureFirstOperator("root", password, "Operator")
+        accountService.ensureFirstOperator("root", password, "Operator")
 
-        val result = accounts.authenticate("  ROOT ", password)
+        val signedIn = accountService.login(LoginRequest("  ROOT ", password))
 
-        assertThat(result).isInstanceOf(LoginResult.Succeeded::class.java)
+        assertThat(signedIn.me.loginId).isEqualTo("root")
         assertThat((column("last_login_at") as Timestamp).toInstant())
             .isEqualTo(Instant.parse("2026-10-04T00:00:00Z"))
     }
 
     @Test
     fun `signing in leaves the version alone, so sign-ins at the same moment do not collide`() {
-        accounts.ensureFirstOperator("root", password, "Operator")
+        accountService.ensureFirstOperator("root", password, "Operator")
 
-        accounts.authenticate("root", password)
+        accountService.login(LoginRequest("root", password))
 
         assertThat(column("version")).isEqualTo(0L)
     }
 
     @Test
     fun `a wrong password, an unknown id and a disabled account fail alike`() {
-        accounts.ensureFirstOperator("root", password, "Operator")
+        accountService.ensureFirstOperator("root", password, "Operator")
         jdbc
             .sql(
                 """
@@ -178,10 +193,10 @@ class AccountServiceTest(
                 """.trimIndent(),
             ).update()
 
-        assertThat(accounts.authenticate("root", "wrong password here")).isEqualTo(LoginResult.Failed)
-        assertThat(accounts.authenticate("nobody", password)).isEqualTo(LoginResult.Failed)
-        assertThat(accounts.authenticate("gone", password)).isEqualTo(LoginResult.Failed)
-        assertThat(accounts.authenticate("root", "x".repeat(100))).isEqualTo(LoginResult.Failed)
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("root", "wrong password here")) }
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("nobody", password)) }
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("gone", password)) }
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("root", "x".repeat(100))) }
     }
 
     @Test
@@ -189,21 +204,25 @@ class AccountServiceTest(
         val account = operator()
         clock.advance(Duration.ofHours(1))
 
-        val result = accounts.changePassword(account.id, password, "a new and longer password")
+        val sessionEpoch =
+            accountService.changePassword(
+                account.id,
+                PasswordChangeRequest(password, "a new and longer password"),
+            )
 
-        assertThat(result).isEqualTo(PasswordChangeResult.Changed(sessionEpoch = 1))
+        assertThat(sessionEpoch).isEqualTo(1)
         assertThat(column("must_change_password")).isEqualTo(false)
-        assertThat(accounts.authenticate("root", "a new and longer password"))
-            .isInstanceOf(LoginResult.Succeeded::class.java)
-        assertThat(accounts.authenticate("root", password)).isEqualTo(LoginResult.Failed)
+        assertThat(accountService.login(LoginRequest("root", "a new and longer password")).sessionEpoch).isEqualTo(1)
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("root", password)) }
     }
 
     @Test
     fun `the temporary password cannot be set again to lift the forced change`() {
         val account = operator()
 
-        assertThat(accounts.changePassword(account.id, password, password))
-            .isEqualTo(PasswordChangeResult.SameAsCurrent)
+        assertFails(AccountError.PASSWORD_UNCHANGED) {
+            accountService.changePassword(account.id, PasswordChangeRequest(password, password))
+        }
         assertThat(column("must_change_password")).isEqualTo(true)
     }
 
@@ -211,10 +230,15 @@ class AccountServiceTest(
     fun `a wrong current password or a refused new one changes nothing`() {
         val account = operator()
 
-        assertThat(accounts.changePassword(account.id, "wrong password here", "a new and longer password"))
-            .isEqualTo(PasswordChangeResult.WrongPassword)
-        assertThat(accounts.changePassword(account.id, password, "too short"))
-            .isEqualTo(PasswordChangeResult.Rejected(PasswordDecision.TooShort))
+        assertFails(AccountError.WRONG_PASSWORD) {
+            accountService.changePassword(
+                account.id,
+                PasswordChangeRequest("wrong password here", "a new and longer password"),
+            )
+        }
+        assertFails(
+            AccountError.PASSWORD_TOO_SHORT,
+        ) { accountService.changePassword(account.id, PasswordChangeRequest(password, "too short")) }
         assertThat(column("session_epoch")).isEqualTo(0)
     }
 }
