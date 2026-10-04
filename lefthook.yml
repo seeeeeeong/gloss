@@ -50,9 +50,15 @@ commit-msg:
         cog verify --file {1} || {
           echo ''
           echo '✖ Commit message must follow Conventional Commits, with a scope from cog.toml.'
-          echo '    feat(account): 계정 생성 API 추가'
-          echo '    fix(chat): 잘린 응답이 완료로 표시되는 문제 수정'
-          echo '  Work is rebase merged, so this message lands on dev as written.'
+          echo '    feat(account): add login, logout and session endpoints'
+          echo ''
+          exit 1
+        }
+    - name: english subject
+      run: |
+        head -1 {1} | LC_ALL=C awk 'length > 72 || /[^ -~]/ { exit 1 }' || {
+          echo ''
+          echo '✖ The subject is English (ASCII) and 72 characters at most.'
           echo ''
           exit 1
         }

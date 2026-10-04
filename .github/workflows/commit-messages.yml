@@ -1,7 +1,5 @@
 name: Commit messages
 
-# Rebase merge lands every commit on dev as written, and a release's merge commit
-# takes the PR title, so both are checked.
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
@@ -33,14 +31,20 @@ jobs:
           git config user.name github-actions
           git config user.email github-actions[bot]@users.noreply.github.com
 
+      # Rebase merges never keep a work PR's title; a release's becomes its merge commit.
       # Through env: a title interpolated into the script would run as shell.
-      - name: Title
+      - name: Release title
+        if: github.event.pull_request.base.ref == 'main'
         run: cog verify "$TITLE"
         env:
           TITLE: ${{ github.event.pull_request.title }}
 
       - name: Commits
-        run: cog check "$BASE_SHA..$HEAD_SHA"
+        run: |
+          cog check "$BASE_SHA..$HEAD_SHA"
+          git log --format=%s "$BASE_SHA..$HEAD_SHA" | LC_ALL=C awk '
+            length > 72 || /[^ -~]/ { print "Not English or over 72 characters: " $0; bad = 1 }
+            END { exit bad }'
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
