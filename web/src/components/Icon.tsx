@@ -6,6 +6,9 @@ const PATHS = {
   close: 'M6 6l12 12M18 6 6 18',
   book: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5ZM4 19a2 2 0 0 1 2-2h13',
   user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 20a8 8 0 0 1 16 0',
+  users:
+    'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM2 21a7 7 0 0 1 14 0M16 3.5a4 4 0 0 1 0 7.5M18 14a7 7 0 0 1 4 7',
+  copy: 'M9 9h11v11H9V9ZM5 15H4V4h11v1',
 }
 
 export function Icon({ name, size = 18 }: { name: keyof typeof PATHS; size?: number }) {

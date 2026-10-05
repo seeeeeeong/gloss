@@ -486,6 +486,102 @@ button:disabled {
   opacity: 0.6;
 }
 
+/* Tables and the operator page */
+.page-wide {
+  max-width: 64rem;
+}
+.form-row {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: start;
+}
+.form-row .form-actions {
+  padding-top: 1.75rem;
+}
+.table-wrap {
+  /* Anchors .sr-only cells, which otherwise escape the scroll and widen the page. */
+  position: relative;
+  overflow-x: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+.table th,
+.table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  text-align: left;
+  white-space: nowrap;
+}
+.table th {
+  background: var(--bg-subtle);
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+.table tr:last-child td {
+  border-bottom: 0;
+}
+.row-actions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+.btn-sm {
+  height: 1.75rem;
+  padding: 0 var(--space-3);
+  font-size: var(--text-xs);
+}
+.tag {
+  margin-left: var(--space-2);
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--bg-inset);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+.handed {
+  margin-bottom: var(--space-5);
+  padding: var(--space-4);
+  border: 1px solid var(--border-accent-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-accent-soft);
+}
+.handed-title {
+  margin: 0 0 var(--space-1);
+  font-weight: 600;
+}
+.handed-note {
+  margin: 0 0 var(--space-3);
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+.handed-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.handed-secret {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+  user-select: all;
+}
+@media (max-width: 720px) {
+  .form-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .form-row .form-actions {
+    padding-top: 0;
+  }
+}
+
 /* Forms */
 .form {
   display: grid;

@@ -9,8 +9,9 @@ import { SignOutButton } from './SignOutButton'
 import { ThemeToggle } from './ThemeToggle'
 
 const LINKS = [
-  { href: '/', label: '내 책장', icon: 'book' },
-  { href: '/me', label: '마이페이지', icon: 'user' },
+  { href: '/', label: '내 책장', icon: 'book', operatorOnly: false },
+  { href: '/me', label: '마이페이지', icon: 'user', operatorOnly: false },
+  { href: '/admin/accounts', label: '계정 관리', icon: 'users', operatorOnly: true },
 ] as const
 
 export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
@@ -72,7 +73,7 @@ export function AppShell({ me, children }: { me: Me; children: ReactNode }) {
       </header>
       <nav id="library" className="library" aria-label="주요 메뉴">
         <div className="library-title">Gloss</div>
-        {LINKS.map((link, index) => (
+        {LINKS.filter((link) => !link.operatorOnly || me.role === 'operator').map((link, index) => (
           <Link
             key={link.href}
             ref={index === 0 ? firstLink : undefined}
