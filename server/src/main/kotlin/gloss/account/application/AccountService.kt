@@ -142,6 +142,9 @@ class AccountService(
         if (decision == LoginThrottleDecision.Blocked) throw GlossException(AccountError.TOO_MANY_ATTEMPTS)
     }
 
+    /** For other modules: false for a disabled account or none at all. */
+    fun isActive(id: UUID): Boolean = accountRepository.findById(id).map { it.isActive }.orElse(false)
+
     fun getMyAccount(id: UUID): MyAccountResponse = MyAccountResponse.from(accountRepository.findById(id).orElseThrow())
 
     @Transactional

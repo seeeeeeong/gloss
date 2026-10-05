@@ -110,6 +110,23 @@ class AccountServiceTest(
     }
 
     @Test
+    fun `an account is active until disabled, and one that does not exist is not`() {
+        val account = operator()
+        assertThat(accountService.isActive(account.id)).isTrue()
+
+        entityManager.flush()
+        jdbc
+            .sql(
+                "update account set status = 'disabled', disabled_at = now() where id = :id",
+            ).param("id", account.id)
+            .update()
+        entityManager.clear()
+
+        assertThat(accountService.isActive(account.id)).isFalse()
+        assertThat(accountService.isActive(UUID.randomUUID())).isFalse()
+    }
+
+    @Test
     fun `changing the password announces it`(
         @Autowired events: ApplicationEvents,
     ) {
