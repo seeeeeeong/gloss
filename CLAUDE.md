@@ -17,6 +17,7 @@ code it guards.
   decrypted), a password or a temporary password. Not in code, tests, commits, PRs or chat.
 - **Never call DeepSeek on a reader's key without a budget reservation**, and never leave a
   reservation without a settle or release on every path.
+  The one call that needs none runs no model: `GET /user/balance`, to check a key on save.
 - **Never change a model id, `max_tokens`, the thinking mode or a limit default as a side
   effect.** Each is its own pull request that states the cost.
 - **Never put company-internal material in this repository.** No code, data, schema,

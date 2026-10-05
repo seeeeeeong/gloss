@@ -1,0 +1,4 @@
+gloss:
+  api-key:
+    # All zeros: tests seal only test keys, and a real master key never belongs in the repository.
+    master-keys: "1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="

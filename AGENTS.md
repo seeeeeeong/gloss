@@ -12,7 +12,7 @@ Kotlin + Spring Boot 4 (`server`), Next.js (`web`), PostgreSQL 18.
 
 ### 비용과 외부 API
 
-- 사용자의 DeepSeek 키로 나가는 호출은 반드시 예산 예약(`BudgetService.reserve`) 뒤에 실행되고, 끝나면 정산 또는 해제되어야 한다. 경로 하나라도 빠지면 P1.
+- 사용자의 DeepSeek 키로 나가는 호출은 반드시 예산 예약(`BudgetService.reserve`) 뒤에 실행되고, 끝나면 정산 또는 해제되어야 한다. 경로 하나라도 빠지면 P1. 예외는 하나: 모델을 돌리지 않아 비용이 없는 키 확인 호출(`GET /user/balance`, `DeepSeekKeyCheckGateway`).
 - 가격·한도·타임아웃 값에 왜 그 값인지 한 줄이 없으면 지적한다.
 - `max_tokens` 를 지정하지 않은 호출, 모델 id·`max_tokens`·thinking 모드·한도 기본값을 다른 변경에 섞어 바꾼 것을 지적한다.
 - 프롬프트의 고정 접두(system, plan, 글 본문) 앞이나 안에 시각, 요청 id, 사용자 이름처럼 요청마다 바뀌는 값을 넣으면 캐시가 깨진다. 지적한다.
@@ -35,7 +35,7 @@ Kotlin + Spring Boot 4 (`server`), Next.js (`web`), PostgreSQL 18.
 ### 구조 (docs 없이도 판단할 수 있게)
 
 - 다른 모듈의 `application/`, `domain/event/` 외 패키지(`domain/` 엔티티·저장소, `infrastructure/`, `presentation/`, `application/dto/` 등) 타입을 직접 쓰면 지적한다. `domain/event/` 는 `@ApplicationModuleListener` 로 받는 이벤트 계약이다.
-- 계층 방향(`presentation → application → domain ← infrastructure`)을 거스르거나, `domain/` 이 HTTP·JDBC·세션 코드를 쓰면 지적한다.
+- 계층 방향(`presentation → application → domain ← infrastructure`)을 거스르거나, `domain/` 이 HTTP·JDBC·세션 코드를 쓰면 지적한다. 단 `application → infrastructure` 직접 의존(`JdbcXxx` 등)은 허용한다. 포트를 두지 않는다는 결정(T2)이고, 인터페이스는 외부 시스템(`XxxGateway`)에만 둔다.
 - 엔티티를 Controller 가 그대로 반환하면 지적한다. `XxxResponse` 로 바꾼다.
 - Controller 가 에러 body 를 직접 만들거나 서비스 호출 외의 업무 로직을 가지면 지적한다. 에러는 모듈의 `XxxError` 를 `GlossException` 으로 던진다.
 - 사용자에게 보이는 에러 메시지에 내부 정보(쿼리, 키, 경로, 스택)가 들어가면 지적한다.

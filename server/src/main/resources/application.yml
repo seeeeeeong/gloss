@@ -55,6 +55,11 @@ spring:
       ddl-auto: validate
 
 gloss:
+  api-key:
+    # version:base64 pairs of 32-byte keys; the newest seals. Kept apart from every other secret.
+    master-keys: ${GLOSS_API_KEY_MASTER_KEYS:}
+  deepseek:
+    base-url: ${GLOSS_DEEPSEEK_BASE_URL:https://api.deepseek.com}
   first-operator:
     login-id: ${GLOSS_FIRST_OPERATOR_LOGIN_ID:}
     password: ${GLOSS_FIRST_OPERATOR_PASSWORD:}

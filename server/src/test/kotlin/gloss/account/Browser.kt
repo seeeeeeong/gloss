@@ -40,6 +40,8 @@ class Browser(
         body: Any,
     ) = send("PUT", path, body)
 
+    fun delete(path: String) = send("DELETE", path, null)
+
     fun fetchCsrf() = get("/api/auth/csrf")
 
     fun signIn(
