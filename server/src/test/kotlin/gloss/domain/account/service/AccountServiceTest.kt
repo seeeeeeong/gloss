@@ -246,6 +246,21 @@ class AccountServiceTest(
     }
 
     @Test
+    fun `a password from the breach list is refused, whatever its case`() {
+        val account = operator()
+
+        assertFails(AccountError.PASSWORD_COMMON) {
+            accountService.changePassword(account.id, PasswordChangeRequest(password, "Qwertyuiop"))
+        }
+    }
+
+    @Test
+    fun `a first operator with a common password stops the start`() {
+        assertThatThrownBy { accountService.ensureFirstOperator("root", "1234567890", "Operator") }
+            .isInstanceOf(IllegalStateException::class.java)
+    }
+
+    @Test
     fun `a wrong current password or a refused new one changes nothing`() {
         val account = operator()
 

@@ -16,9 +16,10 @@ enum class AccountError(
         "로그인 시도가 너무 많습니다. 15분 뒤에 다시 시도해 주세요",
     ),
     WRONG_PASSWORD(HttpStatus.BAD_REQUEST, "account.wrong_password", "현재 비밀번호가 맞지 않습니다"),
-    PASSWORD_TOO_SHORT(HttpStatus.BAD_REQUEST, "account.password_too_short", "비밀번호는 15자 이상이어야 합니다"),
+    PASSWORD_TOO_SHORT(HttpStatus.BAD_REQUEST, "account.password_too_short", "비밀번호는 10자 이상이어야 합니다"),
     PASSWORD_TOO_LONG(HttpStatus.BAD_REQUEST, "account.password_too_long", "비밀번호는 72바이트를 넘을 수 없습니다"),
     PASSWORD_BLANK(HttpStatus.BAD_REQUEST, "account.password_blank", "공백만으로는 비밀번호를 만들 수 없습니다"),
+    PASSWORD_COMMON(HttpStatus.BAD_REQUEST, "account.password_common", "너무 흔한 비밀번호입니다. 다른 비밀번호를 입력해 주세요"),
     PASSWORD_UNCHANGED(HttpStatus.BAD_REQUEST, "account.password_unchanged", "지금과 다른 비밀번호를 입력해 주세요"),
     LOGIN_ID_TAKEN(HttpStatus.CONFLICT, "account.login_id_taken", "이미 쓰고 있는 아이디입니다"),
     INVALID_LOGIN_ID(

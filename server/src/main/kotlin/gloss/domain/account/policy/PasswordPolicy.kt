@@ -1,8 +1,8 @@
 package gloss.domain.account.policy
 
 object PasswordPolicy {
-    // NIST SP 800-63B-4: at least 15 characters when a password is the only factor.
-    private const val MIN_LENGTH = 15
+    // NIST SP 800-63B-4 asks 15 for a password alone; 10 with the breach list and sign-in throttling.
+    private const val MIN_LENGTH = 10
 
     // bcrypt reads 72 bytes and silently ignores the rest.
     private const val MAX_BYTES = 72

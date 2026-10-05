@@ -59,10 +59,10 @@ export function PasswordChangeForm({ forced = false }: { forced?: boolean }) {
           name="newPassword"
           type="password"
           autoComplete="new-password"
-          minLength={15}
+          minLength={10}
           required
         />
-        <span className="field-hint">15자 이상</span>
+        <span className="field-hint">10자 이상, 흔한 비밀번호는 쓸 수 없습니다</span>
       </label>
       <label className="field">
         <span className="field-label">새 비밀번호 확인</span>

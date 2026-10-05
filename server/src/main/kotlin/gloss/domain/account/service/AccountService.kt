@@ -16,6 +16,7 @@ import gloss.domain.account.policy.LoginThrottlePolicy
 import gloss.domain.account.policy.PasswordDecision
 import gloss.domain.account.policy.PasswordPolicy
 import gloss.domain.account.repository.AccountRepository
+import gloss.domain.account.repository.CommonPasswords
 import gloss.domain.account.repository.JdbcLoginFailures
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
@@ -29,6 +30,7 @@ import java.util.UUID
 class AccountService(
     private val accountRepository: AccountRepository,
     private val jdbcLoginFailures: JdbcLoginFailures,
+    private val commonPasswords: CommonPasswords,
     private val passwordEncoder: PasswordEncoder,
     private val clock: Clock,
 ) {
@@ -48,6 +50,7 @@ class AccountService(
         check(PasswordPolicy.check(password) == PasswordDecision.Accepted) {
             "The first operator's password does not meet the password policy"
         }
+        check(!commonPasswords.contains(password)) { "The first operator's password is a common one" }
         val account =
             Account.createFirstOperator(
                 loginId = normalized,
@@ -135,12 +138,15 @@ class AccountService(
                 // Otherwise the temporary password could be kept and the forced change still lifted.
                 new == current -> AccountError.PASSWORD_UNCHANGED
 
-                else -> AccountError.of(PasswordPolicy.check(new))
+                else -> AccountError.of(PasswordPolicy.check(new)) ?: commonError(new)
             }
         if (error != null) throw GlossException(error)
         account.changePassword(hash(new), clock.instant())
         return account.sessionEpoch
     }
+
+    private fun commonError(password: String): AccountError? =
+        AccountError.PASSWORD_COMMON.takeIf { commonPasswords.contains(password) }
 
     private fun hash(password: String): String = checkNotNull(passwordEncoder.encode(password))
 
