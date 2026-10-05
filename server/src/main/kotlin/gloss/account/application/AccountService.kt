@@ -9,12 +9,12 @@ import gloss.account.application.dto.SignedInAccount
 import gloss.account.domain.Account
 import gloss.account.domain.AccountRepository
 import gloss.account.domain.AccountRole
-import gloss.account.domain.DisplayNamePolicy
-import gloss.account.domain.LoginIdPolicy
+import gloss.account.domain.DisplayName
+import gloss.account.domain.LoginId
 import gloss.account.domain.LoginThrottleDecision
 import gloss.account.domain.LoginThrottlePolicy
+import gloss.account.domain.Password
 import gloss.account.domain.PasswordDecision
-import gloss.account.domain.PasswordPolicy
 import gloss.account.domain.event.AccountCreated
 import gloss.account.domain.event.AccountEvent
 import gloss.account.domain.event.PasswordChanged
@@ -55,17 +55,19 @@ class AccountService(
         accountRepository.lockFirstOperatorCreation()
         if (accountRepository.existsByRole(AccountRole.OPERATOR)) return false
         check(password.isNotEmpty()) { "The first operator's password is required" }
-        val normalized = checkNotNull(LoginIdPolicy.normalize(loginId)) { "The first operator's login id is invalid" }
-        check(PasswordPolicy.check(password) == PasswordDecision.Accepted) {
-            "The first operator's password does not meet the password policy"
-        }
+        val validLoginId = checkNotNull(LoginId.of(loginId)) { "The first operator's login id is invalid" }
+        val validName = checkNotNull(DisplayName.of(displayName)) { "The first operator's display name is invalid" }
+        val accepted =
+            checkNotNull(Password.check(password) as? PasswordDecision.Accepted) {
+                "The first operator's password does not meet the password policy"
+            }
         check(!commonPasswords.contains(password)) { "The first operator's password is a common one" }
         val now = clock.instant()
         val account =
             Account.createFirstOperator(
-                loginId = normalized,
-                displayName = displayName,
-                passwordHash = hash(password),
+                loginId = validLoginId,
+                displayName = validName,
+                passwordHash = hash(accepted.password.value),
                 now = now,
             )
         accountRepository.save(account)
@@ -97,9 +99,9 @@ class AccountService(
                 .ifEmpty { BLANK_LOGIN_ID_KEY }
         jdbcLoginFailures.lock(clientIp)
         requireNotThrottled(loginIdKey, clientIp, now)
-        val account = LoginIdPolicy.normalize(request.loginId)?.let { accountRepository.findByLoginId(it) }
+        val account = LoginId.of(request.loginId)?.let { accountRepository.findByLoginId(it.value) }
         val password = request.password
-        val tooLong = PasswordPolicy.check(password) == PasswordDecision.TooLong
+        val tooLong = Password.check(password) == PasswordDecision.TooLong
         val matches = passwordEncoder.matches(if (tooLong) "" else password, account?.passwordHash ?: dummyHash)
         val signedIn = account?.takeIf { matches && !tooLong && it.isActive }
         if (signedIn == null) {
@@ -148,7 +150,7 @@ class AccountService(
         request: ProfileUpdateRequest,
     ): MyAccountResponse {
         val displayName =
-            DisplayNamePolicy.normalize(request.displayName) ?: throw GlossException(AccountError.INVALID_DISPLAY_NAME)
+            DisplayName.of(request.displayName) ?: throw GlossException(AccountError.INVALID_DISPLAY_NAME)
         val account = accountRepository.findById(id).orElseThrow()
         account.rename(displayName)
         return MyAccountResponse.from(account)
@@ -164,7 +166,7 @@ class AccountService(
         val new = request.newPassword
         val account = checkNotNull(accountRepository.findForUpdate(id))
         val currentMatches =
-            PasswordPolicy.check(current) != PasswordDecision.TooLong &&
+            Password.check(current) != PasswordDecision.TooLong &&
                 passwordEncoder.matches(current, account.passwordHash)
         val error =
             when {
@@ -173,7 +175,7 @@ class AccountService(
                 // Otherwise the temporary password could be kept and the forced change still lifted.
                 new == current -> AccountError.PASSWORD_UNCHANGED
 
-                else -> AccountError.of(PasswordPolicy.check(new)) ?: commonError(new)
+                else -> AccountError.of(Password.check(new)) ?: commonError(new)
             }
         if (error != null) throw GlossException(error)
         val now = clock.instant()

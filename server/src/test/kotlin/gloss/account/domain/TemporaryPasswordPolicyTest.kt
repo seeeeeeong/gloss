@@ -9,7 +9,7 @@ class TemporaryPasswordPolicyTest {
         val password = TemporaryPasswordPolicy.generate()
 
         assertThat(password).hasSize(20)
-        assertThat(PasswordPolicy.check(password)).isEqualTo(PasswordDecision.Accepted)
+        assertThat(Password.check(password)).isInstanceOf(PasswordDecision.Accepted::class.java)
     }
 
     @Test

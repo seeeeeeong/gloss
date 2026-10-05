@@ -73,6 +73,10 @@ from memory.
 - **Rules** (`XxxPolicy`, `XxxDecision`, `XxxParser`, `XxxPrompt`, `XxxCheck`, `XxxCipher`) sit
   in `domain/` and depend only on Kotlin, the JDK's pure packages and other rule classes;
   `ArchitectureTest` checks it with an allow list.
+- **Value objects** (`LoginId`, `DisplayName`, `Password`) are `@JvmInline value class`es with a
+  private constructor: only `of(raw)`, or a decision's `Accepted`, makes one, so a value in hand
+  is valid. Entity factories and methods take them, never a raw `String`. They are held to the
+  same purity rule as the rule classes.
 - **Persistence**: JPA for accounts, keys, books, TOCs, plans, posts and chat sessions.
   JdbcClient for append-only ledgers, the job queue and chat messages. Append-only tables are
   guarded by triggers and, in JPA, `@Immutable`.

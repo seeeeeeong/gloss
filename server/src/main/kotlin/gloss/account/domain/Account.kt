@@ -91,21 +91,21 @@ class Account private constructor(
         return true
     }
 
-    fun rename(displayName: String) {
-        this.displayName = displayName
+    fun rename(displayName: DisplayName) {
+        this.displayName = displayName.value
     }
 
     companion object {
         /** Made from the environment at the first start; its password must be changed at first sign-in. */
         fun createFirstOperator(
-            loginId: String,
-            displayName: String,
+            loginId: LoginId,
+            displayName: DisplayName,
             passwordHash: String,
             now: Instant,
         ) = Account(
             id = UuidV7.at(now),
-            loginId = loginId,
-            displayName = displayName,
+            loginId = loginId.value,
+            displayName = displayName.value,
             passwordHash = passwordHash,
             role = AccountRole.OPERATOR,
             mustChangePassword = true,
@@ -121,8 +121,8 @@ class Account private constructor(
             now: Instant,
         ) = Account(
             id = UuidV7.at(now),
-            loginId = draft.loginId,
-            displayName = draft.displayName,
+            loginId = draft.loginId.value,
+            displayName = draft.displayName.value,
             passwordHash = temporaryHash,
             role = draft.role,
             mustChangePassword = true,
