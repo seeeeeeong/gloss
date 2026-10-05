@@ -7,6 +7,10 @@ import gloss.common.error.GlossException
 import gloss.domain.account.dto.AccountCreateRequest
 import gloss.domain.account.dto.LoginRequest
 import gloss.domain.account.dto.PasswordChangeRequest
+import gloss.domain.account.event.AccountCreated
+import gloss.domain.account.event.AccountDisabled
+import gloss.domain.account.event.AccountEnabled
+import gloss.domain.account.event.PasswordReset
 import gloss.domain.account.exception.AccountError
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
@@ -17,6 +21,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.simple.JdbcClient
+import org.springframework.test.context.event.ApplicationEvents
+import org.springframework.test.context.event.RecordApplicationEvents
 import org.springframework.transaction.annotation.Transactional
 import java.time.Duration
 import java.util.UUID
@@ -24,6 +30,7 @@ import java.util.UUID
 @SpringBootTest
 @Import(TestcontainersConfiguration::class, MutableClock.Config::class)
 @Transactional
+@RecordApplicationEvents
 class AdminAccountServiceTest(
     @Autowired private val adminAccountService: AdminAccountService,
     @Autowired private val accountService: AccountService,
@@ -33,6 +40,8 @@ class AdminAccountServiceTest(
 ) {
     private val password = "correct horse battery"
     private lateinit var operatorId: UUID
+
+    private inline fun <reified T : Any> ApplicationEvents.published(): List<T> = stream(T::class.java).toList()
 
     @BeforeEach
     fun operator() {
@@ -93,6 +102,51 @@ class AdminAccountServiceTest(
     }
 
     @Test
+    fun `each change an operator makes is announced with the operator`(
+        @Autowired events: ApplicationEvents,
+    ) {
+        val id = create().account.id
+
+        adminAccountService.resetPassword(operatorId, id)
+        adminAccountService.disable(operatorId, id)
+        adminAccountService.enable(operatorId, id)
+
+        assertThat(events.published<AccountCreated>().last())
+            .returns(id, AccountCreated::accountId)
+            .returns(operatorId, AccountCreated::operatorId)
+            .returns("member", AccountCreated::role)
+        assertThat(events.published<PasswordReset>().single().operatorId).isEqualTo(operatorId)
+        assertThat(events.published<AccountDisabled>().single().operatorId).isEqualTo(operatorId)
+        assertThat(events.published<AccountEnabled>().single().operatorId).isEqualTo(operatorId)
+    }
+
+    @Test
+    fun `enabling an active account or disabling a disabled one changes and announces nothing`(
+        @Autowired events: ApplicationEvents,
+    ) {
+        val id = create().account.id
+
+        adminAccountService.enable(operatorId, id)
+        adminAccountService.disable(operatorId, id)
+        val disabledAt = column("disabled_at", "reader")
+        adminAccountService.disable(operatorId, id)
+
+        assertThat(events.published<AccountEnabled>()).isEmpty()
+        assertThat(events.published<AccountDisabled>()).hasSize(1)
+        assertThat(column("disabled_at", "reader")).isEqualTo(disabledAt)
+        assertThat(column("session_epoch", "reader")).isEqualTo(1)
+    }
+
+    @Test
+    fun `a refused change announces nothing`(
+        @Autowired events: ApplicationEvents,
+    ) {
+        assertFails(AccountError.LAST_OPERATOR) { adminAccountService.disable(operatorId, operatorId) }
+
+        assertThat(events.published<AccountDisabled>()).isEmpty()
+    }
+
+    @Test
     fun `an unknown role is refused`() {
         assertFails(AccountError.INVALID_ROLE) { create(role = "admin") }
     }
@@ -103,7 +157,7 @@ class AdminAccountServiceTest(
         val id = accountService.login(LoginRequest("reader", created.temporaryPassword), IP).account.id
         accountService.changePassword(id, PasswordChangeRequest(created.temporaryPassword, "a new and longer password"))
 
-        val reset = adminAccountService.resetPassword(id)
+        val reset = adminAccountService.resetPassword(operatorId, id)
 
         assertThat(column("session_epoch", "reader")).isEqualTo(2)
         assertThat(column("must_change_password", "reader")).isEqualTo(true)
@@ -116,20 +170,20 @@ class AdminAccountServiceTest(
         val created = create()
         val id = accountService.login(LoginRequest("reader", created.temporaryPassword), IP).account.id
 
-        adminAccountService.disable(id)
+        adminAccountService.disable(operatorId, id)
 
         assertThat(column("session_epoch", "reader")).isEqualTo(1)
         assertFails(AccountError.LOGIN_FAILED) {
             accountService.login(LoginRequest("reader", created.temporaryPassword), IP)
         }
-        adminAccountService.enable(id)
+        adminAccountService.enable(operatorId, id)
         assertThat(accountService.login(LoginRequest("reader", created.temporaryPassword), IP).account.loginId)
             .isEqualTo("reader")
     }
 
     @Test
     fun `the last active operator cannot be disabled`() {
-        assertFails(AccountError.LAST_OPERATOR) { adminAccountService.disable(operatorId) }
+        assertFails(AccountError.LAST_OPERATOR) { adminAccountService.disable(operatorId, operatorId) }
     }
 
     @Test
@@ -137,14 +191,14 @@ class AdminAccountServiceTest(
         val created = create(loginId = "second", role = "operator")
         val second = accountService.login(LoginRequest("second", created.temporaryPassword), IP).account.id
 
-        adminAccountService.disable(second)
+        adminAccountService.disable(operatorId, second)
 
         assertThat(column("status", "second")).isEqualTo("disabled")
     }
 
     @Test
     fun `an unknown account is not found`() {
-        assertFails(AccountError.ACCOUNT_NOT_FOUND) { adminAccountService.resetPassword(UUID.randomUUID()) }
+        assertFails(AccountError.ACCOUNT_NOT_FOUND) { adminAccountService.resetPassword(operatorId, UUID.randomUUID()) }
     }
 
     @Test

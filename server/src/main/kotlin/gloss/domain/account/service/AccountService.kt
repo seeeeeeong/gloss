@@ -1,6 +1,7 @@
 package gloss.domain.account.service
 
 import gloss.common.error.GlossException
+import gloss.common.util.UuidV7
 import gloss.domain.account.dto.LoginRequest
 import gloss.domain.account.dto.MyAccountResponse
 import gloss.domain.account.dto.PasswordChangeRequest
@@ -8,6 +9,12 @@ import gloss.domain.account.dto.ProfileUpdateRequest
 import gloss.domain.account.dto.SignedInAccount
 import gloss.domain.account.entity.Account
 import gloss.domain.account.entity.AccountRole
+import gloss.domain.account.event.AccountCreated
+import gloss.domain.account.event.AccountEvent
+import gloss.domain.account.event.PasswordChanged
+import gloss.domain.account.event.SignInFailed
+import gloss.domain.account.event.SignInFailure
+import gloss.domain.account.event.SignedIn
 import gloss.domain.account.exception.AccountError
 import gloss.domain.account.policy.DisplayNamePolicy
 import gloss.domain.account.policy.LoginIdPolicy
@@ -18,6 +25,7 @@ import gloss.domain.account.policy.PasswordPolicy
 import gloss.domain.account.repository.AccountRepository
 import gloss.domain.account.repository.CommonPasswords
 import gloss.domain.account.repository.JdbcLoginFailures
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -32,6 +40,7 @@ class AccountService(
     private val jdbcLoginFailures: JdbcLoginFailures,
     private val commonPasswords: CommonPasswords,
     private val passwordEncoder: PasswordEncoder,
+    private val applicationEventPublisher: ApplicationEventPublisher,
     private val clock: Clock,
 ) {
     // Checked against when the login id is unknown, so a miss takes as long as a wrong password.
@@ -51,14 +60,24 @@ class AccountService(
             "The first operator's password does not meet the password policy"
         }
         check(!commonPasswords.contains(password)) { "The first operator's password is a common one" }
+        val now = clock.instant()
         val account =
             Account.createFirstOperator(
                 loginId = normalized,
                 displayName = displayName,
                 passwordHash = hash(password),
-                now = clock.instant(),
+                now = now,
             )
         accountRepository.save(account)
+        publish(
+            AccountCreated(
+                eventId = UuidV7.at(now),
+                occurredAt = now,
+                accountId = account.id,
+                operatorId = null,
+                role = account.role.code,
+            ),
+        )
         return true
     }
 
@@ -85,9 +104,25 @@ class AccountService(
         val signedIn = account?.takeIf { matches && !tooLong && it.isActive }
         if (signedIn == null) {
             jdbcLoginFailures.append(loginIdKey, clientIp, now)
+            val reason =
+                when {
+                    account == null -> SignInFailure.UNKNOWN_LOGIN_ID
+                    matches && !tooLong -> SignInFailure.DISABLED
+                    else -> SignInFailure.WRONG_PASSWORD
+                }
+            publish(
+                SignInFailed(
+                    eventId = UuidV7.at(now),
+                    occurredAt = now,
+                    accountId = account?.id,
+                    ip = clientIp,
+                    reason = reason,
+                ),
+            )
             throw GlossException(AccountError.LOGIN_FAILED)
         }
         accountRepository.recordLogin(signedIn.id, now)
+        publish(SignedIn(eventId = UuidV7.at(now), occurredAt = now, accountId = signedIn.id, ip = clientIp))
         return SignedInAccount(MyAccountResponse.from(signedIn), signedIn.role, signedIn.sessionEpoch)
     }
 
@@ -141,9 +176,13 @@ class AccountService(
                 else -> AccountError.of(PasswordPolicy.check(new)) ?: commonError(new)
             }
         if (error != null) throw GlossException(error)
-        account.changePassword(hash(new), clock.instant())
+        val now = clock.instant()
+        account.changePassword(hash(new), now)
+        publish(PasswordChanged(eventId = UuidV7.at(now), occurredAt = now, accountId = account.id))
         return account.sessionEpoch
     }
+
+    private fun publish(event: AccountEvent) = applicationEventPublisher.publishEvent(event)
 
     private fun commonError(password: String): AccountError? =
         AccountError.PASSWORD_COMMON.takeIf { commonPasswords.contains(password) }

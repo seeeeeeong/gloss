@@ -36,22 +36,25 @@ class AdminAccountController(
 
     @PostMapping("/{id}/password-reset")
     fun resetPassword(
+        @CurrentAccount operator: SessionAccount,
         @PathVariable id: UUID,
-    ): TemporaryPasswordResponse = adminAccountService.resetPassword(id)
+    ): TemporaryPasswordResponse = adminAccountService.resetPassword(operator.id, id)
 
     @PostMapping("/{id}/disable")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun disable(
+        @CurrentAccount operator: SessionAccount,
         @PathVariable id: UUID,
     ) {
-        adminAccountService.disable(id)
+        adminAccountService.disable(operator.id, id)
     }
 
     @PostMapping("/{id}/enable")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     fun enable(
+        @CurrentAccount operator: SessionAccount,
         @PathVariable id: UUID,
     ) {
-        adminAccountService.enable(id)
+        adminAccountService.enable(operator.id, id)
     }
 }

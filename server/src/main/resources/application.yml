@@ -42,6 +42,11 @@ spring:
   modulith:
     # Modules live under gloss.domain, a level down; each declares itself in ModuleMetadata.
     detection-strategy: explicitly-annotated
+    events:
+      # A delivered event is deleted; a failed or unfinished one stays to be delivered again.
+      completion-mode: delete
+      # One instance runs, so an event a crash left undelivered is safe to resend at the next start.
+      republish-outstanding-events-on-restart: true
   flyway:
     validate-on-migrate: true
   jpa:

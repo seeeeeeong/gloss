@@ -21,7 +21,7 @@ class ModularityTest {
 
     @Test
     fun `the modules are the ones declared`() {
-        assertThat(modules.map { it.identifier.toString() }).containsExactlyInAnyOrder("account", "common")
+        assertThat(modules.map { it.identifier.toString() }).containsExactlyInAnyOrder("account", "audit", "common")
     }
 
     @Test
