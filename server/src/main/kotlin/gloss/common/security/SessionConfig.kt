@@ -1,4 +1,4 @@
-package gloss.domain.account.security
+package gloss.common.security
 
 import org.slf4j.LoggerFactory
 import org.springframework.context.annotation.Bean

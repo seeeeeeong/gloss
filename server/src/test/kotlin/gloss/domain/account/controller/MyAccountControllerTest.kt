@@ -15,7 +15,7 @@ import java.time.Clock
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(TestcontainersConfiguration::class)
-class MeControllerTest(
+class MyAccountControllerTest(
     @LocalServerPort private val port: Int,
     @Autowired jdbc: JdbcClient,
     @Autowired encoder: PasswordEncoder,

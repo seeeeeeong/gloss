@@ -1,6 +1,7 @@
 package gloss.domain.account.security
 
 import gloss.common.error.writeError
+import gloss.common.security.SessionAccount
 import gloss.domain.account.exception.AccountError
 import gloss.domain.account.repository.AccountRepository
 import jakarta.servlet.FilterChain

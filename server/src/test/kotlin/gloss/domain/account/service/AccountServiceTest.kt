@@ -5,7 +5,7 @@ import gloss.TestcontainersConfiguration
 import gloss.common.error.ErrorCode
 import gloss.common.error.GlossException
 import gloss.domain.account.dto.LoginRequest
-import gloss.domain.account.dto.MeResponse
+import gloss.domain.account.dto.MyAccountResponse
 import gloss.domain.account.dto.PasswordChangeRequest
 import gloss.domain.account.dto.ProfileUpdateRequest
 import gloss.domain.account.entity.Account
@@ -47,9 +47,9 @@ class AccountServiceTest(
         fun uniqueIp() = "198.18.${Random.nextInt(256)}.${Random.nextInt(1, 255)}"
     }
 
-    private fun operator(): MeResponse {
+    private fun operator(): MyAccountResponse {
         accountService.ensureFirstOperator("root", password, "Operator")
-        return accountService.login(LoginRequest("root", password), IP).me
+        return accountService.login(LoginRequest("root", password), IP).account
     }
 
     @BeforeEach
@@ -183,7 +183,7 @@ class AccountServiceTest(
 
         val signedIn = accountService.login(LoginRequest("  ROOT ", password), IP)
 
-        assertThat(signedIn.me.loginId).isEqualTo("root")
+        assertThat(signedIn.account.loginId).isEqualTo("root")
         assertThat((column("last_login_at") as Timestamp).toInstant())
             .isEqualTo(Instant.parse("2026-10-04T00:00:00Z"))
     }
@@ -280,7 +280,7 @@ class AccountServiceTest(
 
         clock.advance(Duration.ofMinutes(15).plusSeconds(1))
 
-        assertThat(accountService.login(LoginRequest("root", password), IP).me.loginId).isEqualTo("root")
+        assertThat(accountService.login(LoginRequest("root", password), IP).account.loginId).isEqualTo("root")
     }
 
     @Test
@@ -288,7 +288,9 @@ class AccountServiceTest(
         operator()
         repeat(5) { runCatching { accountService.login(LoginRequest("root", "wrong password here"), IP) } }
 
-        assertThat(accountService.login(LoginRequest("root", password), "198.51.100.9").me.loginId).isEqualTo("root")
+        assertThat(
+            accountService.login(LoginRequest("root", password), "198.51.100.9").account.loginId,
+        ).isEqualTo("root")
     }
 
     @Test

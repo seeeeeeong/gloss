@@ -10,6 +10,8 @@ enum class AccountRole(
     MEMBER("member"),
     ;
 
+    val authority: String get() = "ROLE_$name"
+
     companion object {
         fun of(code: String): AccountRole? = entries.firstOrNull { it.code == code }
     }

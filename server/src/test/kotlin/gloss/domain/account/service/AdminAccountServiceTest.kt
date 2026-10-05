@@ -38,7 +38,7 @@ class AdminAccountServiceTest(
     fun operator() {
         clock.reset()
         accountService.ensureFirstOperator("root", password, "Operator")
-        operatorId = accountService.login(LoginRequest("root", password), IP).me.id
+        operatorId = accountService.login(LoginRequest("root", password), IP).account.id
     }
 
     private fun assertFails(
@@ -71,7 +71,7 @@ class AdminAccountServiceTest(
     fun `a new account signs in with its temporary password and must change it`() {
         val created = create()
 
-        val me = accountService.login(LoginRequest("reader", created.temporaryPassword), IP).me
+        val me = accountService.login(LoginRequest("reader", created.temporaryPassword), IP).account
         assertThat(me.mustChangePassword).isTrue()
         assertThat(me.role).isEqualTo("member")
         assertThat(column("created_by", "reader")).isEqualTo(operatorId)
@@ -100,21 +100,21 @@ class AdminAccountServiceTest(
     @Test
     fun `a reset hands out a new temporary password and ends the account's sessions`() {
         val created = create()
-        val id = accountService.login(LoginRequest("reader", created.temporaryPassword), IP).me.id
+        val id = accountService.login(LoginRequest("reader", created.temporaryPassword), IP).account.id
         accountService.changePassword(id, PasswordChangeRequest(created.temporaryPassword, "a new and longer password"))
 
         val reset = adminAccountService.resetPassword(id)
 
         assertThat(column("session_epoch", "reader")).isEqualTo(2)
         assertThat(column("must_change_password", "reader")).isEqualTo(true)
-        assertThat(accountService.login(LoginRequest("reader", reset.temporaryPassword), IP).me.loginId)
+        assertThat(accountService.login(LoginRequest("reader", reset.temporaryPassword), IP).account.loginId)
             .isEqualTo("reader")
     }
 
     @Test
     fun `a disabled account cannot sign in until enabled again`() {
         val created = create()
-        val id = accountService.login(LoginRequest("reader", created.temporaryPassword), IP).me.id
+        val id = accountService.login(LoginRequest("reader", created.temporaryPassword), IP).account.id
 
         adminAccountService.disable(id)
 
@@ -123,7 +123,7 @@ class AdminAccountServiceTest(
             accountService.login(LoginRequest("reader", created.temporaryPassword), IP)
         }
         adminAccountService.enable(id)
-        assertThat(accountService.login(LoginRequest("reader", created.temporaryPassword), IP).me.loginId)
+        assertThat(accountService.login(LoginRequest("reader", created.temporaryPassword), IP).account.loginId)
             .isEqualTo("reader")
     }
 
@@ -135,7 +135,7 @@ class AdminAccountServiceTest(
     @Test
     fun `one of two operators can be disabled`() {
         val created = create(loginId = "second", role = "operator")
-        val second = accountService.login(LoginRequest("second", created.temporaryPassword), IP).me.id
+        val second = accountService.login(LoginRequest("second", created.temporaryPassword), IP).account.id
 
         adminAccountService.disable(second)
 

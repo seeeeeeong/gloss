@@ -1,4 +1,4 @@
-package gloss.domain.account.security
+package gloss.common.security
 
 import gloss.TestcontainersConfiguration
 import gloss.domain.account.Browser
