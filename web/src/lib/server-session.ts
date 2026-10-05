@@ -27,3 +27,13 @@ export async function requireReader(path: string): Promise<Me> {
   if (!me) redirect('/login')
   return me
 }
+
+/** A GET to the server as the signed-in reader; a lost session goes to sign-in, a refusal home. */
+export async function serverGet<T>(path: string): Promise<T> {
+  const cookie = (await cookies()).toString()
+  const response = await fetch(`${SERVER_URL}${path}`, { headers: { cookie }, cache: 'no-store' })
+  if (response.status === 401) redirect('/login')
+  if (response.status === 403) redirect('/')
+  if (!response.ok) throw new Error(`GET ${path} answered ${response.status}`)
+  return (await response.json()) as T
+}
