@@ -34,7 +34,8 @@ Kotlin + Spring Boot 4 (`server`), Next.js (`web`), PostgreSQL 18.
 
 ### 구조 (docs 없이도 판단할 수 있게)
 
-- 다른 모듈의 `service/`, `event/` 외 하위 패키지(`entity/`, `repository/`, `dto/`, `controller/` 등) 타입을 직접 쓰면 지적한다. `event/` 는 `@ApplicationModuleListener` 로 받는 이벤트 계약이다.
+- 다른 모듈의 `application/`, `domain/event/` 외 패키지(`domain/` 엔티티·저장소, `infrastructure/`, `presentation/`, `application/dto/` 등) 타입을 직접 쓰면 지적한다. `domain/event/` 는 `@ApplicationModuleListener` 로 받는 이벤트 계약이다.
+- 계층 방향(`presentation → application → domain ← infrastructure`)을 거스르거나, `domain/` 이 HTTP·JDBC·세션 코드를 쓰면 지적한다.
 - 엔티티를 Controller 가 그대로 반환하면 지적한다. `XxxResponse` 로 바꾼다.
 - Controller 가 에러 body 를 직접 만들거나 서비스 호출 외의 업무 로직을 가지면 지적한다. 에러는 모듈의 `XxxError` 를 `GlossException` 으로 던진다.
 - 사용자에게 보이는 에러 메시지에 내부 정보(쿼리, 키, 경로, 스택)가 들어가면 지적한다.

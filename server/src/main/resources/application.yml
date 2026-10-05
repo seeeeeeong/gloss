@@ -40,7 +40,7 @@ spring:
     jdbc:
       initialize-schema: never
   modulith:
-    # Modules live under gloss.domain, a level down; each declares itself in ModuleMetadata.
+    # Each module under gloss declares itself in ModuleMetadata; ModularityTest finds one that forgot.
     detection-strategy: explicitly-annotated
     events:
       # A delivered event is deleted; a failed or unfinished one stays to be delivered again.

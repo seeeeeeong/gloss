@@ -1,24 +1,31 @@
 package gloss.architecture
 
 import com.tngtech.archunit.core.importer.ClassFileImporter
+import com.tngtech.archunit.core.importer.ImportOption
 import org.springframework.modulith.core.ApplicationModules
 
 internal object Modularity {
     /**
-     * Packages directly under `domain/` that declared no module. With explicitly annotated
-     * detection such a package is checked by nothing, so it must not exist.
+     * Packages directly under the application's that declared no module. With explicitly
+     * annotated detection such a package is checked by nothing, so it must not exist.
      */
-    fun undeclaredDomainPackages(
+    fun undeclaredModulePackages(
         application: Class<*>,
         modules: ApplicationModules,
+        importOption: ImportOption = ImportOption.DoNotIncludeTests(),
     ): Set<String> {
-        val domain = application.packageName + ".domain"
+        val root = application.packageName
         val packages =
             ClassFileImporter()
-                .importPackages(domain)
-                .map { it.packageName.removePrefix("$domain.").substringBefore('.') }
-                .filter { it.isNotEmpty() && it != domain }
-                .map { "$domain.$it" }
+                .withImportOption(importOption)
+                .importPackages(root)
+                .map {
+                    it.packageName
+                        .removePrefix(root)
+                        .removePrefix(".")
+                        .substringBefore('.')
+                }.filter { it.isNotEmpty() }
+                .map { "$root.$it" }
                 .toSet()
         val declared = modules.map { it.basePackage.name }.toSet()
         return packages - declared

@@ -2,9 +2,9 @@ package gloss.architecture
 
 import com.tngtech.archunit.core.importer.ImportOption
 import fixtures.modulith.cycle.CycleApplication
+import fixtures.modulith.declared.DeclaredApplication
 import fixtures.modulith.hidden.HiddenApplication
 import fixtures.modulith.kept.KeptApplication
-import fixtures.modulith.nested.NestedApplication
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -36,19 +36,19 @@ class ModularityFixturesTest {
     }
 
     @Test
-    fun `a module a level down still keeps its sub-packages to itself, except a named interface`() {
-        assertThatThrownBy { modulesOf(NestedApplication::class.java).verify() }
+    fun `a module keeps its layers to itself, except a named interface`() {
+        assertThatThrownBy { modulesOf(DeclaredApplication::class.java).verify() }
             .isInstanceOf(Violations::class.java)
             .hasMessageContaining("AEntity")
             .message()
-            .doesNotContain("domain.c.C")
+            .doesNotContain("declared.c.C")
     }
 
     @Test
-    fun `a package under domain that declared no module is found`() {
-        val modules = modulesOf(NestedApplication::class.java)
+    fun `a package that declared no module is found`() {
+        val modules = modulesOf(DeclaredApplication::class.java)
 
-        assertThat(Modularity.undeclaredDomainPackages(NestedApplication::class.java, modules))
-            .containsExactly("fixtures.modulith.nested.domain.d")
+        assertThat(Modularity.undeclaredModulePackages(DeclaredApplication::class.java, modules, ImportOption { true }))
+            .containsExactly("fixtures.modulith.declared.d")
     }
 }

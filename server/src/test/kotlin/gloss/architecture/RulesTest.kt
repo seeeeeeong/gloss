@@ -30,4 +30,29 @@ class RulesTest {
                 "Container",
             )
     }
+
+    // "Field <fixtures.layers.shop.domain.Invoice.shopService> has type ..." names the offender first.
+    private val layerOffender = Regex("^\\w+ <fixtures\\.layers\\.shop\\.(\\w+\\.\\w+)")
+
+    private fun offendersOf(report: List<String>) =
+        report
+            .mapNotNull {
+                layerOffender.find(it)?.groupValues?.get(1)
+            }.toSet()
+
+    @Test
+    fun `the layer rule catches each reach outward or past a layer, and only those`() {
+        val result = Rules.layers("fixtures.layers").evaluate(fixtures("fixtures.layers"))
+
+        assertThat(offendersOf(result.failureReport.details))
+            .containsExactlyInAnyOrder("domain.Invoice", "application.Report", "presentation.OrderView")
+    }
+
+    @Test
+    fun `the domain dependency rule catches the model holding SQL, a session or a use case, and only those`() {
+        val result = Rules.domainFrameworks("fixtures.layers").evaluate(fixtures("fixtures.layers"))
+
+        assertThat(offendersOf(result.failureReport.details))
+            .containsExactlyInAnyOrder("domain.Ledger", "domain.Basket", "domain.Invoice")
+    }
 }

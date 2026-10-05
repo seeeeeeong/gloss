@@ -1,8 +1,8 @@
 package gloss.common.security
 
 import gloss.TestcontainersConfiguration
-import gloss.domain.account.Browser
-import gloss.domain.account.Members
+import gloss.account.Browser
+import gloss.account.Members
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
