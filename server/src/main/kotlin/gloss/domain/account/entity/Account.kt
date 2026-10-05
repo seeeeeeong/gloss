@@ -74,15 +74,21 @@ class Account private constructor(
         sessionEpoch += 1
     }
 
-    fun disable(at: Instant) {
+    /** False when already disabled: nothing changes, so nothing is to be recorded. */
+    fun disable(at: Instant): Boolean {
+        if (!isActive) return false
         status = AccountStatus.DISABLED
         disabledAt = at
         sessionEpoch += 1
+        return true
     }
 
-    fun enable() {
+    /** False when already active. */
+    fun enable(): Boolean {
+        if (isActive) return false
         status = AccountStatus.ACTIVE
         disabledAt = null
+        return true
     }
 
     fun rename(displayName: String) {

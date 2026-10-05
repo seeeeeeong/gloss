@@ -44,15 +44,21 @@ from memory.
 
 - **Layout**: `gloss/common/` (config, entity, error, security, util), `gloss/infra/` (external systems),
   and one package per feature under `gloss/domain/`:
-  `controller/ dto/ entity/ exception/ policy/ repository/ security/ service/`.
+  `controller/ dto/ entity/ event/ exception/ policy/ repository/ security/ service/`.
 - **Modules**: each `gloss/domain/<feature>` is a Spring Modulith module, declared in its
   `ModuleMetadata.kt` (`@ApplicationModule(id = "<feature>", allowedDependencies = ...)`;
-  detection is `explicitly-annotated`). Its sub-packages are hidden; `service/` is opened as
-  the named interface `<feature> :: service`. `common` is an open module. `ModularityTest`
+  detection is `explicitly-annotated`). Its sub-packages are hidden; `service/` and `event/`
+  are opened as the named interfaces `<feature> :: service` and `<feature> :: event`. `common`
+  is an open module. `ModularityTest`
   verifies the boundaries and that no package under `domain/` forgot to declare itself.
 - **Layers** inside a module: `controller/` → `service/` (transaction boundary) →
   `repository/` (JPA + Kotlin JDSL, or `JdbcXxx` on JdbcClient). No use-case interfaces, no
   ports; an interface only for an external system (`LlmGateway`, `BookSourceGateway`).
+- **Events** are for side effects another module owns (audit, key revocation). A past-tense
+  data class in `event/` with an `eventId` (UUIDv7) and `occurredAt`, ids only, never a secret.
+  The listener is `@ApplicationModuleListener(id = "<module>.<source>")`: it runs after commit
+  on its own thread, and `event_publication` redelivers it, so it must be idempotent. The id
+  and the event's class name and fields are stored, so changing them strands waiting events.
 - **Rules** (`XxxPolicy`, `XxxDecision`, `XxxParser`, `XxxPrompt`, `XxxCheck`, `XxxCipher`) sit
   in `policy/` and depend only on Kotlin, the JDK's pure packages and other rule classes;
   `ArchitectureTest` checks it with an allow list.

@@ -9,6 +9,11 @@ import gloss.domain.account.dto.MyAccountResponse
 import gloss.domain.account.dto.PasswordChangeRequest
 import gloss.domain.account.dto.ProfileUpdateRequest
 import gloss.domain.account.entity.Account
+import gloss.domain.account.event.AccountCreated
+import gloss.domain.account.event.PasswordChanged
+import gloss.domain.account.event.SignInFailed
+import gloss.domain.account.event.SignInFailure
+import gloss.domain.account.event.SignedIn
 import gloss.domain.account.exception.AccountError
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
@@ -19,6 +24,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.simple.JdbcClient
+import org.springframework.test.context.event.ApplicationEvents
+import org.springframework.test.context.event.RecordApplicationEvents
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.sql.Timestamp
@@ -32,6 +39,7 @@ import kotlin.random.Random
 @SpringBootTest
 @Import(TestcontainersConfiguration::class, MutableClock.Config::class)
 @Transactional
+@RecordApplicationEvents
 class AccountServiceTest(
     @Autowired private val accountService: AccountService,
     @Autowired private val clock: MutableClock,
@@ -39,6 +47,78 @@ class AccountServiceTest(
     @Autowired private val entityManager: EntityManager,
 ) {
     private val password = "correct horse battery"
+
+    private inline fun <reified T : Any> ApplicationEvents.published(): List<T> = stream(T::class.java).toList()
+
+    private fun failToSignIn(loginId: String) {
+        assertFails(AccountError.LOGIN_FAILED) {
+            accountService.login(LoginRequest(loginId, "not the password at all"), IP)
+        }
+    }
+
+    @Test
+    fun `the first operator is announced as created by nobody`(
+        @Autowired events: ApplicationEvents,
+    ) {
+        val account = operator()
+
+        val created = events.published<AccountCreated>().single()
+        assertThat(created.accountId).isEqualTo(account.id)
+        assertThat(created.operatorId).isNull()
+        assertThat(created.role).isEqualTo("operator")
+    }
+
+    @Test
+    fun `signing in announces who, from where and when`(
+        @Autowired events: ApplicationEvents,
+    ) {
+        val account = operator()
+
+        assertThat(events.published<SignedIn>().single())
+            .returns(account.id, SignedIn::accountId)
+            .returns(IP, SignedIn::ip)
+            .returns(clock.instant(), SignedIn::occurredAt)
+    }
+
+    @Test
+    fun `a failed sign-in announces why, and the account only when there is one`(
+        @Autowired events: ApplicationEvents,
+    ) {
+        val account = operator()
+        failToSignIn("nobody")
+        failToSignIn("root")
+        entityManager.flush()
+        jdbc.sql("update account set status = 'disabled', disabled_at = now() where login_id = 'root'").update()
+        entityManager.clear()
+        assertFails(AccountError.LOGIN_FAILED) { accountService.login(LoginRequest("root", password), IP) }
+
+        assertThat(events.published<SignInFailed>().map { it.accountId to it.reason }).containsExactly(
+            null to SignInFailure.UNKNOWN_LOGIN_ID,
+            account.id to SignInFailure.WRONG_PASSWORD,
+            account.id to SignInFailure.DISABLED,
+        )
+    }
+
+    @Test
+    fun `an attempt refused by the limit announces nothing, so it cannot flood the audit`(
+        @Autowired events: ApplicationEvents,
+    ) {
+        operator()
+        repeat(6) { runCatching { accountService.login(LoginRequest("root", "not the password at all"), IP) } }
+
+        assertThat(events.published<SignInFailed>()).hasSize(5)
+    }
+
+    @Test
+    fun `changing the password announces it`(
+        @Autowired events: ApplicationEvents,
+    ) {
+        val account = operator()
+
+        accountService.changePassword(account.id, PasswordChangeRequest(password, "a new and longer password"))
+
+        assertThat(events.published<PasswordChanged>().single().accountId).isEqualTo(account.id)
+    }
 
     private companion object {
         const val IP = "203.0.113.7"
