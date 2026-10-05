@@ -31,7 +31,7 @@ spring:
     # It would make a default user and log its generated password.
     exclude: org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
   config:
-    import: optional:file:.env[.properties]
+    import: optional:file:.env[.dotenv]
   datasource:
     url: ${GLOSS_DB_URL:jdbc:postgresql://127.0.0.1:55434/gloss}
     username: ${GLOSS_DB_USER:gloss}
