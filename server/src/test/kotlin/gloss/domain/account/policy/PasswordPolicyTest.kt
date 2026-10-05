@@ -5,18 +5,18 @@ import org.junit.jupiter.api.Test
 
 class PasswordPolicyTest {
     @Test
-    fun `15 characters is enough`() {
-        assertThat(PasswordPolicy.check("a".repeat(15))).isEqualTo(PasswordDecision.Accepted)
+    fun `10 characters is enough`() {
+        assertThat(PasswordPolicy.check("a".repeat(10))).isEqualTo(PasswordDecision.Accepted)
     }
 
     @Test
-    fun `14 characters is too short`() {
-        assertThat(PasswordPolicy.check("a".repeat(14))).isEqualTo(PasswordDecision.TooShort)
+    fun `9 characters is too short`() {
+        assertThat(PasswordPolicy.check("a".repeat(9))).isEqualTo(PasswordDecision.TooShort)
     }
 
     @Test
     fun `length counts characters, not bytes`() {
-        assertThat(PasswordPolicy.check("가".repeat(15))).isEqualTo(PasswordDecision.Accepted)
+        assertThat(PasswordPolicy.check("가".repeat(10))).isEqualTo(PasswordDecision.Accepted)
     }
 
     @Test
