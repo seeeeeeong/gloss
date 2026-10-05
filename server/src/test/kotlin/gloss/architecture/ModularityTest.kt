@@ -15,8 +15,8 @@ class ModularityTest {
     }
 
     @Test
-    fun `every package under domain is a declared module`() {
-        assertThat(Modularity.undeclaredDomainPackages(GlossApplication::class.java, modules)).isEmpty()
+    fun `every package under gloss is a declared module`() {
+        assertThat(Modularity.undeclaredModulePackages(GlossApplication::class.java, modules)).isEmpty()
     }
 
     @Test

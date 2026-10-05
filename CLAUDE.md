@@ -42,38 +42,49 @@ from memory.
 
 ## Architecture
 
-- **Layout**: `gloss/common/` (config, entity, error, security, util), `gloss/infra/` (external systems),
-  and one package per feature under `gloss/domain/`:
-  `controller/ dto/ entity/ event/ exception/ policy/ repository/ security/ service/`.
-- **Modules**: each `gloss/domain/<feature>` is a Spring Modulith module, declared in its
-  `ModuleMetadata.kt` (`@ApplicationModule(id = "<feature>", allowedDependencies = ...)`;
-  detection is `explicitly-annotated`). Its sub-packages are hidden; `service/` and `event/`
-  are opened as the named interfaces `<feature> :: service` and `<feature> :: event`. `common`
-  is an open module. `ModularityTest`
-  verifies the boundaries and that no package under `domain/` forgot to declare itself.
-- **Layers** inside a module: `controller/` → `service/` (transaction boundary) →
-  `repository/` (JPA + Kotlin JDSL, or `JdbcXxx` on JdbcClient). No use-case interfaces, no
-  ports; an interface only for an external system (`LlmGateway`, `BookSourceGateway`).
+- **Layout**: `gloss/common/` (config, entity, error, security, util) and one package per
+  bounded context directly under `gloss/` (`gloss/account`, `gloss/audit`), each in four layers:
+
+  | Layer | Holds |
+  |---|---|
+  | `presentation/` | controllers, and the web's `security/` (filters, session) |
+  | `application/` | services (the transaction boundary), `dto/`, the module's `XxxError`, listeners |
+  | `domain/` | entities, value objects, rules, the Spring Data repository, `event/` |
+  | `infrastructure/` | `JdbcXxx` on JdbcClient, files, external clients |
+
+  `presentation → application → domain ← infrastructure`, and `application → infrastructure`
+  for what has no interface. `domain/` uses only the JDK, Kotlin, JPA, Spring Data, other models
+  and `common`'s entity and util.
+  `ArchitectureTest` checks both.
+- **Modules**: each `gloss/<context>` is a Spring Modulith module, declared in its
+  `ModuleMetadata.kt` (`@ApplicationModule(id = "<context>", allowedDependencies = ...)`;
+  detection is `explicitly-annotated`). Its layers are hidden; `application/` and
+  `domain/event/` are opened as the named interfaces `<context> :: application` and
+  `<context> :: event`. `common` is an open module. `ModularityTest` verifies the boundaries
+  and that no package under `gloss/` forgot to declare itself.
+- **No ports**: no use-case interfaces; an interface only for an external system
+  (`LlmGateway`, `BookSourceGateway`).
 - **Events** are for side effects another module owns (audit, key revocation). A past-tense
-  data class in `event/` with an `eventId` (UUIDv7) and `occurredAt`, ids only, never a secret.
-  The listener is `@ApplicationModuleListener(id = "<module>.<source>")`: it runs after commit
-  on its own thread, and `event_publication` redelivers it, so it must be idempotent. The id
-  and the event's class name and fields are stored, so changing them strands waiting events.
+  data class in `domain/event/` with an `eventId` (UUIDv7) and `occurredAt`, ids only, never a
+  secret. The listener is `@ApplicationModuleListener(id = "<module>.<source>")`: it runs after
+  commit on its own thread, and `event_publication` redelivers it, so it must be idempotent.
+  The id and the event's class name and fields are stored, so changing them strands waiting
+  events.
 - **Rules** (`XxxPolicy`, `XxxDecision`, `XxxParser`, `XxxPrompt`, `XxxCheck`, `XxxCipher`) sit
-  in `policy/` and depend only on Kotlin, the JDK's pure packages and other rule classes;
+  in `domain/` and depend only on Kotlin, the JDK's pure packages and other rule classes;
   `ArchitectureTest` checks it with an allow list.
 - **Persistence**: JPA for accounts, keys, books, TOCs, plans, posts and chat sessions.
   JdbcClient for append-only ledgers, the job queue and chat messages. Append-only tables are
   guarded by triggers and, in JPA, `@Immutable`.
-- **DTOs**: `XxxRequest` / `XxxResponse` data classes in the module's `dto/`. The service
-  takes requests and returns responses (`MyAccountResponse.from(account)`); a method another module
-  calls returns a type of its own from `service/`, since `dto/` is hidden. Entities never
+- **DTOs**: `XxxRequest` / `XxxResponse` data classes in `application/dto/`. The service
+  takes requests and returns responses (`MyAccountResponse.from(account)`); a method another
+  module calls returns a type of its own from `application/`, since `dto/` is hidden. Entities never
   leave through a controller. Validation annotations name their target (`@field:NotBlank`).
 - **Controllers** are thin: one service call, its result returned as is. They return the response
   type, never a `ResponseEntity`; a status other than 200 is `@ResponseStatus`. Sign-in and
   password change also call `SignedInSession`, since session work is not the service's.
   One step per line with a named value, rather than calls nested inside calls.
-- **Errors**: each module has an `exception/XxxError` enum implementing `ErrorCode` (status,
+- **Errors**: each module has an `application/XxxError` enum implementing `ErrorCode` (status,
   `module.snake_case` code, Korean message shown as is). The service throws
   `GlossException(XxxError.Y)`; `GlobalExceptionHandler` and the security filters answer
   `{code, message}`. A sealed result only where the caller really branches on it.
