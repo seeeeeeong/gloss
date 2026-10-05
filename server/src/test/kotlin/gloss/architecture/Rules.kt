@@ -47,16 +47,26 @@ internal object Rules {
     // Only our own classes count: a framework type may end in Decision too.
     private val OWN = arrayOf("gloss..", "fixtures..")
 
-    // A nested class is Outer$AccessPolicy on the JVM; its own name decides.
+    // A value class's companion holds its factory, so it counts as the value class.
+    private fun isValueClass(type: JavaClass): Boolean =
+        type.isAnnotatedWith(JvmInline::class.java) || type.enclosingClass.map(::isValueClass).orElse(false)
+
+    // A nested class is Outer$AccessPolicy on the JVM; its own name decides. A value class
+    // (LoginId, Password) holds a rule too.
     private fun isRule(type: JavaClass) =
-        type.name
-            .substringAfterLast('.')
-            .split('$')
-            .any { RULE_NAME.matches(it) } &&
-            resideInAnyPackage(*OWN).test(type)
+        resideInAnyPackage(*OWN).test(type) &&
+            (
+                isValueClass(type) ||
+                    type.name
+                        .substringAfterLast('.')
+                        .split('$')
+                        .any { RULE_NAME.matches(it) }
+            )
 
     private val ruleClasses =
-        DescribedPredicate.describe<JavaClass>("named as a rule (Policy, Decision, Parser, Prompt, Check, Cipher)") {
+        DescribedPredicate.describe<JavaClass>(
+            "named as a rule (Policy, Decision, Parser, Prompt, Check, Cipher) or a value class",
+        ) {
             isRule(it)
         }
 

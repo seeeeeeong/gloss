@@ -11,7 +11,7 @@ class RulesTest {
     private val offender = Regex("^\\w+ <fixtures\\.framework\\.(\\w+)")
 
     @Test
-    fun `the purity rule catches a rule class reaching past the JDK, directly or not, and only those`() {
+    fun `the purity rule catches a rule or value class reaching past the JDK, directly or not, and only those`() {
         val result = Rules.pure().evaluate(fixtures("fixtures.framework"))
 
         val offenders =
@@ -28,6 +28,7 @@ class RulesTest {
                 "EnvironmentPolicy",
                 "ConsolePolicy",
                 "Container",
+                "LeakyValue",
             )
     }
 

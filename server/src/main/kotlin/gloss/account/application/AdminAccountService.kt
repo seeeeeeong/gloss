@@ -10,8 +10,8 @@ import gloss.account.domain.AccountDraft
 import gloss.account.domain.AccountRepository
 import gloss.account.domain.AccountRole
 import gloss.account.domain.AccountStatus
-import gloss.account.domain.DisplayNamePolicy
-import gloss.account.domain.LoginIdPolicy
+import gloss.account.domain.DisplayName
+import gloss.account.domain.LoginId
 import gloss.account.domain.TemporaryPasswordPolicy
 import gloss.account.domain.event.AccountCreated
 import gloss.account.domain.event.AccountDisabled
@@ -46,7 +46,7 @@ class AdminAccountService(
         request: AccountCreateRequest,
     ): CreatedAccountResponse {
         val draft = draftOf(request)
-        if (accountRepository.existsByLoginId(draft.loginId)) throw GlossException(AccountError.LOGIN_ID_TAKEN)
+        if (accountRepository.existsByLoginId(draft.loginId.value)) throw GlossException(AccountError.LOGIN_ID_TAKEN)
         val temporaryPassword = TemporaryPasswordPolicy.generate()
         val now = clock.instant()
         val account =
@@ -118,8 +118,8 @@ class AdminAccountService(
     private fun publish(event: AccountEvent) = applicationEventPublisher.publishEvent(event)
 
     private fun draftOf(request: AccountCreateRequest): AccountDraft {
-        val loginId = LoginIdPolicy.normalize(request.loginId) ?: throw GlossException(AccountError.INVALID_LOGIN_ID)
-        val displayName = DisplayNamePolicy.normalize(request.displayName)
+        val loginId = LoginId.of(request.loginId) ?: throw GlossException(AccountError.INVALID_LOGIN_ID)
+        val displayName = DisplayName.of(request.displayName)
         val role = AccountRole.of(request.role)
         val error =
             when {

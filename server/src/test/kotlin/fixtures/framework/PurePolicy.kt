@@ -2,7 +2,7 @@ package fixtures.framework
 
 import java.time.Duration
 
-/** Keeps the rule: the standard library, java.time and another rule class. */
+/** Keeps the rule: the standard library, java.time, another rule class and a value class. */
 class PurePolicy(
     private val window: Duration,
 ) {
@@ -14,4 +14,6 @@ class PurePolicy(
         } else {
             PureDecision.DENY
         }
+
+    fun label(value: PureValue): String = value.text
 }

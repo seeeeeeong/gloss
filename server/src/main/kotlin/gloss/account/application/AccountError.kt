@@ -41,7 +41,7 @@ enum class AccountError(
     companion object {
         fun of(decision: PasswordDecision): AccountError? =
             when (decision) {
-                PasswordDecision.Accepted -> null
+                is PasswordDecision.Accepted -> null
                 PasswordDecision.TooShort -> PASSWORD_TOO_SHORT
                 PasswordDecision.TooLong -> PASSWORD_TOO_LONG
                 PasswordDecision.Blank -> PASSWORD_BLANK
