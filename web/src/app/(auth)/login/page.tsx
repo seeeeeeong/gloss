@@ -9,7 +9,6 @@ export default async function LoginPage() {
   return (
     <>
       <h1 className="page-title">로그인</h1>
-      <p className="page-lead">계정은 운영자가 만들어 드립니다.</p>
       <LoginForm />
     </>
   )
