@@ -1,5 +1,6 @@
 package gloss.domain.account.security
 
+import gloss.common.security.SessionAccount
 import gloss.domain.account.dto.SignedInAccount
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
@@ -20,7 +21,7 @@ class SignedInSession(
         request: HttpServletRequest,
         response: HttpServletResponse,
     ) {
-        remember(SessionAccount(signedIn.me.id, signedIn.role, signedIn.sessionEpoch), request, response)
+        remember(SessionAccount(signedIn.account.id, signedIn.role.authority, signedIn.sessionEpoch), request, response)
         csrfTokenRepository.saveToken(csrfTokenRepository.generateToken(request), request, response)
     }
 

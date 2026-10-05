@@ -3,7 +3,7 @@ package gloss.domain.account.dto
 import gloss.domain.account.entity.Account
 import java.util.UUID
 
-data class MeResponse(
+data class MyAccountResponse(
     val id: UUID,
     val loginId: String,
     val displayName: String,
@@ -12,7 +12,7 @@ data class MeResponse(
 ) {
     companion object {
         fun from(account: Account) =
-            MeResponse(
+            MyAccountResponse(
                 id = account.id,
                 loginId = account.loginId,
                 displayName = account.displayName,

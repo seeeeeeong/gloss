@@ -2,7 +2,7 @@ package gloss.domain.account.service
 
 import gloss.common.error.GlossException
 import gloss.domain.account.dto.LoginRequest
-import gloss.domain.account.dto.MeResponse
+import gloss.domain.account.dto.MyAccountResponse
 import gloss.domain.account.dto.PasswordChangeRequest
 import gloss.domain.account.dto.ProfileUpdateRequest
 import gloss.domain.account.dto.SignedInAccount
@@ -85,7 +85,7 @@ class AccountService(
             throw GlossException(AccountError.LOGIN_FAILED)
         }
         accountRepository.recordLogin(signedIn.id, now)
-        return SignedInAccount(MeResponse.from(signedIn), signedIn.role, signedIn.sessionEpoch)
+        return SignedInAccount(MyAccountResponse.from(signedIn), signedIn.role, signedIn.sessionEpoch)
     }
 
     private fun requireNotThrottled(
@@ -102,18 +102,18 @@ class AccountService(
         if (decision == LoginThrottleDecision.Blocked) throw GlossException(AccountError.TOO_MANY_ATTEMPTS)
     }
 
-    fun getMe(id: UUID): MeResponse = MeResponse.from(accountRepository.findById(id).orElseThrow())
+    fun getMyAccount(id: UUID): MyAccountResponse = MyAccountResponse.from(accountRepository.findById(id).orElseThrow())
 
     @Transactional
     fun updateProfile(
         id: UUID,
         request: ProfileUpdateRequest,
-    ): MeResponse {
+    ): MyAccountResponse {
         val displayName =
             DisplayNamePolicy.normalize(request.displayName) ?: throw GlossException(AccountError.INVALID_DISPLAY_NAME)
         val account = accountRepository.findById(id).orElseThrow()
         account.rename(displayName)
-        return MeResponse.from(account)
+        return MyAccountResponse.from(account)
     }
 
     /** Returns the new session epoch, which ends every other session. */

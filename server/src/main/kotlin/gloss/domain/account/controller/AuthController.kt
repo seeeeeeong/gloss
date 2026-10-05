@@ -2,7 +2,7 @@ package gloss.domain.account.controller
 
 import gloss.domain.account.dto.CsrfResponse
 import gloss.domain.account.dto.LoginRequest
-import gloss.domain.account.dto.MeResponse
+import gloss.domain.account.dto.MyAccountResponse
 import gloss.domain.account.dto.toResponse
 import gloss.domain.account.security.SignedInSession
 import gloss.domain.account.service.AccountService
@@ -33,9 +33,9 @@ class AuthController(
         @Valid @RequestBody request: LoginRequest,
         httpRequest: HttpServletRequest,
         httpResponse: HttpServletResponse,
-    ): MeResponse {
+    ): MyAccountResponse {
         val signedIn = accountService.login(request, httpRequest.remoteAddr)
         signedInSession.start(signedIn, httpRequest, httpResponse)
-        return signedIn.me
+        return signedIn.account
     }
 }

@@ -42,7 +42,7 @@ from memory.
 
 ## Architecture
 
-- **Layout**: `gloss/common/` (config, entity, error, util), `gloss/infra/` (external systems),
+- **Layout**: `gloss/common/` (config, entity, error, security, util), `gloss/infra/` (external systems),
   and one package per feature under `gloss/domain/`:
   `controller/ dto/ entity/ exception/ policy/ repository/ security/ service/`.
 - **Modules**: each `gloss/domain/<feature>` is a Spring Modulith module, declared in its
@@ -60,7 +60,7 @@ from memory.
   JdbcClient for append-only ledgers, the job queue and chat messages. Append-only tables are
   guarded by triggers and, in JPA, `@Immutable`.
 - **DTOs**: `XxxRequest` / `XxxResponse` data classes in the module's `dto/`. The service
-  takes requests and returns responses (`MeResponse.from(account)`); a method another module
+  takes requests and returns responses (`MyAccountResponse.from(account)`); a method another module
   calls returns a type of its own from `service/`, since `dto/` is hidden. Entities never
   leave through a controller. Validation annotations name their target (`@field:NotBlank`).
 - **Controllers** are thin: one service call, its result returned as is. They return the response
@@ -72,7 +72,8 @@ from memory.
   `GlossException(XxxError.Y)`; `GlobalExceptionHandler` and the security filters answer
   `{code, message}`. A sealed result only where the caller really branches on it.
 - **Paths**: `/api/auth/*` for the session (sign-in, sign-out, CSRF), `/api/me/*` for the
-  signed-in account; each module's own controller answers its part of `/api/me`.
+  signed-in account; each module's own controller answers its part of `/api/me` and takes the
+  reader as `@CurrentAccount account: SessionAccount`.
 - **Injected dependencies** are named after their type: `accountService: AccountService`.
 - **Entities** are made by a named factory (`Account.createFirstOperator(...)`) behind a
   private constructor, held in a variable, then saved on the next line.

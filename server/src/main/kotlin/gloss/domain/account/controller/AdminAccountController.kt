@@ -1,14 +1,14 @@
 package gloss.domain.account.controller
 
+import gloss.common.security.CurrentAccount
+import gloss.common.security.SessionAccount
 import gloss.domain.account.dto.AccountCreateRequest
 import gloss.domain.account.dto.AdminAccountResponse
 import gloss.domain.account.dto.CreatedAccountResponse
 import gloss.domain.account.dto.TemporaryPasswordResponse
-import gloss.domain.account.security.SessionAccount
 import gloss.domain.account.service.AdminAccountService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
-import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -30,7 +30,7 @@ class AdminAccountController(
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun create(
-        @AuthenticationPrincipal operator: SessionAccount,
+        @CurrentAccount operator: SessionAccount,
         @Valid @RequestBody request: AccountCreateRequest,
     ): CreatedAccountResponse = adminAccountService.create(operator.id, request)
 
