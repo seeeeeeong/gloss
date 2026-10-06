@@ -55,6 +55,17 @@ spring:
       ddl-auto: validate
 
 gloss:
+  budget:
+    # Starting values for how often one reader's key may be called; each change is its own pull
+    # request that states the cost. A tutor turn and a generation can run together, so four at
+    # once leaves room without letting a loop run wide.
+    in-flight: 4
+    # A reader typing to the tutor stays far below these; a runaway loop or script does not.
+    per-minute: 30
+    per-hour: 300
+    # Ends reservations a crash left open; the first round waits for the instance to settle in.
+    expire-every: PT1M
+    expire-first-after: PT1M
   api-key:
     # version:base64 pairs of 32-byte keys; the newest seals. Kept apart from every other secret.
     master-keys: ${GLOSS_API_KEY_MASTER_KEYS:}

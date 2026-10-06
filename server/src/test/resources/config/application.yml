@@ -2,3 +2,6 @@ gloss:
   api-key:
     # All zeros: tests seal only test keys, and a real master key never belongs in the repository.
     master-keys: "1:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+  budget:
+    # Tests call expireStale themselves; a background round would expire what a moved clock left.
+    expire-first-after: P365D

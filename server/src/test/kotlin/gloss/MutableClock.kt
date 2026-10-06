@@ -18,6 +18,10 @@ class MutableClock(
         now = now.plus(by)
     }
 
+    fun set(at: Instant) {
+        now = at
+    }
+
     /** The bean is shared across tests; each test that moves it starts here. */
     fun reset() {
         now = start
