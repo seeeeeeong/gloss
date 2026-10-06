@@ -37,3 +37,14 @@ export async function serverGet<T>(path: string): Promise<T> {
   if (!response.ok) throw new Error(`GET ${path} answered ${response.status}`)
   return (await response.json()) as T
 }
+
+/** Like serverGet, but a 404 is an answer: the thing does not exist yet. */
+export async function serverFind<T>(path: string): Promise<T | null> {
+  const cookie = (await cookies()).toString()
+  const response = await fetch(`${SERVER_URL}${path}`, { headers: { cookie }, cache: 'no-store' })
+  if (response.status === 404) return null
+  if (response.status === 401) redirect('/login')
+  if (response.status === 403) redirect('/')
+  if (!response.ok) throw new Error(`GET ${path} answered ${response.status}`)
+  return (await response.json()) as T
+}
