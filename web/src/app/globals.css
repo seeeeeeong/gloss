@@ -663,3 +663,36 @@ button:disabled {
 .auth-card .page-title {
   font-size: var(--text-lg);
 }
+
+/* My page: the key on file and this month's figures */
+.notice {
+  margin: 0;
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-accent-soft);
+  font-size: var(--text-sm);
+}
+.key-current {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+}
+.key-last4 {
+  font-family: var(--font-mono);
+}
+.figures {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-2) var(--space-5);
+  margin: 0;
+  font-size: var(--text-sm);
+}
+.figures dt {
+  color: var(--fg-muted);
+}
+.figures dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
