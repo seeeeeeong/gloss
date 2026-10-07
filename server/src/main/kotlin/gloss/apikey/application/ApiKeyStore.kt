@@ -5,6 +5,7 @@ import gloss.apikey.application.dto.ApiKeyResponse
 import gloss.apikey.domain.ApiKey
 import gloss.apikey.domain.ApiKeyRepository
 import gloss.apikey.domain.ApiKeySecret
+import gloss.apikey.domain.ApiKeyStatus
 import gloss.apikey.domain.KeyCipher
 import gloss.apikey.domain.KeyProvider
 import gloss.apikey.domain.event.ApiKeyEvent
@@ -71,6 +72,48 @@ class ApiKeyStore(
         if (reason == KeyRevocation.ACCOUNT_DISABLED && accountService.isActive(accountId)) return
         val apiKey = inUse(accountId) ?: return
         revoke(apiKey, reason, clock.instant())
+    }
+
+    @Transactional
+    fun access(accountId: UUID): KeyAccess {
+        // Under the lock a save or revoke takes, so marking a key unreadable never races a replacement.
+        apiKeyRepository.lockAccount(accountId)
+        val apiKey = inUse(accountId) ?: return KeyAccess.Missing
+        val sealed = apiKey.sealed
+        val opened = sealed?.let { keyCipher.open(it, accountId, apiKey.provider.code) }
+        return when {
+            apiKey.status == ApiKeyStatus.INVALID -> {
+                KeyAccess.Rejected
+            }
+
+            apiKey.status == ApiKeyStatus.UNREADABLE -> {
+                KeyAccess.Unreadable
+            }
+
+            opened == null -> {
+                apiKey.markUnreadable()
+                KeyAccess.Unreadable
+            }
+
+            else -> {
+                KeyAccess.Usable(keyId = apiKey.id, secret = opened)
+            }
+        }
+    }
+
+    @Transactional
+    fun markRejected(
+        accountId: UUID,
+        keyId: UUID,
+    ) {
+        // Under the lock a save or revoke takes, so a key replaced meanwhile is not the one marked.
+        apiKeyRepository.lockAccount(accountId)
+        inUse(accountId)?.takeIf { it.id == keyId }?.markRejected()
+    }
+
+    @Transactional
+    fun recordUse(keyId: UUID) {
+        apiKeyRepository.recordUse(keyId, clock.instant())
     }
 
     @Transactional(readOnly = true)

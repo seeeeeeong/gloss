@@ -15,7 +15,12 @@ class GlobalExceptionHandler {
     private val log = LoggerFactory.getLogger(javaClass)
 
     @ExceptionHandler(GlossException::class)
-    fun handle(exception: GlossException): ResponseEntity<ErrorResponse> = exception.error.toResponseEntity()
+    fun handle(exception: GlossException): ResponseEntity<ErrorResponse> {
+        // An answer the reader expects, but a cause underneath (a provider's failure) is the
+        // operator's to see. Types and frames only, as below.
+        exception.cause?.let { log.warn("{} caused by{}", exception.error.code, trace(it)) }
+        return exception.error.toResponseEntity()
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException::class, HttpMessageNotReadableException::class)
     fun handleInvalidInput(): ResponseEntity<ErrorResponse> = CommonError.INVALID_INPUT.toResponseEntity()

@@ -1,7 +1,9 @@
 package gloss.apikey.domain
 
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.data.jpa.repository.Query
+import java.time.Instant
 import java.util.UUID
 
 interface ApiKeyRepository : JpaRepository<ApiKey, UUID> {
@@ -16,4 +18,12 @@ interface ApiKeyRepository : JpaRepository<ApiKey, UUID> {
         nativeQuery = true,
     )
     fun lockAccount(accountId: UUID): Int
+
+    // A bulk update leaves the version alone, so a use never collides with a save or a revoke.
+    @Modifying
+    @Query("update ApiKey k set k.lastUsedAt = :at where k.id = :id")
+    fun recordUse(
+        id: UUID,
+        at: Instant,
+    ): Int
 }

@@ -28,8 +28,10 @@ code it guards.
 
 ## Constraints of the model API
 
-DeepSeek, OpenAI-compatible chat completions, called through Spring AI with the reader's own
-key. These fail silently when gotten wrong: the request succeeds and the reader's bill grows.
+DeepSeek, OpenAI-compatible chat completions, called with the reader's own key through
+`LlmService` only: it opens the key, reserves, streams through `LlmGateway`, and settles or
+releases on every path. The client is our own (`DeepSeekLlmGateway`), so the provider's exact
+usage fields reach the ledger; another provider is another `LlmGateway`. These fail silently when gotten wrong: the request succeeds and the reader's bill grows.
 Prices, limits and model ids are verified against DeepSeek's documentation, never written
 from memory.
 
@@ -61,7 +63,9 @@ from memory.
   `ModuleMetadata.kt` (`@ApplicationModule(id = "<context>", allowedDependencies = ...)`;
   detection is `explicitly-annotated`). Its layers are hidden; `application/` and
   `domain/event/` are opened as the named interfaces `<context> :: application` and
-  `<context> :: event`. `common` is an open module. `ModularityTest` verifies the boundaries
+  `<context> :: event`; a module may open a package of value types its callers need, as
+  `llm :: chat` (`domain/chat/`: messages, roles, thinking, finish reasons), rather than copy
+  them into `application/`. `common` is an open module. `ModularityTest` verifies the boundaries
   and that no package under `gloss/` forgot to declare itself.
 - **No ports**: no use-case interfaces; an interface only for an external system
   (`LlmGateway`, `BookSourceGateway`).
