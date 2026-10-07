@@ -71,6 +71,12 @@ gloss:
     master-keys: ${GLOSS_API_KEY_MASTER_KEYS:}
   deepseek:
     base-url: ${GLOSS_DEEPSEEK_BASE_URL:https://api.deepseek.com}
+    # The longest gap allowed between two pieces of a stream: long enough for a slow first token
+    # after a large prompt, short enough that a stalled connection does not hold a reservation.
+    idle-timeout: PT2M
+    # The longest a whole call may run; under budget's 30-minute expiry, so a live call is never
+    # expired as a crash's leftover and its settle always lands.
+    call-deadline: PT20M
   first-operator:
     login-id: ${GLOSS_FIRST_OPERATOR_LOGIN_ID:}
     password: ${GLOSS_FIRST_OPERATOR_PASSWORD:}

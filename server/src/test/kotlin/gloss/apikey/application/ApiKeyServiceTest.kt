@@ -177,4 +177,62 @@ class ApiKeyServiceTest(
         assertThat(rows(account).single().ciphertext).isNull()
         assertThat(events.published<ApiKeyRevoked>().map { it.reason }).containsExactly(KeyRevocation.READER)
     }
+
+    @Test
+    fun `a key in use opens to what was typed, for the account's own calls`() {
+        val account = accountId()
+        apiKeyService.save(account, ApiKeySaveRequest(typed))
+
+        val access = apiKeyService.access(account)
+
+        assertThat((access as KeyAccess.Usable).secret).isEqualTo(typed)
+        assertThat(access.toString()).doesNotContain(typed)
+    }
+
+    @Test
+    fun `an account without a key has none to use`() {
+        assertThat(apiKeyService.access(accountId())).isEqualTo(KeyAccess.Missing)
+    }
+
+    @Test
+    fun `a key that no longer opens is marked unreadable and not used`() {
+        val account = accountId()
+        apiKeyService.save(account, ApiKeySaveRequest(typed))
+        entityManager.flush()
+        jdbc.sql("update api_key set ciphertext = '\\x00ff' where account_id = :id").param("id", account).update()
+        entityManager.clear()
+
+        assertThat(apiKeyService.access(account)).isEqualTo(KeyAccess.Unreadable)
+        assertThat(rows(account).single().status).isEqualTo("unreadable")
+    }
+
+    @Test
+    fun `a key the provider refused is marked invalid and not used again`() {
+        val account = accountId()
+        apiKeyService.save(account, ApiKeySaveRequest(typed))
+        val usable = apiKeyService.access(account) as KeyAccess.Usable
+
+        apiKeyService.markRejected(account, usable.keyId)
+
+        assertThat(apiKeyService.access(account)).isEqualTo(KeyAccess.Rejected)
+        assertThat(apiKeyService.current(account).status).isEqualTo("invalid")
+    }
+
+    @Test
+    fun `each use is recorded`() {
+        val account = accountId()
+        apiKeyService.save(account, ApiKeySaveRequest(typed))
+        val usable = apiKeyService.access(account) as KeyAccess.Usable
+
+        apiKeyService.recordUse(usable.keyId)
+
+        entityManager.clear()
+        assertThat(
+            jdbc
+                .sql("select last_used_at from api_key where id = :id")
+                .param("id", usable.keyId)
+                .query()
+                .singleValue(),
+        ).isNotNull()
+    }
 }

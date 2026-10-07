@@ -47,6 +47,22 @@ class ApiKey private constructor(
     var revokedAt: Instant? = null
         protected set
 
+    val sealed: KeyCipher.Sealed?
+        get() {
+            val bytes = ciphertext ?: return null
+            return KeyCipher.Sealed(bytes, checkNotNull(nonce), keyVersion)
+        }
+
+    fun markUnreadable() {
+        status = ApiKeyStatus.UNREADABLE
+        lastError = "does not open with the configured master keys"
+    }
+
+    fun markRejected() {
+        status = ApiKeyStatus.INVALID
+        lastError = "refused by the provider"
+    }
+
     /** False when already revoked. The ciphertext goes, so a key the reader removed never opens again. */
     fun revoke(at: Instant): Boolean {
         if (revokedAt != null) return false

@@ -46,6 +46,9 @@ class GlobalExceptionHandlerTest {
 
         @GetMapping("/broken")
         fun broken(): Unit = error("database password is hunter2")
+
+        @GetMapping("/upstream")
+        fun upstream(): Unit = throw GlossException(SampleError.TAKEN, IllegalStateException("token sk-hunter2"))
     }
 
     private val mvc: MockMvc =
@@ -114,6 +117,19 @@ class GlobalExceptionHandlerTest {
 
         assertThat(output.out).contains("IllegalStateException", message, "GlobalExceptionHandlerTest")
         assertThat(output.out).doesNotContain("hunter2")
+    }
+
+    @Test
+    fun `an error code with a cause answers as itself and logs the cause by type and place, never its message`(
+        output: CapturedOutput,
+    ) {
+        mvc
+            .perform(get("/upstream"))
+            .andExpect(status().isConflict)
+            .andExpect(jsonPath("$.code").value("sample.taken"))
+
+        assertThat(output.out).contains("sample.taken", "IllegalStateException", "GlobalExceptionHandlerTest")
+        assertThat(output.out).doesNotContain("sk-hunter2")
     }
 
     @Test
