@@ -23,6 +23,12 @@ interface AccountRepository : JpaRepository<Account, UUID> {
 
     fun existsByLoginId(loginId: String): Boolean
 
+    // A query, not findById: an account the caller's transaction already holds may be stale.
+    fun existsByIdAndStatus(
+        id: UUID,
+        status: AccountStatus,
+    ): Boolean
+
     fun countByRoleAndStatus(
         role: AccountRole,
         status: AccountStatus,

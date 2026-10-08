@@ -1,5 +1,6 @@
 package gloss.common.error
 
+import gloss.common.util.traceOf
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -18,7 +19,7 @@ class GlobalExceptionHandler {
     fun handle(exception: GlossException): ResponseEntity<ErrorResponse> {
         // An answer the reader expects, but a cause underneath (a provider's failure) is the
         // operator's to see. Types and frames only, as below.
-        exception.cause?.let { log.warn("{} caused by{}", exception.error.code, trace(it)) }
+        exception.cause?.let { log.warn("{} caused by{}", exception.error.code, traceOf(it)) }
         return exception.error.toResponseEntity()
     }
 
@@ -55,17 +56,12 @@ class GlobalExceptionHandler {
     private fun internal(exception: Exception): ResponseEntity<ErrorResponse> {
         val incident = UUID.randomUUID().toString().take(INCIDENT_LENGTH)
         // Types and frames only: a message can carry a password or a decrypted key.
-        log.error("Unhandled exception [{}]{}", incident, trace(exception))
+        log.error("Unhandled exception [{}]{}", incident, traceOf(exception))
         val error = CommonError.INTERNAL
         return ResponseEntity
             .status(error.status)
             .body(ErrorResponse(error.code, "${error.message} (오류 번호 $incident)"))
     }
-
-    private fun trace(exception: Throwable): String =
-        generateSequence(exception) { it.cause }.joinToString("") { cause ->
-            "\n${cause.javaClass.name}" + cause.stackTrace.joinToString("") { "\n\tat $it" }
-        }
 
     private companion object {
         // Eight hex digits are enough to find one failure in a day's log.

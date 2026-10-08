@@ -5,3 +5,7 @@ gloss:
   budget:
     # Tests call expireStale themselves; a background round would expire what a moved clock left.
     expire-first-after: P365D
+  generation:
+    # Tests run the worker and the reaper themselves; in the background they would take other tests' jobs.
+    autostart: false
+    reap-first-after: P365D
