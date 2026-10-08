@@ -14,6 +14,7 @@ import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * DeepSeek's OpenAI-compatible chat completions, streamed (api-docs.deepseek.com). Plain
@@ -59,13 +60,27 @@ class DeepSeekLlmGateway(
                 deadline.toMillis(),
                 TimeUnit.MILLISECONDS,
             )
+        // The caller's check need not be safe to run twice at once, so it never is; a check that finds
+        // another under way skips its turn rather than wait on it, since the other may never return.
+        val checks = ReentrantLock()
+        val asked = {
+            if (!checks.tryLock()) {
+                false
+            } else {
+                try {
+                    isCancelled()
+                } finally {
+                    checks.unlock()
+                }
+            }
+        }
         val ended = CountDownLatch(1)
-        // Before the first piece nothing asks the caller, so this does, while a large prompt goes
-        // out or the provider takes its time; a cancel then closes the connection at once. A thread
-        // per call, since a caller's check is the caller's code and may never return.
+        // The stream asks at every line, but nothing asks while a large prompt goes out, the provider
+        // takes its time or an opened stream stays quiet; this does, every second. A thread per call,
+        // since a caller's check is the caller's code and may never return.
         Thread.ofVirtual().name("llm-cancel-check").start {
             while (!ended.await(CANCEL_POLL.toMillis(), TimeUnit.MILLISECONDS)) {
-                closeIfCancelled(connection, isCancelled, watch)
+                closeIfCancelled(connection, asked, watch)
             }
         }
         try {
@@ -74,7 +89,7 @@ class DeepSeekLlmGateway(
             val status = statusOf(connection, watch)
             // Refused with a status: the provider did not take the request on.
             if (status != HttpURLConnection.HTTP_OK) throw LlmCallFailed(kindOf(status), outputStarted = false)
-            return reader.read(connection = connection, onText = onText, isCancelled = isCancelled, watch = watch)
+            return reader.read(connection = connection, onText = onText, isCancelled = asked, watch = watch)
         } finally {
             ended.countDown()
             overdue.cancel(false)
@@ -183,7 +198,7 @@ class DeepSeekLlmGateway(
         val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(3)
         const val TOO_MANY_REQUESTS = 429
 
-        // How soon a cancel before the first piece closes the call; once pieces flow, each is a check.
+        // How soon a cancel closes a call between lines of the stream, or before it has any.
         val CANCEL_POLL: Duration = Duration.ofSeconds(1)
     }
 }
