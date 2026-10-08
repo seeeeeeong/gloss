@@ -9,6 +9,7 @@ import gloss.account.application.dto.SignedInAccount
 import gloss.account.domain.Account
 import gloss.account.domain.AccountRepository
 import gloss.account.domain.AccountRole
+import gloss.account.domain.AccountStatus
 import gloss.account.domain.DisplayName
 import gloss.account.domain.LoginId
 import gloss.account.domain.LoginThrottleDecision
@@ -143,7 +144,7 @@ class AccountService(
     }
 
     /** For other modules: false for a disabled account or none at all. */
-    fun isActive(id: UUID): Boolean = accountRepository.findById(id).map { it.isActive }.orElse(false)
+    fun isActive(id: UUID): Boolean = accountRepository.existsByIdAndStatus(id, AccountStatus.ACTIVE)
 
     fun getMyAccount(id: UUID): MyAccountResponse = MyAccountResponse.from(accountRepository.findById(id).orElseThrow())
 

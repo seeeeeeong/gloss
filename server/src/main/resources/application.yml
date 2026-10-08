@@ -49,6 +49,11 @@ spring:
       republish-outstanding-events-on-restart: true
   flyway:
     validate-on-migrate: true
+  lifecycle:
+    # A stopping instance lets a running job finish its model call: past the call's deadline, a read
+    # under way may take one idle timeout more (20 + 2 minutes). A job cut short would be run, and
+    # billed, again.
+    timeout-per-shutdown-phase: PT25M
   jpa:
     open-in-view: false
     hibernate:
@@ -77,6 +82,17 @@ gloss:
     # The longest a whole call may run; under budget's 30-minute expiry, so a live call is never
     # expired as a crash's leftover and its settle always lands.
     call-deadline: PT20M
+  generation:
+    # Jobs one instance runs at once, across readers: a handful of invited readers wait little, and a
+    # backlog never runs wide on the home server. Each reader's key is still held to budget's caps.
+    concurrency: 2
+    # The lease is four beats: a worker that is alive keeps its job through three missed ones, while
+    # a dead one's job waits a minute, not the length of a model call, before running again.
+    heartbeat-every: PT15S
+    autostart: true
+    # How long past its lease a dead worker's job may sit: half a lease, cheap since a round is one query.
+    reap-every: PT30S
+    reap-first-after: PT30S
   first-operator:
     login-id: ${GLOSS_FIRST_OPERATOR_LOGIN_ID:}
     password: ${GLOSS_FIRST_OPERATOR_PASSWORD:}
