@@ -16,115 +16,14 @@ import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.function.ThrowingSupplier
 import tools.jackson.databind.json.JsonMapper
+import java.io.IOException
 import java.net.InetSocketAddress
 import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
-class DeepSeekLlmGatewayTest {
-    private val json = JsonMapper()
-    private var server: HttpServer? = null
-    private var body: String? = null
-    private var authorization: String? = null
-    private val request =
-        ChatRequest(
-            model = "deepseek-flash",
-            messages = listOf(ChatMessage(Role.SYSTEM, "rules"), ChatMessage(Role.USER, "question")),
-            maxTokens = 512,
-            thinking = Thinking.DISABLED,
-        )
-
-    private fun chunk(
-        content: String? = null,
-        finish: String? = null,
-    ) = """data: {"choices":[{"index":0,"delta":{"content":${content?.let { "\"$it\"" } ?: "null"}},""" +
-        """"finish_reason":${finish?.let { "\"$it\"" } ?: "null"}}],"usage":null}""" + "\n\n"
-
-    private val usage =
-        """data: {"choices":[],"usage":{"prompt_tokens":30,"prompt_cache_hit_tokens":20,""" +
-            """"prompt_cache_miss_tokens":10,"completion_tokens":7,"total_tokens":37,""" +
-            """"completion_tokens_details":{"reasoning_tokens":3}}}""" + "\n\n"
-
-    private fun thought(text: String) =
-        """data: {"choices":[{"index":0,"delta":{"reasoning_content":"$text"},"finish_reason":null}]}""" + "\n\n"
-
-    private fun answering(
-        idleTimeout: Duration = Duration.ofSeconds(5),
-        deadline: Duration = Duration.ofMinutes(1),
-        handler: (HttpExchange) -> Unit,
-    ): DeepSeekLlmGateway {
-        val started =
-            HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
-                createContext("/chat/completions") { exchange ->
-                    body = exchange.requestBody.readAllBytes().decodeToString()
-                    authorization = exchange.requestHeaders.getFirst("Authorization")
-                    runCatching { handler(exchange) }
-                    exchange.close()
-                }
-                executor =
-                    java.util.concurrent.Executors
-                        .newCachedThreadPool()
-                start()
-            }
-        server = started
-        return DeepSeekLlmGateway(
-            baseUrl = "http://127.0.0.1:${started.address.port}",
-            idleTimeout = idleTimeout,
-            deadline = deadline,
-        )
-    }
-
-    private fun HttpExchange.streams(vararg parts: String) {
-        responseHeaders.add("Content-Type", "text/event-stream")
-        sendResponseHeaders(200, 0)
-        parts.forEach {
-            responseBody.write(it.toByteArray())
-            responseBody.flush()
-        }
-    }
-
-    // More of a stream already under way: the headers went with the first part.
-    private fun HttpExchange.write(part: String) {
-        responseBody.write(part.toByteArray())
-        responseBody.flush()
-    }
-
-    @AfterEach
-    fun stop() {
-        server?.stop(0)
-    }
-
-    @Test
-    fun `a stream is read piece by piece, with how it finished and what it used`() {
-        val gateway =
-            answering {
-                it.streams(
-                    ": keep-alive\n\n",
-                    chunk("Hel"),
-                    chunk("lo"),
-                    chunk(finish = "stop"),
-                    usage,
-                    "data: [DONE]\n\n",
-                )
-            }
-        val pieces = mutableListOf<String>()
-
-        val result =
-            gateway.stream(
-                secret = "sk-reader",
-                request = request,
-                onText = { pieces += it },
-                isCancelled = { false },
-            )
-
-        assertThat(pieces).containsExactly("Hel", "lo")
-        assertThat(result.text).isEqualTo("Hello")
-        assertThat(result.finishReason).isEqualTo(FinishReason.STOP)
-        assertThat(
-            result.usage,
-        ).isEqualTo(TokenUsage(cacheHitTokens = 20, cacheMissTokens = 10, completionTokens = 7, reasoningTokens = 3))
-    }
-
+class DeepSeekLlmGatewayTest : DeepSeekFixture() {
     @Test
     fun `every call says its model, cap and thinking, asks for usage, and carries the reader's key`() {
         answering {
@@ -146,15 +45,6 @@ class DeepSeekLlmGatewayTest {
     }
 
     @Test
-    fun `a cut answer says so`() {
-        val result =
-            answering { it.streams(chunk("par"), chunk(finish = "length"), usage, "data: [DONE]\n\n") }
-                .stream(secret = "sk-reader", request = request, onText = {}, isCancelled = { false })
-
-        assertThat(result.finishReason).isEqualTo(FinishReason.LENGTH)
-    }
-
-    @Test
     fun `a refused key, an empty balance and a rate limit each say which`() {
         fun failure(status: Int) =
             runCatching {
@@ -172,23 +62,6 @@ class DeepSeekLlmGatewayTest {
         assertThat(
             failure(503),
         ).returns(LlmCallFailed.Kind.PROVIDER_ERROR, LlmCallFailed::kind).returns(false, LlmCallFailed::outputStarted)
-    }
-
-    @Test
-    fun `a connection dropped after some text is a network failure that may have billed`() {
-        val gateway = answering { it.streams(chunk("par")) }
-
-        assertThatThrownBy {
-            gateway.stream(
-                secret = "sk-reader",
-                request = request,
-                onText = {},
-                isCancelled = { false },
-            )
-        }.isInstanceOfSatisfying(LlmCallFailed::class.java) {
-            assertThat(it.kind).isEqualTo(LlmCallFailed.Kind.NETWORK)
-            assertThat(it.outputStarted).isTrue()
-        }
     }
 
     @Test
@@ -239,55 +112,6 @@ class DeepSeekLlmGatewayTest {
             assertThat(it.kind).isEqualTo(LlmCallFailed.Kind.NETWORK)
         }
         release.countDown()
-    }
-
-    @Test
-    fun `a connection dropped while the model was only thinking may have billed`() {
-        val gateway = answering { it.streams(thought("let me see")) }
-
-        assertThatThrownBy {
-            gateway.stream(
-                secret = "sk-reader",
-                request = request,
-                onText = {},
-                isCancelled = { false },
-            )
-        }.isInstanceOfSatisfying(LlmCallFailed::class.java) {
-            assertThat(it.kind).isEqualTo(LlmCallFailed.Kind.NETWORK)
-            assertThat(it.outputStarted).isTrue()
-        }
-    }
-
-    @Test
-    fun `a caller whose handler throws is told so, with what may have billed and why`() {
-        val gateway =
-            answering { it.streams(chunk("Hel"), chunk("lo"), chunk(finish = "stop"), usage, "data: [DONE]\n\n") }
-        val broken = IllegalStateException("the socket to the browser closed")
-
-        assertThatThrownBy {
-            gateway.stream(secret = "sk-reader", request = request, onText = { throw broken }, isCancelled = { false })
-        }.isInstanceOfSatisfying(LlmCallFailed::class.java) {
-            assertThat(it.kind).isEqualTo(LlmCallFailed.Kind.CALLER_FAILED)
-            assertThat(it.outputStarted).isTrue()
-            assertThat(it.cause).isSameAs(broken)
-        }
-    }
-
-    @Test
-    fun `an event that is not json is the provider's error`() {
-        val gateway = answering { it.streams(chunk("Hel"), "data: {not json\n\n") }
-
-        assertThatThrownBy {
-            gateway.stream(
-                secret = "sk-reader",
-                request = request,
-                onText = {},
-                isCancelled = { false },
-            )
-        }.isInstanceOfSatisfying(LlmCallFailed::class.java) {
-            assertThat(it.kind).isEqualTo(LlmCallFailed.Kind.PROVIDER_ERROR)
-            assertThat(it.outputStarted).isTrue()
-        }
     }
 
     @Test
@@ -357,41 +181,6 @@ class DeepSeekLlmGatewayTest {
 
         assertThat(refused.promptMayHaveBilled).isFalse()
         assertThat(unsent.promptMayHaveBilled).isFalse()
-    }
-
-    @Test
-    fun `a cancel check that throws mid-stream is the caller's failure, with what may have billed`() {
-        val gateway =
-            answering { it.streams(chunk("Hel"), chunk("lo"), chunk(finish = "stop"), usage, "data: [DONE]\n\n") }
-        var asked = 0
-        val broken = IllegalStateException("session lookup failed")
-
-        assertThatThrownBy {
-            gateway.stream(secret = "sk-reader", request = request, onText = {}, isCancelled = {
-                if (asked++ >
-                    1
-                ) {
-                    throw broken
-                } else {
-                    false
-                }
-            })
-        }.isInstanceOfSatisfying(LlmCallFailed::class.java) {
-            assertThat(it.kind).isEqualTo(LlmCallFailed.Kind.CALLER_FAILED)
-            assertThat(it.outputStarted).isTrue()
-            assertThat(it.cause).isSameAs(broken)
-        }
-    }
-
-    @Test
-    fun `a stream cut after its last chunk, with how it finished and what it used, is complete`() {
-        val result =
-            answering { it.streams(chunk("Hello"), chunk(finish = "stop"), usage) }
-                .stream(secret = "sk-reader", request = request, onText = {}, isCancelled = { false })
-
-        assertThat(result.text).isEqualTo("Hello")
-        assertThat(result.finishReason).isEqualTo(FinishReason.STOP)
-        assertThat(result.usage).isNotNull()
     }
 
     @Test
@@ -476,31 +265,6 @@ class DeepSeekLlmGatewayTest {
         } finally {
             release.countDown()
         }
-    }
-
-    @Test
-    fun `a handler failing to write to its own client is the caller's failure, not the provider's`() {
-        val gateway = answering { it.streams(chunk("Hel"), chunk(finish = "stop"), usage, "data: [DONE]\n\n") }
-        val broken = java.io.IOException("broken pipe to the browser")
-
-        assertThatThrownBy {
-            gateway.stream(secret = "sk-reader", request = request, onText = { throw broken }, isCancelled = { false })
-        }.isInstanceOfSatisfying(LlmCallFailed::class.java) {
-            assertThat(it.kind).isEqualTo(LlmCallFailed.Kind.CALLER_FAILED)
-            assertThat(it.cause).isSameAs(broken)
-        }
-    }
-
-    @Test
-    fun `usage missing a count is no usage, so the call is settled by estimate rather than as free`() {
-        val partial =
-            """data: {"choices":[],"usage":{"prompt_cache_hit_tokens":20,"prompt_cache_miss_tokens":10}}""" + "\n\n"
-
-        val result =
-            answering { it.streams(chunk("Hello"), chunk(finish = "stop"), partial, "data: [DONE]\n\n") }
-                .stream(secret = "sk-reader", request = request, onText = {}, isCancelled = { false })
-
-        assertThat(result.usage).isNull()
     }
 
     @Test
@@ -605,6 +369,102 @@ class DeepSeekLlmGatewayTest {
         } finally {
             stuck.countDown()
             first.join(5_000)
+        }
+    }
+
+    @Test
+    fun `the background check and the stream's checks never ask the caller at once`() {
+        val caller = Thread.currentThread()
+        val backgroundAsking = AtomicBoolean(false)
+        val backgroundAsked = CountDownLatch(1)
+        val streamAsked = CountDownLatch(1)
+        val overlapped = AtomicBoolean(false)
+        val gateway =
+            answering {
+                // The stream opens while the background check is still asking.
+                backgroundAsked.await(5, TimeUnit.SECONDS)
+                it.streams(chunk("Hi"), chunk(finish = "stop"), usage, "data: [DONE]\n\n")
+            }
+
+        val result =
+            gateway.stream(secret = "sk-reader", request = request, onText = {}, isCancelled = {
+                if (Thread.currentThread() == caller) {
+                    if (backgroundAsking.get()) overlapped.set(true)
+                    streamAsked.countDown()
+                } else {
+                    backgroundAsking.set(true)
+                    backgroundAsked.countDown()
+                    streamAsked.await(2, TimeUnit.SECONDS)
+                    backgroundAsking.set(false)
+                }
+                false
+            })
+
+        assertThat(result.finishReason).isEqualTo(FinishReason.STOP)
+        assertThat(overlapped).isFalse()
+    }
+
+    @Test
+    fun `a background check that never returns does not stop the stream reaching its deadline`() {
+        val caller = Thread.currentThread()
+        val backgroundAsked = CountDownLatch(1)
+        val stuck = CountDownLatch(1)
+        val gateway =
+            answering(deadline = Duration.ofSeconds(2)) { exchange ->
+                backgroundAsked.await(5, TimeUnit.SECONDS)
+                exchange.streams(chunk("first"))
+                while (runCatching { exchange.write(": keep-alive\n\n") }.isSuccess) {
+                    stuck.await(100, TimeUnit.MILLISECONDS)
+                }
+            }
+
+        try {
+            val failure =
+                assertTimeoutPreemptively(
+                    Duration.ofSeconds(10),
+                    ThrowingSupplier {
+                        runCatching {
+                            gateway.stream(secret = "sk-reader", request = request, onText = {}, isCancelled = {
+                                if (Thread.currentThread() != caller) {
+                                    backgroundAsked.countDown()
+                                    stuck.await()
+                                }
+                                false
+                            })
+                        }.exceptionOrNull()
+                    },
+                )
+            assertThat(failure).isInstanceOfSatisfying(LlmCallFailed::class.java) {
+                assertThat(it.kind).isEqualTo(LlmCallFailed.Kind.NETWORK)
+            }
+        } finally {
+            stuck.countDown()
+        }
+    }
+
+    @Test
+    fun `a cancel while the opened stream is still quiet is a cancel, not a dropped connection`() {
+        val opened = CountDownLatch(1)
+        val quiet = CountDownLatch(1)
+        val gateway =
+            answering(idleTimeout = Duration.ofSeconds(3)) { exchange ->
+                exchange.responseHeaders.add("Content-Type", "text/event-stream")
+                exchange.sendResponseHeaders(200, 0)
+                exchange.responseBody.flush()
+                opened.countDown()
+                quiet.await(10, TimeUnit.SECONDS)
+            }
+
+        try {
+            assertThatThrownBy {
+                gateway.stream(secret = "sk-reader", request = request, onText = {}, isCancelled = {
+                    opened.count == 0L
+                })
+            }.isInstanceOfSatisfying(LlmCallFailed::class.java) {
+                assertThat(it.kind).isEqualTo(LlmCallFailed.Kind.CANCELLED)
+            }
+        } finally {
+            quiet.countDown()
         }
     }
 }

@@ -98,7 +98,7 @@ internal class DeepSeekStreamReader(
     ): Boolean =
         try {
             isCancelled()
-        } catch (e: RuntimeException) {
+        } catch (e: Exception) {
             throw received.failed(LlmCallFailed.Kind.CALLER_FAILED).apply { initCause(e) }
         }
 
