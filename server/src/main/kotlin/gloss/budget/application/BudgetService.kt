@@ -6,7 +6,6 @@ import gloss.budget.domain.BillingMonthPolicy
 import gloss.budget.domain.CostPolicy
 import gloss.budget.domain.LedgerKind
 import gloss.budget.domain.LedgerRow
-import gloss.budget.domain.SpendDecision
 import gloss.budget.domain.SpendPolicy
 import gloss.budget.domain.SpendingLimit
 import gloss.budget.domain.SpendingLimitRepository
@@ -38,8 +37,7 @@ class BudgetService(
     @Transactional
     fun reserve(request: ReserveRequest): Reservation {
         val rates = request.prices.rates()
-        // A free model or a zero cap still leaves a row the caps can count.
-        val amount = CostPolicy.reserveMicros(request.promptTokens, request.maxTokens, rates).coerceAtLeast(1)
+        val amount = CostPolicy.reserveMicros(request.promptTokens, request.maxTokens, rates)
         jdbcUsageLedger.lock(request.accountId)
         // Read after the lock: a request that waited on it is stamped when it goes out, so the
         // rate, the month and the expiry watermark all see it where it belongs.
@@ -53,14 +51,7 @@ class BudgetService(
                 lastMinute = jdbcUsageLedger.reservesSince(request.accountId, now.minus(MINUTE)),
                 lastHour = jdbcUsageLedger.reservesSince(request.accountId, now.minus(HOUR)),
             )
-        val error =
-            when (SpendPolicy.decide(spend, amount, caps)) {
-                SpendDecision.Allowed -> null
-                SpendDecision.LimitNotSet -> BudgetError.LIMIT_NOT_SET
-                SpendDecision.LimitReached -> BudgetError.LIMIT_REACHED
-                SpendDecision.TooManyInFlight -> BudgetError.TOO_MANY_IN_FLIGHT
-                SpendDecision.TooFrequent -> BudgetError.TOO_FREQUENT
-            }
+        val error = BudgetError.of(SpendPolicy.decide(spend, amount, caps))
         if (error != null) throw GlossException(error)
         val id = UuidV7.at(now)
         jdbcUsageLedger.append(
@@ -89,20 +80,14 @@ class BudgetService(
         reservation: Reservation,
         report: UsageReport,
     ): Boolean {
-        val reserve = reserveOf(reservation)
-        val tokens = CostPolicy.Tokens(report.cacheHitTokens, report.cacheMissTokens, report.completionTokens)
-        val cost = CostPolicy.usageMicros(tokens, reserve.rates)
-        return jdbcUsageLedger.append(
-            reserve.copy(
-                occurredAt = clock.instant(),
-                kind = LedgerKind.SETTLE,
-                amountMicros = cost - reserve.amountMicros,
-                tokens = tokens,
+        val usage =
+            LedgerRow.Usage(
+                tokens = CostPolicy.Tokens(report.cacheHitTokens, report.cacheMissTokens, report.completionTokens),
                 reasoningTokens = report.reasoningTokens,
-                outcome = report.outcome.code,
-                usageEstimated = report.usageEstimated,
-            ),
-        )
+                estimated = report.usageEstimated,
+            )
+        val settled = reserveOf(reservation).settled(clock.instant(), usage, report.outcome.code)
+        return jdbcUsageLedger.append(settled)
     }
 
     /** For a call that failed before it could cost anything. False when it had already ended. */
@@ -111,15 +96,8 @@ class BudgetService(
         reservation: Reservation,
         outcome: Outcome,
     ): Boolean {
-        val reserve = reserveOf(reservation)
-        return jdbcUsageLedger.append(
-            reserve.copy(
-                occurredAt = clock.instant(),
-                kind = LedgerKind.RELEASE,
-                amountMicros = -reserve.amountMicros,
-                outcome = outcome.code,
-            ),
-        )
+        val released = reserveOf(reservation).released(clock.instant(), outcome.code)
+        return jdbcUsageLedger.append(released)
     }
 
     @Transactional(readOnly = true)

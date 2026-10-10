@@ -26,4 +26,11 @@ class CostPolicyTest {
         assertThat(CostPolicy.reserveMicros(promptTokens = 2_000, maxTokens = 1_000, rates = rates))
             .isEqualTo(560 + 420)
     }
+
+    @Test
+    fun `a call that can cost nothing still reserves one micro-dollar, so the caps count it`() {
+        val free = CostPolicy.Rates(hit = 0, miss = 0, out = 0)
+
+        assertThat(CostPolicy.reserveMicros(promptTokens = 2_000, maxTokens = 1_000, rates = free)).isEqualTo(1)
+    }
 }
