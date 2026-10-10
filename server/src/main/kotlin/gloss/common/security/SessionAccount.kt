@@ -2,6 +2,7 @@ package gloss.common.security
 
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken
 import org.springframework.security.core.Authentication
+import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.core.authority.SimpleGrantedAuthority
 import java.io.Serializable
 import java.util.UUID
@@ -20,3 +21,9 @@ data class SessionAccount(
         private const val serialVersionUID = 1L
     }
 }
+
+/** The signed-in [SessionAccount], as a controller parameter. */
+@Target(AnnotationTarget.VALUE_PARAMETER)
+@Retention(AnnotationRetention.RUNTIME)
+@AuthenticationPrincipal
+annotation class CurrentAccount

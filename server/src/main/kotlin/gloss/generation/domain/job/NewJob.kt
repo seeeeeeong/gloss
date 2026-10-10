@@ -8,3 +8,16 @@ data class NewJob(
     val dedupeKey: String,
     val payload: Map<String, String>,
 )
+
+enum class JobKind(
+    val code: String,
+) {
+    PLAN("plan"),
+    POST("post"),
+    CHECK("check"),
+    ;
+
+    companion object {
+        fun of(code: String): JobKind = entries.first { it.code == code }
+    }
+}

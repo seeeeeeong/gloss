@@ -1,6 +1,8 @@
 package gloss.generation.application
 
+import gloss.generation.domain.ClaimedJob
 import gloss.generation.domain.job.JobKind
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Does one kind of job. [handle] runs outside any transaction and may call the model; what it
@@ -12,3 +14,29 @@ interface JobHandler {
 
     fun handle(job: RunningJob): () -> Unit
 }
+
+/** A claimed job while its handler runs. The heartbeat marks it cancelled or lost from another thread. */
+class RunningJob(
+    val claimed: ClaimedJob,
+) {
+    private val cancelRequested = AtomicBoolean(false)
+    private val lost = AtomicBoolean(false)
+
+    val wasCancelled: Boolean get() = cancelRequested.get()
+
+    val wasLost: Boolean get() = lost.get()
+
+    /** For a model call's cancel check: true once nothing this attempt makes can be kept. */
+    fun isCancelled(): Boolean = cancelRequested.get() || lost.get()
+
+    fun requestCancel() = cancelRequested.set(true)
+
+    fun lose() = lost.set(true)
+}
+
+/** A handler's failure. [errorKind] is kept on the job; [retryable] asks for another attempt, if one is left. */
+class JobFailed(
+    val errorKind: String,
+    val retryable: Boolean,
+    cause: Throwable? = null,
+) : RuntimeException(errorKind, cause)

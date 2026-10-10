@@ -26,3 +26,9 @@ object LoginThrottlePolicy {
             LoginThrottleDecision.Allowed
         }
 }
+
+sealed interface LoginThrottleDecision {
+    data object Allowed : LoginThrottleDecision
+
+    data object Blocked : LoginThrottleDecision
+}

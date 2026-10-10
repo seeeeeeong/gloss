@@ -41,9 +41,11 @@ Kotlin + Spring Boot 4 (`server`), Next.js (`web`), PostgreSQL 18.
 - 사용자에게 보이는 에러 메시지에 내부 정보(쿼리, 키, 경로, 스택)가 들어가면 지적한다.
 - 규칙 클래스(`*Policy`, `*Decision`, `*Parser`, `*Prompt`, `*Check`, `*Cipher`)가 Kotlin, 순수 JDK, 다른 규칙 클래스 외의 것(Spring, JPA, DB, HTTP, 리포지토리 등)에 기대면 지적한다.
 - 시각을 `Instant.now()`·`LocalDateTime.now()` 로 직접 얻으면 지적한다. 주입한 `Clock` 을 쓴다.
+- 이벤트 클래스를 다른 클래스 안에 중첩하거나 이름·패키지를 바꾸면 지적한다. `event_publication` 이 클래스 이름으로 저장해 두어 대기 중인 이벤트가 끊긴다.
 
 ### 지적하지 않을 것
 
 - 포매팅, import 순서, 줄 길이 (ktlint, Biome 가 CI 에서 본다).
 - 주석이 없다는 것 (위의 가격·한도·타임아웃은 제외). 오히려 코드를 되풀이하는 주석을 지적한다.
 - 취향 차이의 이름 변경 제안.
+- 밀접한 타입이 한 파일에 있는 것 (`Password.kt` 의 `PasswordDecision`, `AccountEvent.kt` 의 이벤트들, `dto/XxxDto.kt`). 파일 이름은 첫 타입을 따르고 `ConventionsTest` 가 본다.
