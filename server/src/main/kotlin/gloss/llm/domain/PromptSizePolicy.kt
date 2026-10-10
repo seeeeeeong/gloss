@@ -23,4 +23,19 @@ object PromptSizePolicy {
         contents.sumOf { it.toByteArray(Charsets.UTF_8).size.toLong() + FRAMING_PER_MESSAGE } +
             FRAMING_PER_CALL +
             if (thinking) THINKING_HEADER else 0
+
+    /**
+     * The cap, within the model's output ceiling and what the prompt leaves of the context; null
+     * when the prompt leaves nothing.
+     */
+    fun fittedCap(
+        requested: Int,
+        promptTokens: Long,
+        contextTokens: Int,
+        maxOutputTokens: Int,
+    ): Int? {
+        val room = contextTokens - promptTokens
+        if (room < 1) return null
+        return requested.coerceIn(1, maxOutputTokens).coerceAtMost(room.toInt())
+    }
 }
