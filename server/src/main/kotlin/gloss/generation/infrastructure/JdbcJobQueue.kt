@@ -4,6 +4,7 @@ import gloss.common.util.UuidV7
 import gloss.generation.domain.ClaimedJob
 import gloss.generation.domain.JobEnding
 import gloss.generation.domain.Lease
+import gloss.generation.domain.LeaseRenewal
 import gloss.generation.domain.job.JobKind
 import gloss.generation.domain.job.NewJob
 import org.springframework.jdbc.core.simple.JdbcClient
@@ -118,11 +119,11 @@ class JdbcJobQueue(
             .optional()
             .orElse(null)
 
-    /** Extends the lease by [renewFor]. Null when it is lost; otherwise whether the job was asked to stop. */
+    /** Extends the lease by [renewFor], unless another attempt holds the job now. */
     fun heartbeat(
         lease: Lease,
         renewFor: Duration,
-    ): Boolean? =
+    ): LeaseRenewal =
         jdbcClient
             .sql(
                 """
@@ -133,7 +134,8 @@ class JdbcJobQueue(
             .params(fenceOf(lease))
             .query(Boolean::class.java)
             .optional()
-            .orElse(null)
+            .map { cancel -> if (cancel) LeaseRenewal.CancelRequested else LeaseRenewal.Renewed }
+            .orElse(LeaseRenewal.Lost)
 
     /**
      * Ends the attempt's job as [ending] says, or cancelled if a cancel was asked for meanwhile, even

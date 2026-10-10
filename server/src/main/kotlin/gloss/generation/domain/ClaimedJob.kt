@@ -17,3 +17,12 @@ data class Lease(
     val attempt: Int,
     val owner: String,
 )
+
+/** What a heartbeat found: the lease held, held with a cancel asked for, or lost to another attempt. */
+sealed interface LeaseRenewal {
+    data object Renewed : LeaseRenewal
+
+    data object CancelRequested : LeaseRenewal
+
+    data object Lost : LeaseRenewal
+}
