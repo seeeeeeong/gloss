@@ -11,10 +11,14 @@ import gloss.llm.domain.chat.Role
 import gloss.llm.domain.chat.Thinking
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.function.ThrowingSupplier
+import org.springframework.boot.test.system.CapturedOutput
+import org.springframework.boot.test.system.OutputCaptureExtension
 import tools.jackson.databind.json.JsonMapper
 import java.io.IOException
 import java.net.InetSocketAddress
@@ -405,6 +409,37 @@ class DeepSeekLlmGatewayTest : DeepSeekFixture() {
     }
 
     @Test
+    @ExtendWith(OutputCaptureExtension::class)
+    fun `a background check that fails as the answer finishes keeps the answer, and the failure is logged once`(
+        output: CapturedOutput,
+    ) {
+        val caller = Thread.currentThread()
+        val backgroundAsking = CountDownLatch(1)
+        val returned = CountDownLatch(1)
+        val gateway =
+            answering {
+                // The answer finishes while the background check is still asking.
+                backgroundAsking.await(5, TimeUnit.SECONDS)
+                it.streams(chunk("Hi"), chunk(finish = "stop"), usage, "data: [DONE]\n\n")
+            }
+
+        val result =
+            gateway.stream(secret = "sk-reader", request = request, onText = {}, isCancelled = {
+                if (Thread.currentThread() != caller) {
+                    backgroundAsking.countDown()
+                    returned.await(5, TimeUnit.SECONDS)
+                    error("session lookup failed")
+                }
+                false
+            })
+        returned.countDown()
+
+        assertThat(result.finishReason).isEqualTo(FinishReason.STOP)
+        await().atMost(Duration.ofSeconds(3)).until { LATE_FAILURE in output.out }
+        assertThat(output.out).containsOnlyOnce(LATE_FAILURE).doesNotContain("session lookup failed")
+    }
+
+    @Test
     fun `a background check that never returns does not stop the stream reaching its deadline`() {
         val caller = Thread.currentThread()
         val backgroundAsked = CountDownLatch(1)
@@ -466,5 +501,9 @@ class DeepSeekLlmGatewayTest : DeepSeekFixture() {
         } finally {
             quiet.countDown()
         }
+    }
+
+    private companion object {
+        const val LATE_FAILURE = "A cancel check failed as the call ended: java.lang.IllegalStateException"
     }
 }

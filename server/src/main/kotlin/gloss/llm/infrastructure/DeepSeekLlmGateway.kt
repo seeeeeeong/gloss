@@ -4,6 +4,7 @@ import gloss.llm.domain.ChatRequest
 import gloss.llm.domain.ChatResult
 import gloss.llm.domain.LlmCallFailed
 import gloss.llm.domain.LlmGateway
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import tools.jackson.databind.json.JsonMapper
@@ -31,6 +32,7 @@ class DeepSeekLlmGateway(
     @Value("\${gloss.deepseek.idle-timeout}") private val idleTimeout: Duration,
     @Value("\${gloss.deepseek.call-deadline}") private val deadline: Duration,
 ) : LlmGateway {
+    private val log = LoggerFactory.getLogger(javaClass)
     private val json = JsonMapper()
     private val reader = DeepSeekStreamReader(json)
 
@@ -94,6 +96,7 @@ class DeepSeekLlmGateway(
             ended.countDown()
             overdue.cancel(false)
             connection.disconnect()
+            watch.end()?.let(::logUncarried)
         }
     }
 
@@ -112,10 +115,14 @@ class DeepSeekLlmGateway(
                 connection.disconnect()
             }
         } catch (e: Exception) {
-            watch.fail(e)
+            watch.fail(e)?.let(::logUncarried)
             connection.disconnect()
         }
     }
+
+    // A check that failed as the call ended, which neither its answer nor its failure says.
+    private fun logUncarried(failure: Throwable) =
+        log.warn("A cancel check failed as the call ended: {}", failure.javaClass.name)
 
     private fun connectionFor(
         secret: String,
