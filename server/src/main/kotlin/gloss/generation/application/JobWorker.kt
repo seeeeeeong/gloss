@@ -3,6 +3,7 @@ package gloss.generation.application
 import gloss.common.util.UuidV7
 import gloss.common.util.traceOf
 import gloss.generation.domain.ClaimedJob
+import gloss.generation.domain.LeaseRenewal
 import gloss.generation.infrastructure.JdbcJobQueue
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
@@ -140,9 +141,9 @@ class JobWorker(
         running.values.forEach { job ->
             try {
                 when (jdbcJobQueue.heartbeat(job.claimed.lease, lease)) {
-                    null -> job.lose()
-                    true -> job.requestCancel()
-                    false -> Unit
+                    LeaseRenewal.Lost -> job.lose()
+                    LeaseRenewal.CancelRequested -> job.requestCancel()
+                    LeaseRenewal.Renewed -> Unit
                 }
             } catch (e: RuntimeException) {
                 // A missed beat is not a lost lease; the next one may land well before it runs out.

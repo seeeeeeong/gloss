@@ -3,6 +3,7 @@ package gloss.generation.infrastructure
 import gloss.TestcontainersConfiguration
 import gloss.generation.domain.JobEnding
 import gloss.generation.domain.Lease
+import gloss.generation.domain.LeaseRenewal
 import gloss.generation.domain.job.JobKind
 import gloss.generation.domain.job.NewJob
 import org.assertj.core.api.Assertions.assertThat
@@ -142,13 +143,13 @@ class JdbcJobQueueTest(
         jdbcJobQueue.enqueue(job(), now)
         val claimed = checkNotNull(claim())
 
-        assertThat(jdbcJobQueue.heartbeat(claimed.lease, lease)).isFalse()
-        assertThat(jdbcJobQueue.heartbeat(claimed.lease.copy(attempt = 2), lease)).isNull()
-        assertThat(jdbcJobQueue.heartbeat(claimed.lease.copy(owner = "worker-b"), lease)).isNull()
+        assertThat(jdbcJobQueue.heartbeat(claimed.lease, lease)).isEqualTo(LeaseRenewal.Renewed)
+        assertThat(jdbcJobQueue.heartbeat(claimed.lease.copy(attempt = 2), lease)).isEqualTo(LeaseRenewal.Lost)
+        assertThat(jdbcJobQueue.heartbeat(claimed.lease.copy(owner = "worker-b"), lease)).isEqualTo(LeaseRenewal.Lost)
 
         jdbcJobQueue.cancelAll(account, now)
 
-        assertThat(jdbcJobQueue.heartbeat(claimed.lease, lease)).isTrue()
+        assertThat(jdbcJobQueue.heartbeat(claimed.lease, lease)).isEqualTo(LeaseRenewal.CancelRequested)
     }
 
     @Test
