@@ -1,6 +1,7 @@
 package gloss.llm.application
 
 import gloss.common.error.ErrorCode
+import gloss.llm.domain.LlmCallFailed
 import org.springframework.http.HttpStatus
 
 enum class LlmError(
@@ -15,4 +16,22 @@ enum class LlmError(
     INSUFFICIENT_BALANCE(HttpStatus.CONFLICT, "llm.insufficient_balance", "DeepSeek 계정의 잔액이 부족합니다. DeepSeek에서 충전해 주세요"),
     PROVIDER_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "llm.provider_busy", "DeepSeek이 바쁩니다. 잠시 뒤 다시 시도해 주세요"),
     PROVIDER_FAILED(HttpStatus.BAD_GATEWAY, "llm.provider_failed", "DeepSeek에서 답을 받지 못했습니다. 잠시 뒤 다시 시도해 주세요"),
+    ;
+
+    companion object {
+        fun of(kind: LlmCallFailed.Kind): LlmError =
+            when (kind) {
+                LlmCallFailed.Kind.REJECTED_KEY -> KEY_REJECTED
+
+                LlmCallFailed.Kind.INSUFFICIENT_BALANCE -> INSUFFICIENT_BALANCE
+
+                LlmCallFailed.Kind.RATE_LIMITED -> PROVIDER_BUSY
+
+                LlmCallFailed.Kind.PROVIDER_ERROR,
+                LlmCallFailed.Kind.NETWORK,
+                LlmCallFailed.Kind.CANCELLED,
+                LlmCallFailed.Kind.CALLER_FAILED,
+                -> PROVIDER_FAILED
+            }
+    }
 }

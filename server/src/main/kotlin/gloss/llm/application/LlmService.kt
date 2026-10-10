@@ -13,6 +13,8 @@ import gloss.llm.domain.ChatResult
 import gloss.llm.domain.LlmCallFailed
 import gloss.llm.domain.LlmGateway
 import gloss.llm.domain.PromptSizePolicy
+import gloss.llm.domain.SettlementDecision
+import gloss.llm.domain.SettlementPolicy
 import gloss.llm.domain.TokenUsage
 import gloss.llm.domain.chat.FinishReason
 import gloss.llm.domain.chat.Thinking
@@ -59,7 +61,7 @@ class LlmService(
                 thinking =
                     call.thinking == Thinking.ENABLED,
             )
-        val maxTokens = fittedCap(call.maxTokens, promptTokens)
+        val maxTokens = capFor(call, promptTokens)
         val reservation = reserve(call = call, key = key, promptTokens = promptTokens, maxTokens = maxTokens)
         var ended = false
         try {
@@ -92,7 +94,7 @@ class LlmService(
                 } catch (e: LlmCallFailed) {
                     // A call that may have billed is settled or left to expire, never released again;
                     // one that billed nothing is only done once its release went through.
-                    if (e.usage != null || e.outputStarted || e.promptMayHaveBilled) ended = true
+                    if (chargeOf(e) != SettlementDecision.Release) ended = true
                     endFailed(reservation, e, Estimate(promptTokens, maxTokens.toLong()))
                     ended = true
                     if (e.kind == LlmCallFailed.Kind.REJECTED_KEY) {
@@ -104,7 +106,7 @@ class LlmService(
                         // The caller's own error, after paying for what the call may have billed.
                         LlmCallFailed.Kind.CALLER_FAILED -> throw e.cause ?: e
 
-                        else -> throw GlossException(errorOf(e.kind), e)
+                        else -> throw GlossException(LlmError.of(e.kind), e)
                     }
                 }
             ended = true
@@ -136,15 +138,23 @@ class LlmService(
             ),
         )
 
-    // The cap, brought within the model's output ceiling and what the prompt leaves of the context.
-    private fun fittedCap(
-        requested: Int,
+    private fun capFor(
+        call: LlmCall,
         promptTokens: Long,
-    ): Int {
-        val room = DeepSeekModel.CONTEXT_TOKENS - promptTokens
-        if (room < 1) throw GlossException(LlmError.PROMPT_TOO_LONG)
-        return requested.coerceIn(1, DeepSeekModel.MAX_OUTPUT_TOKENS).coerceAtMost(room.toInt())
-    }
+    ): Int =
+        PromptSizePolicy.fittedCap(
+            requested = call.maxTokens,
+            promptTokens = promptTokens,
+            contextTokens = DeepSeekModel.CONTEXT_TOKENS,
+            maxOutputTokens = DeepSeekModel.MAX_OUTPUT_TOKENS,
+        ) ?: throw GlossException(LlmError.PROMPT_TOO_LONG)
+
+    private fun chargeOf(failure: LlmCallFailed): SettlementDecision =
+        SettlementPolicy.decide(
+            usageReported = failure.usage != null,
+            outputStarted = failure.outputStarted,
+            promptMayHaveBilled = failure.promptMayHaveBilled,
+        )
 
     private fun usableKey(call: LlmCall): KeyAccess.Usable =
         when (val access = apiKeyService.access(call.accountId)) {
@@ -175,8 +185,6 @@ class LlmService(
         budgetService.settle(reservation, reportOf(result.usage, outcome, estimate.full()))
     }
 
-    // Before any text the call may still have billed its prompt; after some, it may have billed
-    // all it was allowed. Without the provider's usage, the most it could have is what is kept.
     private fun endFailed(
         reservation: Reservation,
         failure: LlmCallFailed,
@@ -189,20 +197,20 @@ class LlmService(
                 cancelled -> Outcome.CANCELLED_BEFORE_OUTPUT
                 else -> Outcome.ERROR
             }
-        when {
-            failure.usage != null -> {
+        when (chargeOf(failure)) {
+            SettlementDecision.Reported -> {
                 budgetService.settle(reservation, reportOf(failure.usage, outcome, estimate.full()))
             }
 
-            failure.outputStarted -> {
+            SettlementDecision.FullEstimate -> {
                 budgetService.settle(reservation, reportOf(null, outcome, estimate.full()))
             }
 
-            failure.promptMayHaveBilled -> {
+            SettlementDecision.PromptEstimate -> {
                 budgetService.settle(reservation, reportOf(null, outcome, estimate.promptOnly()))
             }
 
-            else -> {
+            SettlementDecision.Release -> {
                 budgetService.release(reservation, outcome)
             }
         }
@@ -238,19 +246,4 @@ class LlmService(
     private companion object {
         val CANCELLED = LlmReply(text = "", finishReason = FinishReason.UNKNOWN, cancelled = true)
     }
-
-    private fun errorOf(kind: LlmCallFailed.Kind): LlmError =
-        when (kind) {
-            LlmCallFailed.Kind.REJECTED_KEY -> LlmError.KEY_REJECTED
-
-            LlmCallFailed.Kind.INSUFFICIENT_BALANCE -> LlmError.INSUFFICIENT_BALANCE
-
-            LlmCallFailed.Kind.RATE_LIMITED -> LlmError.PROVIDER_BUSY
-
-            LlmCallFailed.Kind.PROVIDER_ERROR,
-            LlmCallFailed.Kind.NETWORK,
-            LlmCallFailed.Kind.CANCELLED,
-            LlmCallFailed.Kind.CALLER_FAILED,
-            -> LlmError.PROVIDER_FAILED
-        }
 }
