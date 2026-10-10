@@ -33,7 +33,6 @@ class JdbcJobQueueTest(
         val state: String,
         val attempt: Int,
         val errorKind: String?,
-        val runAfter: Instant,
         val finished: Boolean,
         val cancelRequested: Boolean,
     )
@@ -49,11 +48,30 @@ class JdbcJobQueueTest(
 
     private fun claim(at: Instant = now) = jdbcJobQueue.claim(owner = "worker-a", now = at, lease = lease)
 
+    // Due times run on the database's clock, so a test moves a job's due time there rather than a clock.
+    private fun dueIn(
+        id: UUID,
+        delay: Duration,
+    ) {
+        jdbc
+            .sql("update generation_job set run_after = now() + :ms * interval '1 millisecond' where id = :id")
+            .param("ms", delay.toMillis())
+            .param("id", id)
+            .update()
+    }
+
+    private fun secondsUntilDue(id: UUID): Double =
+        jdbc
+            .sql("select extract(epoch from run_after - now()) from generation_job where id = :id")
+            .param("id", id)
+            .query(Double::class.java)
+            .single()
+
     private fun row(id: UUID): Row =
         jdbc
             .sql(
                 """
-                select state, attempt, error_kind, run_after, finished_at is not null as finished, cancel_requested
+                select state, attempt, error_kind, finished_at is not null as finished, cancel_requested
                 from generation_job where id = :id
                 """.trimIndent(),
             ).param("id", id)
@@ -62,7 +80,6 @@ class JdbcJobQueueTest(
                     state = rs.getString("state"),
                     attempt = rs.getInt("attempt"),
                     errorKind = rs.getString("error_kind"),
-                    runAfter = rs.getTimestamp("run_after").toInstant(),
                     finished = rs.getBoolean("finished"),
                     cancelRequested = rs.getBoolean("cancel_requested"),
                 )
@@ -96,7 +113,7 @@ class JdbcJobQueueTest(
             jdbcJobQueue.retry(
                 lease = second.lease,
                 errorKind = "provider_busy",
-                runAfter = now.plusSeconds(30),
+                delay = Duration.ofSeconds(30),
                 now = now,
             ),
         ).isTrue()
@@ -131,11 +148,20 @@ class JdbcJobQueueTest(
 
     @Test
     fun `a job is not claimed before it is due, nor twice`() {
-        jdbcJobQueue.enqueue(job(), now.plusSeconds(30))
+        val id = jdbcJobQueue.enqueue(job(), now)
+        dueIn(id, Duration.ofSeconds(30))
 
-        assertThat(claim(now)).isNull()
-        assertThat(claim(now.plusSeconds(30))).isNotNull()
-        assertThat(claim(now.plusSeconds(30))).isNull()
+        assertThat(claim()).isNull()
+        dueIn(id, Duration.ZERO)
+        assertThat(claim()).isNotNull()
+        assertThat(claim()).isNull()
+    }
+
+    @Test
+    fun `when a job is due is the database's clock, whatever an instance's clock says`() {
+        jdbcJobQueue.enqueue(job(), now.plus(Duration.ofDays(1)))
+
+        assertThat(claim(now.minus(Duration.ofDays(1)))).isNotNull()
     }
 
     @Test
@@ -166,7 +192,6 @@ class JdbcJobQueueTest(
                 state = "failed",
                 attempt = 1,
                 errorKind = "provider_failed",
-                runAfter = now,
                 finished = true,
                 cancelRequested = false,
             ),
@@ -182,14 +207,16 @@ class JdbcJobQueueTest(
             jdbcJobQueue.retry(
                 lease = claimed.lease,
                 errorKind = "provider_busy",
-                runAfter = now.plusSeconds(30),
+                delay = Duration.ofSeconds(30),
                 now = now,
             ),
         ).isTrue()
 
         assertThat(row(id).state).isEqualTo("queued")
-        assertThat(claim(now.plusSeconds(29))).isNull()
-        assertThat(checkNotNull(claim(now.plusSeconds(30))).lease.attempt).isEqualTo(2)
+        assertThat(secondsUntilDue(id)).isEqualTo(30.0)
+        assertThat(claim()).isNull()
+        dueIn(id, Duration.ZERO)
+        assertThat(checkNotNull(claim()).lease.attempt).isEqualTo(2)
     }
 
     @Test
@@ -237,7 +264,7 @@ class JdbcJobQueueTest(
         jdbcJobQueue.retry(
             lease = claimed.lease,
             errorKind = "provider_busy",
-            runAfter = now.plusSeconds(30),
+            delay = Duration.ofSeconds(30),
             now = now,
         )
 

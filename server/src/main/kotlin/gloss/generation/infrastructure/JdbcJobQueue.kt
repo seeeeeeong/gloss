@@ -52,7 +52,7 @@ class JdbcJobQueue(
             .sql(
                 """
                 insert into generation_job (id, account_id, kind, dedupe_key, payload, state, run_after, created_at)
-                values (:id, :account, :kind, :key, cast(:payload as jsonb), 'queued', :now, :now)
+                values (:id, :account, :kind, :key, cast(:payload as jsonb), 'queued', now(), :now)
                 on conflict (account_id, dedupe_key) where state in ('queued', 'running') do nothing
                 returning id
                 """.trimIndent(),
@@ -92,8 +92,8 @@ class JdbcJobQueue(
     }
 
     /**
-     * The oldest due job, now running under [owner] for [lease]; null when none is due. Leases run on
-     * the database's clock, the one every instance and the reaper share.
+     * The oldest due job, now running under [owner] for [lease]; null when none is due. Due times and
+     * leases run on the database's clock, the one every instance and the reaper share.
      */
     fun claim(
         owner: String,
@@ -107,7 +107,7 @@ class JdbcJobQueue(
                 set state = 'running', attempt = j.attempt + 1, lease_owner = :owner,
                     lease_expires_at = now() + :lease * interval '1 millisecond',
                     started_at = coalesce(j.started_at, :now)
-                from (select id from generation_job where state = 'queued' and run_after <= :now
+                from (select id from generation_job where state = 'queued' and run_after <= now()
                       order by run_after, id limit 1 for update skip locked) due
                 where j.id = due.id
                 returning j.id, j.attempt, j.lease_owner, j.account_id, j.kind, j.max_attempts, j.payload::text
@@ -165,13 +165,13 @@ class JdbcJobQueue(
             .orElse(null)
 
     /**
-     * Puts the attempt's job back in the queue from [runAfter], or ends it cancelled if a cancel was
-     * asked for meanwhile; false when the lease is lost.
+     * Puts the attempt's job back in the queue, due [delay] from now on the database's clock, or ends
+     * it cancelled if a cancel was asked for meanwhile; false when the lease is lost.
      */
     fun retry(
         lease: Lease,
         errorKind: String,
-        runAfter: Instant,
+        delay: Duration,
         now: Instant,
     ): Boolean =
         jdbcClient
@@ -180,11 +180,12 @@ class JdbcJobQueue(
                 update generation_job
                 set state = case when cancel_requested then 'cancelled' else 'queued' end,
                     finished_at = case when cancel_requested then cast(:now as timestamptz) end,
-                    error_kind = :error, run_after = :after, lease_owner = null, lease_expires_at = null
+                    error_kind = :error, run_after = now() + :delay * interval '1 millisecond',
+                    lease_owner = null, lease_expires_at = null
                 where $FENCE
                 """.trimIndent(),
             ).param("error", errorKind)
-            .param("after", Timestamp.from(runAfter))
+            .param("delay", delay.toMillis())
             .param("now", Timestamp.from(now))
             .params(fenceOf(lease))
             .update() == 1

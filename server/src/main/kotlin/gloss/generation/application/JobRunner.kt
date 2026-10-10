@@ -90,7 +90,7 @@ class JobRunner(
                 jdbcJobQueue.retry(
                     lease = claimed.lease,
                     errorKind = failure.errorKind,
-                    runAfter = clock.instant().plus(decision.after),
+                    delay = decision.after,
                     now = clock.instant(),
                 )
             }
