@@ -18,7 +18,6 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.Clock
 import java.time.Duration
-import java.time.Instant
 import java.util.UUID
 
 // Not transactional: the runner commits its own transactions, and a write that fails must roll back for real.
@@ -37,7 +36,7 @@ class JobRunnerTest(
     private data class Row(
         val state: String,
         val errorKind: String?,
-        val runAfter: Instant,
+        val secondsUntilDue: Double,
     )
 
     @BeforeEach
@@ -63,9 +62,9 @@ class JobRunnerTest(
 
     private fun row(job: RunningJob): Row =
         jdbc
-            .sql("select state, error_kind, run_after from generation_job where id = :id")
+            .sql("select state, error_kind, extract(epoch from run_after - now()) from generation_job where id = :id")
             .param("id", job.claimed.lease.jobId)
-            .query { rs, _ -> Row(rs.getString(1), rs.getString(2), rs.getTimestamp(3).toInstant()) }
+            .query { rs, _ -> Row(rs.getString(1), rs.getString(2), rs.getDouble(3)) }
             .single()
 
     private fun state(job: RunningJob) = row(job).state
@@ -143,7 +142,8 @@ class JobRunnerTest(
         val row = row(job)
         assertThat(row.state).isEqualTo("queued")
         assertThat(row.errorKind).isEqualTo("provider_busy")
-        assertThat(row.runAfter).isAfterOrEqualTo(clock.instant().plus(Duration.ofSeconds(29)))
+        // Due on the database's clock, the backoff's 30 seconds from the retry.
+        assertThat(row.secondsUntilDue).isGreaterThanOrEqualTo(29.0)
     }
 
     @Test
@@ -152,7 +152,7 @@ class JobRunnerTest(
         jdbcJobQueue.retry(
             lease = first.claimed.lease,
             errorKind = "provider_busy",
-            runAfter = clock.instant(),
+            delay = Duration.ZERO,
             now = clock.instant(),
         )
         val second =

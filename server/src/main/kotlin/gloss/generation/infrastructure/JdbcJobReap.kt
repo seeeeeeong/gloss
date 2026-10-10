@@ -32,7 +32,7 @@ class JdbcJobReap(
                 set state = case when j.cancel_requested then 'cancelled'
                                  when j.attempt >= j.max_attempts then 'failed' else 'queued' end,
                     finished_at = case when j.cancel_requested or j.attempt >= j.max_attempts then cast(:now as timestamptz) end,
-                    error_kind = 'lease_lost', run_after = :now, lease_owner = null, lease_expires_at = null
+                    error_kind = 'lease_lost', run_after = now(), lease_owner = null, lease_expires_at = null
                 from (select id from generation_job where state = 'running' and lease_expires_at < now()
                       order by lease_expires_at limit :limit for update skip locked) lost
                 where j.id = lost.id
