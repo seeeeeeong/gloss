@@ -205,7 +205,8 @@ class DeepSeekLlmGateway(
         val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(3)
         const val TOO_MANY_REQUESTS = 429
 
-        // How soon a cancel closes a call between lines of the stream, or before it has any.
+        // How soon a cancel closes a call between lines of the stream, or before it has any: at most a
+        // second more output billed after a cancel, for one check a second per call.
         val CANCEL_POLL: Duration = Duration.ofSeconds(1)
     }
 }
