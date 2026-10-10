@@ -1,5 +1,6 @@
 package gloss.budget.application
 
+import gloss.budget.domain.SpendDecision
 import gloss.common.error.ErrorCode
 import org.springframework.http.HttpStatus
 
@@ -21,4 +22,16 @@ enum class BudgetError(
     ),
     TOO_FREQUENT(HttpStatus.TOO_MANY_REQUESTS, "budget.too_frequent", "요청이 너무 잦습니다. 잠시 뒤 다시 시도해 주세요"),
     INVALID_LIMIT(HttpStatus.BAD_REQUEST, "budget.invalid_limit", "한도는 0보다 크고 1,000달러 이하여야 합니다"),
+    ;
+
+    companion object {
+        fun of(decision: SpendDecision): BudgetError? =
+            when (decision) {
+                SpendDecision.Allowed -> null
+                SpendDecision.LimitNotSet -> LIMIT_NOT_SET
+                SpendDecision.LimitReached -> LIMIT_REACHED
+                SpendDecision.TooManyInFlight -> TOO_MANY_IN_FLIGHT
+                SpendDecision.TooFrequent -> TOO_FREQUENT
+            }
+    }
 }

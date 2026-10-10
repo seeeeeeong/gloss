@@ -30,10 +30,13 @@ object CostPolicy {
         return Math.ceilDiv(scaled, PER_RATE)
     }
 
-    /** The most a call can cost: every prompt token missing the cache, every allowed output token spent. */
+    /**
+     * The most a call can cost: every prompt token missing the cache, every allowed output token
+     * spent. At least one, so a free model or a zero cap still leaves a row the caps can count.
+     */
     fun reserveMicros(
         promptTokens: Long,
         maxTokens: Long,
         rates: Rates,
-    ): Long = usageMicros(Tokens(hit = 0, miss = promptTokens, out = maxTokens), rates)
+    ): Long = usageMicros(Tokens(hit = 0, miss = promptTokens, out = maxTokens), rates).coerceAtLeast(1)
 }
