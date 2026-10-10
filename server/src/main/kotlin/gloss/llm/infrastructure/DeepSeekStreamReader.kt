@@ -24,6 +24,8 @@ internal class DeepSeekStreamReader(
         // Thinking bills as output too, though none of it reaches the text.
         var billed = false
 
+        val finished: Boolean get() = finish != null && usage != null
+
         // The last chunk carries both; with them in hand a missing [DONE] loses nothing.
         fun complete(): ChatResult? {
             val reason = finish ?: return null
@@ -79,7 +81,11 @@ internal class DeepSeekStreamReader(
         isCancelled: () -> Boolean,
     ): ChatResult? {
         for (line in lines) {
-            if (cancelled(received, isCancelled)) throw received.failed(LlmCallFailed.Kind.CANCELLED)
+            // Finished and billed: a cancel now would only throw the answer away, as a close at this
+            // point does not either.
+            if (!received.finished && cancelled(received, isCancelled)) {
+                throw received.failed(LlmCallFailed.Kind.CANCELLED)
+            }
             // Blank lines end an event; a line starting with ':' is a comment, as DeepSeek's keep-alive.
             val data = line.takeIf { it.startsWith(DATA) }?.removePrefix(DATA)?.trim() ?: continue
             if (data == DONE) {

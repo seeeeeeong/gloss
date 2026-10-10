@@ -156,6 +156,39 @@ class DeepSeekStreamReaderTest : DeepSeekFixture() {
     }
 
     @Test
+    fun `a cancel that comes once the answer finished with its usage keeps the answer`() {
+        val reading = Thread.currentThread()
+        var asked = 0
+
+        // Five lines go by before the usage arrives; the sixth check would be the first to cancel.
+        val result =
+            answering { it.streams(chunk("Hello"), chunk(finish = "stop"), usage, "data: [DONE]\n\n") }
+                .stream(secret = "sk-reader", request = request, onText = {}, isCancelled = {
+                    Thread.currentThread() == reading && asked++ >= 5
+                })
+
+        assertThat(result.text).isEqualTo("Hello")
+        assertThat(result.finishReason).isEqualTo(FinishReason.STOP)
+        assertThat(result.usage).isNotNull()
+    }
+
+    @Test
+    fun `a cancel check that throws once the answer finished with its usage keeps the answer`() {
+        val reading = Thread.currentThread()
+        var asked = 0
+
+        val result =
+            answering { it.streams(chunk("Hello"), chunk(finish = "stop"), usage, "data: [DONE]\n\n") }
+                .stream(secret = "sk-reader", request = request, onText = {}, isCancelled = {
+                    check(Thread.currentThread() != reading || asked++ < 5) { "session lookup failed" }
+                    false
+                })
+
+        assertThat(result.finishReason).isEqualTo(FinishReason.STOP)
+        assertThat(result.usage).isNotNull()
+    }
+
+    @Test
     fun `a stream cut after its last chunk, with how it finished and what it used, is complete`() {
         val result =
             answering { it.streams(chunk("Hello"), chunk(finish = "stop"), usage) }
