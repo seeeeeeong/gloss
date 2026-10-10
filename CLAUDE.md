@@ -124,6 +124,10 @@ from memory.
 - Time comes from an injected `java.time.Clock`; detekt forbids `now()` and
   `currentTimeMillis`. Tests move a clock; they never sleep.
 - IDs are UUIDv7 made by the application (`gloss.common.UuidV7`).
+- Closely related types share a file named after the first of them: `Password.kt` opens
+  with `Password`, then `PasswordDecision`; a module's events share `XxxEvent.kt`; a
+  controller's requests and responses share `dto/XxxDto.kt`. A rule or value object with its
+  own test keeps its own file. Events stay top-level, never nested: their class name is stored.
 - Tests mirror production files: `PostService.kt` → `PostServiceTest.kt`, same package.
   Each migration `V<n>__<name>.sql` has a `<Name>SchemaTest` against real PostgreSQL.
 - Every architecture rule has a fixture that breaks it.

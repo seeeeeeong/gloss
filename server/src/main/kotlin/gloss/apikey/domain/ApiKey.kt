@@ -2,7 +2,9 @@ package gloss.apikey.domain
 
 import gloss.common.entity.BaseEntity
 import gloss.common.util.UuidV7
+import jakarta.persistence.AttributeConverter
 import jakarta.persistence.Convert
+import jakarta.persistence.Converter
 import jakarta.persistence.Entity
 import org.hibernate.annotations.DynamicUpdate
 import java.time.Instant
@@ -89,5 +91,36 @@ class ApiKey private constructor(
             last4 = last4,
             now = now,
         )
+    }
+}
+
+enum class ApiKeyStatus(
+    val code: String,
+) {
+    VALID("valid"),
+    INVALID("invalid"),
+    UNREADABLE("unreadable"),
+    REVOKED("revoked"),
+    ;
+
+    @Converter
+    class Column : AttributeConverter<ApiKeyStatus, String> {
+        override fun convertToDatabaseColumn(status: ApiKeyStatus): String = status.code
+
+        override fun convertToEntityAttribute(code: String): ApiKeyStatus = entries.first { it.code == code }
+    }
+}
+
+enum class KeyProvider(
+    val code: String,
+) {
+    DEEPSEEK("deepseek"),
+    ;
+
+    @Converter
+    class Column : AttributeConverter<KeyProvider, String> {
+        override fun convertToDatabaseColumn(provider: KeyProvider): String = provider.code
+
+        override fun convertToEntityAttribute(code: String): KeyProvider = entries.first { it.code == code }
     }
 }

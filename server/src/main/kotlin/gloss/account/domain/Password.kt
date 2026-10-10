@@ -25,3 +25,15 @@ value class Password private constructor(
             }
     }
 }
+
+sealed interface PasswordDecision {
+    data class Accepted(
+        val password: Password,
+    ) : PasswordDecision
+
+    data object TooShort : PasswordDecision
+
+    data object TooLong : PasswordDecision
+
+    data object Blank : PasswordDecision
+}

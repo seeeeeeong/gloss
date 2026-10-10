@@ -1,9 +1,10 @@
 package gloss.account.domain
 
-import gloss.account.domain.AccountRole
 import gloss.common.entity.BaseEntity
 import gloss.common.util.UuidV7
+import jakarta.persistence.AttributeConverter
 import jakarta.persistence.Convert
+import jakarta.persistence.Converter
 import jakarta.persistence.Entity
 import org.hibernate.annotations.DynamicUpdate
 import java.time.Instant
@@ -131,3 +132,46 @@ class Account private constructor(
         )
     }
 }
+
+enum class AccountRole(
+    val code: String,
+) {
+    OPERATOR("operator"),
+    MEMBER("member"),
+    ;
+
+    val authority: String get() = "ROLE_$name"
+
+    companion object {
+        fun of(code: String): AccountRole? = entries.firstOrNull { it.code == code }
+    }
+
+    @Converter
+    class Column : AttributeConverter<AccountRole, String> {
+        override fun convertToDatabaseColumn(role: AccountRole): String = role.code
+
+        override fun convertToEntityAttribute(code: String): AccountRole = entries.first { it.code == code }
+    }
+}
+
+enum class AccountStatus(
+    val code: String,
+) {
+    ACTIVE("active"),
+    DISABLED("disabled"),
+    ;
+
+    @Converter
+    class Column : AttributeConverter<AccountStatus, String> {
+        override fun convertToDatabaseColumn(status: AccountStatus): String = status.code
+
+        override fun convertToEntityAttribute(code: String): AccountStatus = entries.first { it.code == code }
+    }
+}
+
+/** What an operator decides about a new account; the rest is set when it is made. */
+data class AccountDraft(
+    val loginId: LoginId,
+    val displayName: DisplayName,
+    val role: AccountRole,
+)

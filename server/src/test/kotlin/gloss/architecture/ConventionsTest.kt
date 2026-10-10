@@ -2,14 +2,19 @@ package gloss.architecture
 
 import com.lemonappdev.konsist.api.Konsist
 import com.lemonappdev.konsist.api.container.KoScope
+import com.lemonappdev.konsist.api.declaration.KoClassDeclaration
+import com.lemonappdev.konsist.api.declaration.KoInterfaceDeclaration
+import com.lemonappdev.konsist.api.declaration.KoObjectDeclaration
+import com.lemonappdev.konsist.api.declaration.KoTypeAliasDeclaration
+import com.lemonappdev.konsist.api.provider.KoNameProvider
 import com.lemonappdev.konsist.api.verify.assertTrue
 import org.junit.jupiter.api.Test
 import java.io.File
 
 class ConventionsTest {
     @Test
-    fun `a file holds one type, named after it`() {
-        Conventions.oneTypePerFile(Konsist.scopeFromProduction())
+    fun `a file is named after the first type it holds`() {
+        Conventions.filesNamedAfterFirstType(Konsist.scopeFromProduction())
     }
 
     @Test
@@ -82,14 +87,26 @@ internal object Conventions {
             }
     }
 
-    fun oneTypePerFile(scope: KoScope) {
-        scope.files.assertTrue(additionalMessage = "A file holds one top-level type, named after it.") { file ->
+    /**
+     * Closely related types share a file, the one it is named after first: `Password.kt` opens
+     * with `Password`, then `PasswordDecision`. A `dto` package groups a controller's requests
+     * and responses as `XxxDto.kt`.
+     */
+    fun filesNamedAfterFirstType(scope: KoScope) {
+        scope.files.assertTrue(
+            additionalMessage = "Name the file after its first type, or XxxDto in a dto package.",
+        ) { file ->
             val types =
-                file.classes(includeNested = false, includeLocal = false).map { it.name } +
-                    file.interfaces(includeNested = false).map { it.name } +
-                    file.objects(includeNested = false).map { it.name } +
-                    file.typeAliases.map { it.name }
-            types.isEmpty() || types == listOf(file.name)
+                file
+                    .declarations(includeNested = false, includeLocal = false)
+                    .filter {
+                        it is KoClassDeclaration ||
+                            it is KoInterfaceDeclaration ||
+                            it is KoObjectDeclaration ||
+                            it is KoTypeAliasDeclaration
+                    }.map { (it as KoNameProvider).name }
+            val dto = file.name.endsWith("Dto") && file.packagee?.name?.endsWith(".dto") == true
+            types.isEmpty() || types.first() == file.name || dto
         }
     }
 

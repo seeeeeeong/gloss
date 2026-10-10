@@ -33,19 +33,31 @@ class ConventionsFixturesTest {
 
     @Test
     fun `a type in a file of its own passes`() {
-        assertThatCode { Conventions.oneTypePerFile(scope("onetype/split")) }.doesNotThrowAnyException()
+        assertThatCode { Conventions.filesNamedAfterFirstType(scope("onetype/split")) }.doesNotThrowAnyException()
     }
 
     @Test
-    fun `a type sitting above another is caught`() {
-        assertThatThrownBy { Conventions.oneTypePerFile(scope("onetype/grouped")) }
+    fun `related types after the one the file is named for pass`() {
+        assertThatCode { Conventions.filesNamedAfterFirstType(scope("onetype/related")) }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `a type sitting above the one the file is named for is caught`() {
+        assertThatThrownBy { Conventions.filesNamedAfterFirstType(scope("onetype/grouped")) }
             .hasMessageContaining("BudgetService")
     }
 
     @Test
     fun `a file named after no type it holds is caught`() {
-        assertThatThrownBy { Conventions.oneTypePerFile(scope("onetype/misnamed")) }
+        assertThatThrownBy { Conventions.filesNamedAfterFirstType(scope("onetype/misnamed")) }
             .hasMessageContaining("Budget")
+    }
+
+    @Test
+    fun `a dto file passes only in a dto package`() {
+        assertThatCode { Conventions.filesNamedAfterFirstType(scope("onetype/dto/good")) }.doesNotThrowAnyException()
+        assertThatThrownBy { Conventions.filesNamedAfterFirstType(scope("onetype/dto/bad")) }
+            .hasMessageContaining("BudgetDto")
     }
 
     @Test

@@ -24,3 +24,11 @@ object RetryPolicy {
     private val CAP: Duration = Duration.ofMinutes(5)
     private const val MAX_DOUBLINGS = 10
 }
+
+sealed interface RetryDecision {
+    data class Retry(
+        val after: Duration,
+    ) : RetryDecision
+
+    data object Fail : RetryDecision
+}

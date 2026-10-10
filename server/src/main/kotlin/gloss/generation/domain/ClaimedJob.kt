@@ -10,3 +10,10 @@ data class ClaimedJob(
     val maxAttempts: Int,
     val payload: Map<String, String>,
 )
+
+/** One attempt's hold on a job. Every write it makes names all three, so a lost lease writes nothing. */
+data class Lease(
+    val jobId: UUID,
+    val attempt: Int,
+    val owner: String,
+)

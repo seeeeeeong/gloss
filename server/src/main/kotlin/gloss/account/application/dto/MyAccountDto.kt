@@ -1,30 +1,33 @@
 package gloss.account.application.dto
 
 import gloss.account.domain.Account
-import java.time.Instant
+import jakarta.validation.constraints.NotBlank
 import java.util.UUID
 
-data class AdminAccountResponse(
+data class MyAccountResponse(
     val id: UUID,
     val loginId: String,
     val displayName: String,
     val role: String,
-    val status: String,
     val mustChangePassword: Boolean,
-    val createdAt: Instant,
-    val lastLoginAt: Instant?,
 ) {
     companion object {
         fun from(account: Account) =
-            AdminAccountResponse(
+            MyAccountResponse(
                 id = account.id,
                 loginId = account.loginId,
                 displayName = account.displayName,
                 role = account.role.code,
-                status = account.status.code,
                 mustChangePassword = account.mustChangePassword,
-                createdAt = account.createdAt,
-                lastLoginAt = account.lastLoginAt,
             )
     }
 }
+
+data class ProfileUpdateRequest(
+    @field:NotBlank val displayName: String,
+)
+
+data class PasswordChangeRequest(
+    @field:NotBlank val currentPassword: String,
+    @field:NotBlank val newPassword: String,
+)
