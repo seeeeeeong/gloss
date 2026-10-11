@@ -9,6 +9,7 @@ const PATHS = {
   users:
     'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM2 21a7 7 0 0 1 14 0M16 3.5a4 4 0 0 1 0 7.5M18 14a7 7 0 0 1 4 7',
   copy: 'M9 9h11v11H9V9ZM5 15H4V4h11v1',
+  plus: 'M12 5v14M5 12h14',
 }
 
 export function Icon({ name, size = 18 }: { name: keyof typeof PATHS; size?: number }) {
