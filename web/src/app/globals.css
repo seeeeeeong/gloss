@@ -624,6 +624,9 @@ select.input {
   background-size: 0.3125rem 0.3125rem;
   background-repeat: no-repeat;
 }
+.input::placeholder {
+  color: var(--fg-muted);
+}
 .input:focus {
   outline: none;
   border-color: var(--border-focus);
@@ -708,4 +711,99 @@ select.input {
 .figures dd {
   margin: 0;
   font-variant-numeric: tabular-nums;
+}
+
+/* The shelf and a book's contents */
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+.page-head .page-title {
+  margin: 0;
+}
+a.btn {
+  text-decoration: none;
+}
+.shelf {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.shelf li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+.shelf-item {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+  color: var(--fg-default);
+  text-decoration: none;
+}
+.shelf-item:hover {
+  background: var(--bg-hover);
+}
+.shelf-title {
+  font-weight: 600;
+}
+.shelf-meta {
+  color: var(--fg-muted);
+  font-size: var(--text-sm);
+}
+/* The first tag has no text before it to keep its distance from. */
+.shelf-meta .tag:first-child {
+  margin-left: 0;
+}
+.input.textarea {
+  height: auto;
+  min-height: 18rem;
+  padding: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  resize: vertical;
+  tab-size: 4;
+  white-space: pre;
+  overflow-x: auto;
+}
+.toc-facts {
+  margin: calc(-1 * var(--space-3)) 0 var(--space-4);
+}
+.toc {
+  margin-top: var(--space-2);
+}
+.toc-tree {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.toc-tree .toc-tree {
+  margin-left: var(--space-2);
+  padding-left: var(--space-4);
+  border-left: 1px solid var(--border-subtle);
+}
+.toc-item {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+  line-height: 1.5;
+}
+.toc > .toc-tree > li > .toc-item {
+  font-weight: 600;
+}
+.toc-number {
+  flex: none;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.section-title .tag {
+  font-weight: 400;
+  vertical-align: middle;
 }
