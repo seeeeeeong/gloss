@@ -368,7 +368,7 @@ button:disabled {
   color: var(--fg-muted);
   line-height: 1.6;
 }
-.page-title + .form {
+.page-title + :not(.page-lead) {
   margin-top: var(--space-6);
 }
 .section {
@@ -610,6 +610,19 @@ button:disabled {
   background: var(--bg-surface);
   color: var(--fg-default);
   font-size: var(--text-md);
+}
+/* The native arrow sits on the border; this one keeps the field's own padding. */
+select.input {
+  appearance: none;
+  padding-right: calc(var(--space-3) * 2 + 0.625rem);
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--fg-muted) 50%),
+    linear-gradient(135deg, var(--fg-muted) 50%, transparent 50%);
+  background-position:
+    right calc(var(--space-3) + 0.3125rem) center,
+    right var(--space-3) center;
+  background-size: 0.3125rem 0.3125rem;
+  background-repeat: no-repeat;
 }
 .input:focus {
   outline: none;

@@ -11,10 +11,6 @@ export default async function AdminAccountsPage() {
   return (
     <div className="page page-wide">
       <h1 className="page-title">계정 관리</h1>
-      <p className="page-lead">
-        계정을 만들면 임시 비밀번호가 한 번만 보입니다. 받는 사람은 첫 로그인에서 비밀번호를
-        바꿉니다.
-      </p>
       <AdminAccounts accounts={accounts} myId={me.id} />
     </div>
   )

@@ -95,7 +95,6 @@ export function AdminAccounts({ accounts, myId }: { accounts: AdminAccount[]; my
           <label className="field">
             <span className="field-label">아이디</span>
             <input className="input" name="loginId" autoComplete="off" required />
-            <span className="field-hint">3~32자 영문 소문자, 숫자, . _ -</span>
           </label>
           <label className="field">
             <span className="field-label">이름</span>
