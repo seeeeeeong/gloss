@@ -82,6 +82,19 @@ gloss:
     # The longest a whole call may run; under budget's 30-minute expiry, so a live call is never
     # expired as a crash's leftover and its settle always lands.
     call-deadline: PT20M
+  yes24:
+    base-url: ${GLOSS_YES24_BASE_URL:https://apis.yes24.com/v1}
+    # The operator's key for YES24's Open API; without one, books are typed in.
+    api-key: ${GLOSS_YES24_API_KEY:}
+  book-source:
+    # YES24's basic tier allows the key 10 calls a second and 20,000 a day, for every reader together.
+    # Under both, so a second that falls across two of theirs, or a restart that forgets the day's
+    # count, still fits.
+    per-second: 8
+    per-day: 18000
+    # Searches and adds one reader may make a minute: far more than choosing an edition takes, and a
+    # reader's loop stops here without holding back the others.
+    per-minute: 20
   generation:
     # Jobs one instance runs at once, across readers: a handful of invited readers wait little, and a
     # backlog never runs wide on the home server. Each reader's key is still held to budget's caps.

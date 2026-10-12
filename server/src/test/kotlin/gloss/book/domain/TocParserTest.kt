@@ -51,6 +51,18 @@ class TocParserTest {
     }
 
     @Test
+    fun `a Roman numeral written as one character is a part, the letter I alone is not`() {
+        assertThat(outline("Ⅰ 가상화\n제1장 프로세스\nⅡ 병행성\n제2장 스레드\nI 는 로봇\n제3장 락")).containsExactly(
+            "Ⅰ 가상화",
+            "  제1장 프로세스",
+            "Ⅱ 병행성",
+            "  제2장 스레드",
+            "- I 는 로봇",
+            "제3장 락",
+        )
+    }
+
+    @Test
     fun `an unnumbered line indented under another is its child`() {
         val raw = "1장 시작하기\n    설치\n    첫 프로그램\n\t\t디버깅\n2장 기본기"
 

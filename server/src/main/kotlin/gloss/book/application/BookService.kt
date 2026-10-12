@@ -10,6 +10,7 @@ import gloss.book.domain.BookDraft
 import gloss.book.domain.BookRepository
 import gloss.book.domain.BookTitle
 import gloss.book.domain.Isbn13
+import gloss.book.domain.SourcedBook
 import gloss.book.domain.Toc
 import gloss.book.domain.TocItem
 import gloss.book.domain.TocItemRepository
@@ -21,7 +22,6 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
-import java.time.Instant
 import java.util.UUID
 
 /** A reader's books and their contents, each version kept; only the reader who added a book sees it. */
@@ -38,9 +38,20 @@ class BookService(
     fun create(
         accountId: UUID,
         request: BookCreateRequest,
+    ): BookResponse = add(accountId = accountId, draft = draftOf(request), typed = request.toc, sourced = null)
+
+    /**
+     * A book and its contents as a first draft. [sourced] is the source its details came from, kept
+     * with it; [typed] is the reader's own contents, and without them the source's are the draft.
+     */
+    @Transactional
+    fun add(
+        accountId: UUID,
+        draft: BookDraft,
+        typed: String?,
+        sourced: SourcedBook?,
     ): BookResponse {
-        val draft = draftOf(request)
-        val contents = read(request.toc)
+        val contents = read(typed ?: checkNotNull(sourced?.contents) { "Contents are typed or the source's" })
         val isbn13 = draft.isbn13
         if (isbn13 != null) {
             bookRepository.lockShelf(accountId)
@@ -49,9 +60,17 @@ class BookService(
             }
         }
         val now = clock.instant()
-        val book = Book.createManual(accountId = accountId, draft = draft, now = now)
+        val book =
+            sourced?.let { Book.createSourced(accountId = accountId, draft = draft, sourced = it, now = now) }
+                ?: Book.createManual(accountId = accountId, draft = draft, now = now)
         bookRepository.save(book)
-        return newVersion(book = book, contents = contents, now = now)
+        val first =
+            if (typed == null) {
+                Toc.createSourced(book = book, text = contents.text, now = now)
+            } else {
+                Toc.createManual(book = book, versionNo = 1, text = contents.text, now = now)
+            }
+        return keep(book = book, toc = first, items = contents.items)
     }
 
     fun list(accountId: UUID): List<BookSummaryResponse> =
@@ -95,7 +114,9 @@ class BookService(
     ): BookResponse {
         val contents = read(request.toc)
         val book = bookRepository.findForUpdate(bookId, accountId) ?: throw GlossException(BookError.BOOK_NOT_FOUND)
-        return newVersion(book = book, contents = contents, now = clock.instant())
+        val versionNo = tocRepository.lastVersionNo(book.id, book.accountId) + 1
+        val edited = Toc.createManual(book = book, versionNo = versionNo, text = contents.text, now = clock.instant())
+        return keep(book = book, toc = edited, items = contents.items)
     }
 
     /** Only the latest version: a reader who saw an older one confirms what they saw, or nothing. */
@@ -120,17 +141,15 @@ class BookService(
         )
     }
 
-    private fun newVersion(
+    private fun keep(
         book: Book,
-        contents: Contents,
-        now: Instant,
+        toc: Toc,
+        items: List<TocParser.Item>,
     ): BookResponse {
-        val versionNo = tocRepository.lastVersionNo(book.id, book.accountId) + 1
-        val toc = Toc.createManual(book = book, versionNo = versionNo, text = contents.text, now = now)
         tocRepository.save(toc)
-        val items = TocItem.itemsOf(toc, contents.items, now)
-        tocItemRepository.saveAll(items)
-        return BookResponse.from(book, toc, items)
+        val kept = TocItem.itemsOf(toc, items, toc.createdAt)
+        tocItemRepository.saveAll(kept)
+        return BookResponse.from(book, toc, kept)
     }
 
     private fun draftOf(request: BookCreateRequest): BookDraft {
@@ -142,15 +161,12 @@ class BookService(
         val error =
             when {
                 typedIsbn != null && isbn13 == null -> BookError.INVALID_ISBN
-                authors.size > MAX_AUTHORS || !authors.all(::fits) -> BookError.INVALID_AUTHORS
-                publisher != null && !fits(publisher) -> BookError.INVALID_PUBLISHER
+                authors.size > BookDraft.MAX_AUTHORS || !authors.all { BookDraft.fits(it) } -> BookError.INVALID_AUTHORS
+                publisher != null && !BookDraft.fits(publisher) -> BookError.INVALID_PUBLISHER
                 else -> return BookDraft(title = title, authors = authors, publisher = publisher, isbn13 = isbn13)
             }
         throw GlossException(error)
     }
-
-    // Same as book.publisher's check, and the length kept for each author.
-    private fun fits(name: String) = name.codePointCount(0, name.length) <= MAX_NAME && name.none { it.isISOControl() }
 
     private fun read(raw: String): Contents {
         val text = TocText.of(raw) ?: throw GlossException(BookError.INVALID_TOC)
@@ -164,12 +180,4 @@ class BookService(
         val text: TocText,
         val items: List<TocParser.Item>,
     )
-
-    private companion object {
-        // An edited volume's contributors fit; a longer list is more likely a paste gone wrong.
-        const val MAX_AUTHORS = 20
-
-        // A name with its role, as "마틴 파울러 (지은이)", or a publisher's imprint, with room to spare.
-        const val MAX_NAME = 100
-    }
 }

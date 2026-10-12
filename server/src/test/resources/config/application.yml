@@ -9,3 +9,6 @@ gloss:
     # Tests run the worker and the reaper themselves; in the background they would take other tests' jobs.
     autostart: false
     reap-first-after: P365D
+  book-source:
+    # Tests share one instance and run in the same second; the pace is BookSourceThrottleTest's to check.
+    per-second: 1000
