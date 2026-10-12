@@ -6,6 +6,11 @@ import java.util.UUID
 
 /** Every read names the owner, as every read of a reader's own data does. */
 interface TocRepository : JpaRepository<Toc, UUID> {
+    fun findByIdAndAccountId(
+        id: UUID,
+        accountId: UUID,
+    ): Toc?
+
     fun findTopByBookIdAndAccountIdOrderByVersionNoDesc(
         bookId: UUID,
         accountId: UUID,

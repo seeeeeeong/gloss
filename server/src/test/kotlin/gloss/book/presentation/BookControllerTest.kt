@@ -66,6 +66,28 @@ class BookControllerTest(
     }
 
     @Test
+    fun `the contents in use are served once confirmed, and not before`() {
+        val browser = signedIn()
+        val created = browser.post("/api/me/books", mapOf("title" to "오브젝트", "toc" to "1장 객체\n1.1 티켓"))
+        val bookId = created.body?.get("id")?.asString()
+        val tocId =
+            created.body
+                ?.get("toc")
+                ?.get("id")
+                ?.asString()
+
+        val before = browser.get("/api/me/books/$bookId/toc/current")
+        browser.post("/api/me/books/$bookId/toc/$tocId/confirm")
+        browser.post("/api/me/books/$bookId/toc", mapOf("toc" to "1장 다시 쓴 목차"))
+        val current = browser.get("/api/me/books/$bookId/toc/current")
+
+        assertThat(before.status).isEqualTo(404)
+        assertThat(before.code).isEqualTo("book.toc_not_confirmed")
+        assertThat(current.body?.get("id")?.asString()).isEqualTo(tocId)
+        assertThat(current.body?.get("items")?.size()).isEqualTo(2)
+    }
+
+    @Test
     fun `another reader's book is not found`() {
         val created = signedIn().post("/api/me/books", mapOf("title" to "오브젝트", "toc" to "1장 객체"))
 

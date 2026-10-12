@@ -3,6 +3,7 @@ package gloss.book.application
 import gloss.book.application.dto.BookCreateRequest
 import gloss.book.application.dto.BookResponse
 import gloss.book.application.dto.BookSummaryResponse
+import gloss.book.application.dto.TocResponse
 import gloss.book.application.dto.TocReviseRequest
 import gloss.book.domain.Book
 import gloss.book.domain.BookDraft
@@ -39,8 +40,7 @@ class BookService(
         request: BookCreateRequest,
     ): BookResponse {
         val draft = draftOf(request)
-        val text = textOf(request.toc)
-        val parsed = parse(text)
+        val contents = read(request.toc)
         val isbn13 = draft.isbn13
         if (isbn13 != null) {
             bookRepository.lockShelf(accountId)
@@ -51,7 +51,7 @@ class BookService(
         val now = clock.instant()
         val book = Book.createManual(accountId = accountId, draft = draft, now = now)
         bookRepository.save(book)
-        return newVersion(book = book, text = text, parsed = parsed, now = now)
+        return newVersion(book = book, contents = contents, now = now)
     }
 
     fun list(accountId: UUID): List<BookSummaryResponse> =
@@ -72,6 +72,20 @@ class BookService(
         return BookResponse.from(book, toc, tocItemRepository.findAllByTocIdAndAccountIdOrderByOrd(toc.id, accountId))
     }
 
+    /** The contents posts are written from: a newer draft does not replace them until it is confirmed. */
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    fun currentToc(
+        accountId: UUID,
+        bookId: UUID,
+    ): TocResponse {
+        val book =
+            bookRepository.findByIdAndAccountIdAndDeletedAtIsNull(bookId, accountId)
+                ?: throw GlossException(BookError.BOOK_NOT_FOUND)
+        val tocId = book.currentTocId ?: throw GlossException(BookError.TOC_NOT_CONFIRMED)
+        val toc = checkNotNull(tocRepository.findByIdAndAccountId(tocId, accountId))
+        return TocResponse.from(toc, tocItemRepository.findAllByTocIdAndAccountIdOrderByOrd(toc.id, accountId))
+    }
+
     /** An edit is a new draft version; the one in use stays until the reader confirms another. */
     @Transactional
     fun reviseToc(
@@ -79,10 +93,9 @@ class BookService(
         bookId: UUID,
         request: TocReviseRequest,
     ): BookResponse {
-        val text = textOf(request.toc)
-        val parsed = parse(text)
+        val contents = read(request.toc)
         val book = bookRepository.findForUpdate(bookId, accountId) ?: throw GlossException(BookError.BOOK_NOT_FOUND)
-        return newVersion(book = book, text = text, parsed = parsed, now = clock.instant())
+        return newVersion(book = book, contents = contents, now = clock.instant())
     }
 
     /** Only the latest version: a reader who saw an older one confirms what they saw, or nothing. */
@@ -109,14 +122,13 @@ class BookService(
 
     private fun newVersion(
         book: Book,
-        text: TocText,
-        parsed: List<TocParser.Item>,
+        contents: Contents,
         now: Instant,
     ): BookResponse {
         val versionNo = tocRepository.lastVersionNo(book.id, book.accountId) + 1
-        val toc = Toc.createManual(book = book, versionNo = versionNo, text = text, now = now)
+        val toc = Toc.createManual(book = book, versionNo = versionNo, text = contents.text, now = now)
         tocRepository.save(toc)
-        val items = TocItem.itemsOf(toc, parsed, now)
+        val items = TocItem.itemsOf(toc, contents.items, now)
         tocItemRepository.saveAll(items)
         return BookResponse.from(book, toc, items)
     }
@@ -140,13 +152,18 @@ class BookService(
     // Same as book.publisher's check, and the length kept for each author.
     private fun fits(name: String) = name.codePointCount(0, name.length) <= MAX_NAME && name.none { it.isISOControl() }
 
-    private fun textOf(raw: String): TocText = TocText.of(raw) ?: throw GlossException(BookError.INVALID_TOC)
-
-    private fun parse(text: TocText): List<TocParser.Item> {
+    private fun read(raw: String): Contents {
+        val text = TocText.of(raw) ?: throw GlossException(BookError.INVALID_TOC)
         val result = TocParser.parse(text.value)
         BookError.of(result)?.let { throw GlossException(it) }
-        return (result as TocParser.Result.Parsed).items
+        return Contents(text, (result as TocParser.Result.Parsed).items)
     }
+
+    /** Contents as typed and as read into a tree, both checked before anything is locked or kept. */
+    private class Contents(
+        val text: TocText,
+        val items: List<TocParser.Item>,
+    )
 
     private companion object {
         // An edited volume's contributors fit; a longer list is more likely a paste gone wrong.
