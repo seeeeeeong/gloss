@@ -8,12 +8,10 @@ import type { Book, Toc } from '@/lib/books'
 type Props = {
   bookId: string
   toc: Pick<Toc, 'id' | 'status' | 'raw'>
-  // A draft newer than the confirmed contents still in use.
-  replacing: boolean
   children: ReactNode
 }
 
-export function TocReview({ bookId, toc, replacing, children }: Props) {
+export function TocReview({ bookId, toc, children }: Props) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
@@ -110,9 +108,6 @@ export function TocReview({ bookId, toc, replacing, children }: Props) {
 
   return (
     <div className="form">
-      {draft && replacing && (
-        <p className="notice">확정한 목차가 따로 있습니다. 확정하면 이 버전으로 바뀝니다.</p>
-      )}
       {messages}
       <div className="form-actions">
         <button type="button" className="btn btn-ghost" disabled={pending} onClick={edit}>
