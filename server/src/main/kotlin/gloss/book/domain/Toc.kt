@@ -71,6 +71,14 @@ class Toc private constructor(
             now = now,
         )
 
+        /** A sourced book's first version: what the source gave, with the page it is shown on. */
+        fun createSourced(
+            book: Book,
+            text: TocText,
+            now: Instant,
+        ) = Toc(id = UuidV7.at(now), book = book, versionNo = 1, origin = TocOrigin.API, text = text, now = now)
+            .also { it.sourceUrl = book.sourceUrl }
+
         private fun sha256(text: String): String =
             HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.toByteArray(Charsets.UTF_8)))
     }

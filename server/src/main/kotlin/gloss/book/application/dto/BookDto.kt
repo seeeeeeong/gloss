@@ -25,6 +25,8 @@ data class BookSummaryResponse(
     val authors: List<String>,
     val publisher: String?,
     val isbn13: String?,
+    val source: String,
+    val sourceUrl: String?,
     val confirmed: Boolean,
     val createdAt: Instant,
 ) {
@@ -36,6 +38,8 @@ data class BookSummaryResponse(
                 authors = book.authors.toList(),
                 publisher = book.publisher,
                 isbn13 = book.isbn13,
+                source = book.source.code,
+                sourceUrl = book.sourceUrl,
                 confirmed = book.currentTocId != null,
                 createdAt = book.createdAt,
             )
@@ -49,6 +53,8 @@ data class BookResponse(
     val authors: List<String>,
     val publisher: String?,
     val isbn13: String?,
+    val source: String,
+    val sourceUrl: String?,
     val currentTocId: UUID?,
     val toc: TocResponse,
 ) {
@@ -63,6 +69,8 @@ data class BookResponse(
             authors = book.authors.toList(),
             publisher = book.publisher,
             isbn13 = book.isbn13,
+            source = book.source.code,
+            sourceUrl = book.sourceUrl,
             currentTocId = book.currentTocId,
             toc = TocResponse.from(toc, items),
         )

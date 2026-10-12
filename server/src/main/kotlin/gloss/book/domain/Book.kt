@@ -37,6 +37,8 @@ class Book private constructor(
         protected set
     var sourceRef: String? = null
         protected set
+    var sourceUrl: String? = null
+        protected set
     var currentTocId: UUID? = null
         protected set
     var createdAt: Instant = now
@@ -57,6 +59,17 @@ class Book private constructor(
             draft: BookDraft,
             now: Instant,
         ) = Book(id = UuidV7.at(now), accountId = accountId, draft = draft, source = BookSource.MANUAL, now = now)
+
+        /** Found in a source: which item it is there and its page are kept with it. */
+        fun createSourced(
+            accountId: UUID,
+            draft: BookDraft,
+            sourced: SourcedBook,
+            now: Instant,
+        ) = Book(id = UuidV7.at(now), accountId = accountId, draft = draft, source = sourced.source, now = now).also {
+            it.sourceRef = sourced.ref
+            it.sourceUrl = sourced.url
+        }
     }
 }
 
@@ -66,15 +79,24 @@ data class BookDraft(
     val authors: List<String>,
     val publisher: String?,
     val isbn13: Isbn13?,
-)
+) {
+    companion object {
+        // An edited volume's contributors fit; a longer list is more likely a paste gone wrong.
+        const val MAX_AUTHORS = 20
+
+        // A name with its role, as "마틴 파울러 (지은이)", or a publisher's imprint, with room to spare.
+        const val MAX_NAME = 100
+
+        /** Same as book.publisher's check, and the length kept for each author. */
+        fun fits(name: String) = name.codePointCount(0, name.length) <= MAX_NAME && name.none { it.isISOControl() }
+    }
+}
 
 enum class BookSource(
     val code: String,
 ) {
     MANUAL("manual"),
-    KAKAO("kakao"),
-    NLK("nlk"),
-    OPEN_LIBRARY("openlibrary"),
+    YES24("yes24"),
     ;
 
     @Converter

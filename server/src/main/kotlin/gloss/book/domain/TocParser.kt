@@ -59,7 +59,11 @@ object TocParser {
 
     // A label ends at a space, a separator or the end of the line, so "1장" is one and "10년" is not.
     private const val LABEL_END = """(?=[\s.:)]|$)"""
-    private val PART = Regex("""^((?:제\s*)?(?:\d+|[IVX]+)\s*부|(?i:part)\s+(?:\d+|[IVX]+))$LABEL_END""")
+
+    // A Roman numeral as one character (Ⅰ to Ⅻ) numbers nothing but a part; the letters I, V and X
+    // alone could start a title, so they need "부" or "Part".
+    private val PART =
+        Regex("""^((?:제\s*)?(?:\d+|[IVX]+)\s*부|(?i:part)\s+(?:\d+|[IVX]+)|[\u2160-\u216B]+)$LABEL_END""")
     private val CHAPTER = Regex("""^((?:제\s*)?\d+\s*장|(?i:chapter)\s+\d+|부록\s*[A-Z]|(?i:appendix)\s+[A-Z])$LABEL_END""")
     private val DOTTED = Regex("""^(\d+(?:\.\d+)*|[A-Z](?:\.\d+)+)\.?(?=\s)""")
     private val BULLET = Regex("""^[-*•·](?:\s+|$)""")
