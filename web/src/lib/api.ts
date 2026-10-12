@@ -5,6 +5,12 @@ export type ApiResult<T> =
 const CSRF_COOKIE = 'XSRF-TOKEN'
 const CSRF_HEADER = 'X-XSRF-TOKEN'
 const UNKNOWN = { code: 'common.unknown', message: '잠시 후 다시 시도해 주세요' }
+const UNREACHED = {
+  ok: false,
+  status: 0,
+  code: 'common.network',
+  message: '서버에 연결하지 못했습니다',
+} as const
 
 /** The server sets this cookie; the page sends it back as a header on every change. */
 export function csrfToken(cookie: string): string | undefined {
@@ -49,6 +55,15 @@ export async function send<T>(method: string, path: string, body?: unknown): Pro
     })
     return await readResult<T>(response)
   } catch {
-    return { ok: false, status: 0, code: 'common.network', message: '서버에 연결하지 못했습니다' }
+    return UNREACHED
+  }
+}
+
+/** A read the page makes after it has loaded, as a search does. */
+export async function load<T>(path: string): Promise<ApiResult<T>> {
+  try {
+    return await readResult<T>(await fetch(path))
+  } catch {
+    return UNREACHED
   }
 }

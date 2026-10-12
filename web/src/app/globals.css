@@ -761,6 +761,38 @@ a.btn {
 .shelf-meta .tag:first-child {
   margin-left: 0;
 }
+
+/* Adding a book: a search, the editions it finds, and the form to type one in */
+.search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2);
+}
+.candidate {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+.candidate-text {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.candidate-text a {
+  color: var(--fg-default);
+}
+.candidate .btn {
+  flex: none;
+}
+.credit {
+  margin: 0;
+  text-align: right;
+}
+.book-typed {
+  margin-top: var(--space-6);
+}
 .input.textarea {
   height: auto;
   min-height: 18rem;

@@ -5,6 +5,8 @@ export type BookSummary = {
   authors: string[]
   publisher: string | null
   isbn13: string | null
+  source: string
+  sourceUrl: string | null
   confirmed: boolean
   createdAt: string
 }
@@ -35,8 +37,24 @@ export type Book = {
   authors: string[]
   publisher: string | null
   isbn13: string | null
+  source: string
+  sourceUrl: string | null
   currentTocId: string | null
   toc: Toc
+}
+
+/** An edition a search found. `ref` adds it; `url` is its page at the source. */
+export type BookCandidate = {
+  ref: string
+  source: string
+  url: string
+  title: string
+  authors: string[]
+  publisher: string | null
+  isbn13: string | null
+  publishedOn: string | null
+  kind: string | null
+  hasContents: boolean
 }
 
 export type TocNode = TocItem & { children: TocNode[] }
@@ -59,6 +77,24 @@ export function bylineOf(book: Pick<BookSummary, 'authors' | 'publisher'>): stri
     .filter((part) => part.length > 0)
     .join(' · ')
 }
+
+const SOURCES: Record<string, string> = { yes24: 'YES24' }
+
+/** Null for a book the reader typed in: there is no one to credit. The source's terms ask for it. */
+export function creditOf(source: string): string | null {
+  const name = SOURCES[source]
+  return name ? `출처 ${name}` : null
+}
+
+/** What tells one edition from another: who, which publisher, what year, what kind. */
+export function editionOf(candidate: BookCandidate): string {
+  return [bylineOf(candidate), candidate.publishedOn?.slice(0, 4) ?? '', candidate.kind ?? '']
+    .filter((part) => part.length > 0)
+    .join(' · ')
+}
+
+export const searchPath = (query: string) =>
+  `/api/me/books/search?query=${encodeURIComponent(query)}`
 
 /** Items arrive in reading order, so each child lands after its siblings before it. */
 export function treeOf(items: TocItem[]): TocNode[] {

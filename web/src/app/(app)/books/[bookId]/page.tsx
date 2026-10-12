@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
+import { SourceCredit } from '@/components/SourceCredit'
 import { TocReview } from '@/components/TocReview'
 import { TocTree } from '@/components/TocTree'
 import { formatDateTime } from '@/lib/accounts'
@@ -31,6 +32,8 @@ export default async function BookPage({ params }: PageProps<'/books/[bookId]'>)
         {byline}
         {byline && book.isbn13 && ' · '}
         {book.isbn13 && `ISBN ${book.isbn13}`}
+        {(byline || book.isbn13) && book.sourceUrl && ' · '}
+        <SourceCredit book={book} />
       </p>
       {inUse && (
         <TocSection id="toc" title="목차" toc={inUse}>
