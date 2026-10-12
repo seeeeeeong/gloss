@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Icon } from '@/components/Icon'
-import { type BookSummary, bylineOf } from '@/lib/books'
+import { type BookSummary, bylineOf, creditOf } from '@/lib/books'
 import { serverGet } from '@/lib/server-session'
 
 export const metadata: Metadata = { title: '내 책장' }
@@ -25,7 +25,7 @@ export default async function ShelfPage() {
               <Link className="shelf-item" href={`/books/${book.id}`}>
                 <span className="shelf-title">{book.title}</span>
                 <span className="shelf-meta">
-                  {bylineOf(book)}
+                  {[bylineOf(book), creditOf(book.source) ?? ''].filter(Boolean).join(' · ')}
                   {!book.confirmed && <span className="tag">목차 확정 전</span>}
                 </span>
               </Link>

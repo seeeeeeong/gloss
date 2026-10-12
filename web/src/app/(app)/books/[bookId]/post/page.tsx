@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Prose } from '@/components/Prose'
+import { SourceCredit } from '@/components/SourceCredit'
 import { formatDateTime } from '@/lib/accounts'
 import type { Book } from '@/lib/books'
 import { headingOf, type Place, type Post, placeOf, postHref, postPath } from '@/lib/posts'
@@ -36,6 +37,8 @@ export default async function PostPage(props: Props) {
     <article className="page">
       <p className="post-origin">
         <Link href={`/books/${book.id}`}>{book.title}</Link>
+        {book.sourceUrl && ' · '}
+        <SourceCredit book={book} />
       </p>
       <h1 className="page-title">{headingOf(item)}</h1>
       {post ? (
