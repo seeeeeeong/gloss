@@ -1,16 +1,13 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { cache } from 'react'
+import type { ReactNode } from 'react'
 import { TocReview } from '@/components/TocReview'
 import { TocTree } from '@/components/TocTree'
 import { formatDateTime } from '@/lib/accounts'
-import { type Book, bylineOf, isBookId, tocStatusLabel, treeOf } from '@/lib/books'
-import { serverFind } from '@/lib/server-session'
-
-// Once a request: the title and the page ask for the same book.
-const bookOf = cache(async (bookId: string) =>
-  isBookId(bookId) ? serverFind<Book>(`/api/me/books/${bookId}`) : null,
-)
+import { bylineOf, type Toc, tocStatusLabel, treeOf } from '@/lib/books'
+import type { PostSummary } from '@/lib/posts'
+import { bookOf, tocInUse } from '@/lib/server-books'
+import { serverGet } from '@/lib/server-session'
 
 export async function generateMetadata({
   params,
@@ -22,7 +19,10 @@ export async function generateMetadata({
 export default async function BookPage({ params }: PageProps<'/books/[bookId]'>) {
   const book = await bookOf((await params).bookId)
   if (!book) notFound()
-  const { toc } = book
+  const latest = book.toc
+  const inUse = await tocInUse(book)
+  const posts = inUse ? await serverGet<PostSummary[]>(`/api/me/books/${book.id}/posts`) : []
+  const reading = { bookId: book.id, written: new Set(posts.map((post) => post.itemKey)) }
   const byline = bylineOf(book)
   return (
     <div className="page">
@@ -32,24 +32,50 @@ export default async function BookPage({ params }: PageProps<'/books/[bookId]'>)
         {byline && book.isbn13 && ' · '}
         {book.isbn13 && `ISBN ${book.isbn13}`}
       </p>
-      <section className="section" aria-labelledby="toc">
-        <h2 className="section-title" id="toc">
-          목차
-          <span className="tag">
-            버전 {toc.versionNo} · {tocStatusLabel(toc.status)}
-          </span>
-        </h2>
-        <p className="field-hint toc-facts">
-          항목 {toc.items.length}개{toc.confirmedAt && ` · 확정 ${formatDateTime(toc.confirmedAt)}`}
-        </p>
-        <TocReview
-          bookId={book.id}
-          toc={{ id: toc.id, status: toc.status, raw: toc.raw }}
-          replacing={book.currentTocId !== null && book.currentTocId !== toc.id}
-        >
-          <TocTree nodes={treeOf(toc.items)} />
-        </TocReview>
-      </section>
+      {inUse && (
+        <TocSection id="toc" title="목차" toc={inUse}>
+          {inUse.id === latest.id ? (
+            <TocReview
+              bookId={book.id}
+              toc={{ id: inUse.id, status: inUse.status, raw: inUse.raw }}
+            >
+              <TocTree nodes={treeOf(inUse.items)} reading={reading} />
+            </TocReview>
+          ) : (
+            <div className="toc">
+              <TocTree nodes={treeOf(inUse.items)} reading={reading} />
+            </div>
+          )}
+        </TocSection>
+      )}
+      {inUse?.id !== latest.id && (
+        <TocSection id="draft" title={inUse ? '새 목차' : '목차'} toc={latest}>
+          <TocReview
+            bookId={book.id}
+            toc={{ id: latest.id, status: latest.status, raw: latest.raw }}
+          >
+            <TocTree nodes={treeOf(latest.items)} />
+          </TocReview>
+        </TocSection>
+      )}
     </div>
+  )
+}
+
+function TocSection(props: { id: string; title: string; toc: Toc; children: ReactNode }) {
+  const { id, title, toc, children } = props
+  return (
+    <section className="section" aria-labelledby={id}>
+      <h2 className="section-title" id={id}>
+        {title}
+        <span className="tag">
+          버전 {toc.versionNo} · {tocStatusLabel(toc.status)}
+        </span>
+      </h2>
+      <p className="field-hint toc-facts">
+        항목 {toc.items.length}개{toc.confirmedAt && ` · 확정 ${formatDateTime(toc.confirmedAt)}`}
+      </p>
+      {children}
+    </section>
   )
 }
