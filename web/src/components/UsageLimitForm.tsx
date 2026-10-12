@@ -54,9 +54,6 @@ export function UsageLimitForm({ usage }: { usage: Usage }) {
         <dt>남은 한도</dt>
         <dd>{usage.remainingMicros === null ? '—' : formatUsd(usage.remainingMicros)}</dd>
       </dl>
-      {usage.limitMicros === null && (
-        <p className="notice">월 한도를 정하기 전에는 튜터와 글 생성을 쓸 수 없습니다.</p>
-      )}
       <label className="field">
         <span className="field-label">월 한도 (달러)</span>
         <input

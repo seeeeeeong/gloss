@@ -71,9 +71,6 @@ export function ApiKeyForm({ apiKey }: { apiKey: ApiKey | null }) {
           onChange={(event) => setValue(event.target.value)}
           required
         />
-        <span className="field-hint">
-          저장하기 전에 DeepSeek에 확인하고, 암호화해 보관합니다. 저장한 키는 다시 볼 수 없습니다.
-        </span>
       </label>
       {error && (
         <p className="form-error" role="alert">
