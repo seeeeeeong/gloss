@@ -116,6 +116,22 @@ class BookServiceTest(
     }
 
     @Test
+    fun `the contents in use are the confirmed ones, whatever draft came after`() {
+        val account = accountId()
+        val created = bookService.create(account, request())
+        val unconfirmed = runCatching { bookService.currentToc(account, created.id) }.exceptionOrNull()
+        bookService.confirmToc(account, created.id, created.toc.id)
+        bookService.reviseToc(account, created.id, TocReviseRequest("1장 다시 쓴 목차"))
+
+        val current = bookService.currentToc(account, created.id)
+
+        assertThat((unconfirmed as GlossException).error).isEqualTo(BookError.TOC_NOT_CONFIRMED)
+        assertThat(current.id).isEqualTo(created.toc.id)
+        assertThat(current.status).isEqualTo("confirmed")
+        assertThat(current.items.map { it.itemKey }).isEqualTo(created.toc.items.map { it.itemKey })
+    }
+
+    @Test
     fun `confirming puts the version in use, and confirming it again changes nothing`() {
         val account = accountId()
         val created = bookService.create(account, request())
@@ -144,6 +160,7 @@ class BookServiceTest(
         val stranger = accountId()
 
         assertFails(BookError.BOOK_NOT_FOUND) { bookService.get(stranger, created.id) }
+        assertFails(BookError.BOOK_NOT_FOUND) { bookService.currentToc(stranger, created.id) }
         assertFails(BookError.BOOK_NOT_FOUND) { bookService.reviseToc(stranger, created.id, TocReviseRequest("x")) }
         assertFails(BookError.BOOK_NOT_FOUND) { bookService.confirmToc(stranger, created.id, created.toc.id) }
     }

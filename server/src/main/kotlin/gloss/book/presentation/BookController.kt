@@ -4,6 +4,7 @@ import gloss.book.application.BookService
 import gloss.book.application.dto.BookCreateRequest
 import gloss.book.application.dto.BookResponse
 import gloss.book.application.dto.BookSummaryResponse
+import gloss.book.application.dto.TocResponse
 import gloss.book.application.dto.TocReviseRequest
 import gloss.common.security.CurrentAccount
 import gloss.common.security.SessionAccount
@@ -40,6 +41,12 @@ class BookController(
         @CurrentAccount account: SessionAccount,
         @PathVariable bookId: UUID,
     ): BookResponse = bookService.get(account.id, bookId)
+
+    @GetMapping("/{bookId}/toc/current")
+    fun currentToc(
+        @CurrentAccount account: SessionAccount,
+        @PathVariable bookId: UUID,
+    ): TocResponse = bookService.currentToc(account.id, bookId)
 
     // A POST: each edit is a new version, so the same request twice makes two.
     @PostMapping("/{bookId}/toc")
