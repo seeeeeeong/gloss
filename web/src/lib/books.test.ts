@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { authorsOf, bylineOf, isBookId, type TocItem, tocStatusLabel, treeOf } from './books'
+import {
+  authorsOf,
+  type BookCandidate,
+  bylineOf,
+  creditOf,
+  editionOf,
+  isBookId,
+  searchPath,
+  type TocItem,
+  tocStatusLabel,
+  treeOf,
+} from './books'
 
 const item = (id: string, parentId: string | null, title = id): TocItem => ({
   id,
@@ -66,5 +77,48 @@ describe('tocStatusLabel', () => {
     expect(tocStatusLabel('draft')).toBe('확정 전')
     expect(tocStatusLabel('confirmed')).toBe('확정')
     expect(tocStatusLabel('archived')).toBe('archived')
+  })
+})
+
+describe('creditOf', () => {
+  it('names the source of a book found in one', () => {
+    expect(creditOf('yes24')).toBe('출처 YES24')
+  })
+
+  it('credits no one for a book typed in', () => {
+    expect(creditOf('manual')).toBeNull()
+  })
+})
+
+describe('editionOf', () => {
+  const candidate: BookCandidate = {
+    ref: '101',
+    source: 'yes24',
+    url: 'https://www.yes24.com/product/goods/101',
+    title: '오브젝트',
+    authors: ['조영호 저'],
+    publisher: '위키북스',
+    isbn13: '9788966262472',
+    publishedOn: '2019-06-17',
+    kind: '도서',
+    hasContents: true,
+  }
+
+  it('tells an edition by who wrote it, its publisher, its year and its kind', () => {
+    expect(editionOf(candidate)).toBe('조영호 저 · 위키북스 · 2019 · 도서')
+  })
+
+  it('leaves out what the source did not say', () => {
+    expect(editionOf({ ...candidate, publisher: null, publishedOn: null, kind: null })).toBe(
+      '조영호 저',
+    )
+  })
+})
+
+describe('searchPath', () => {
+  it('carries the words as one query value', () => {
+    expect(searchPath('Real MySQL 8.0 & more')).toBe(
+      '/api/me/books/search?query=Real%20MySQL%208.0%20%26%20more',
+    )
   })
 })
