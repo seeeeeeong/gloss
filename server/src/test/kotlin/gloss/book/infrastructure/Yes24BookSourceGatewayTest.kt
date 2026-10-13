@@ -122,13 +122,13 @@ class Yes24BookSourceGatewayTest {
     }
 
     @Test
-    fun `a book is read again by its item number, however long the number`() {
-        val gateway = answering(200, found(item(id = 1234567890123)))
+    fun `a book is read again by its item number, up to the largest YES24 takes`() {
+        val gateway = answering(200, found(item(id = 2147483647)))
 
-        val book = gateway.find("1234567890123")
+        val book = gateway.find("2147483647")
 
-        assertThat(asked).isEqualTo("/v1/goods/itemDetail?searchType=ItemId&query=1234567890123&detail=Y")
-        assertThat(book?.ref).isEqualTo("1234567890123")
+        assertThat(asked).isEqualTo("/v1/goods/itemDetail?searchType=ItemId&query=2147483647&detail=Y")
+        assertThat(book?.ref).isEqualTo("2147483647")
     }
 
     @Test
@@ -136,6 +136,8 @@ class Yes24BookSourceGatewayTest {
         val gateway = answering(404, refused("GOODS_001"))
 
         assertThat(gateway.find("1 or 1=1")).isNull()
+        assertThat(gateway.find("2147483648")).isNull()
+        assertThat(gateway.find("0")).isNull()
         assertThat(calls).isZero()
         assertThat(gateway.find("999")).isNull()
         assertThat(calls).isEqualTo(1)
