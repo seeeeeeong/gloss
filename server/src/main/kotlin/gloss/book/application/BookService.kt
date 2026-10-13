@@ -17,7 +17,10 @@ import gloss.book.domain.TocItemRepository
 import gloss.book.domain.TocParser
 import gloss.book.domain.TocRepository
 import gloss.book.domain.TocText
+import gloss.book.domain.event.TocConfirmed
 import gloss.common.error.GlossException
+import gloss.common.util.UuidV7
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
@@ -31,6 +34,7 @@ class BookService(
     private val bookRepository: BookRepository,
     private val tocRepository: TocRepository,
     private val tocItemRepository: TocItemRepository,
+    private val applicationEventPublisher: ApplicationEventPublisher,
     private val clock: Clock,
 ) {
     /** A book typed in by the reader, with its contents as a first draft. */
@@ -132,8 +136,21 @@ class BookService(
             val known = tocRepository.existsByIdAndBookIdAndAccountId(tocId, book.id, accountId)
             throw GlossException(if (known) BookError.TOC_OUTDATED else BookError.TOC_NOT_FOUND)
         }
-        latest.confirm(clock.instant())
+        val now = clock.instant()
+        val confirmed = latest.confirm(now)
         book.use(latest)
+        // Once: confirming again changes nothing, and nothing is to be written from it again.
+        if (confirmed) {
+            applicationEventPublisher.publishEvent(
+                TocConfirmed(
+                    eventId = UuidV7.at(now),
+                    occurredAt = now,
+                    accountId = accountId,
+                    bookId = book.id,
+                    tocId = latest.id,
+                ),
+            )
+        }
         return BookResponse.from(
             book,
             latest,
