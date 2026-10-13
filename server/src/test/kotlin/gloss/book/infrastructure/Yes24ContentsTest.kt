@@ -38,6 +38,14 @@ class Yes24ContentsTest {
     }
 
     @Test
+    fun `an e-book's closing break tags end its lines`() {
+        val raw = "◎ 1장: 객체, 설계</br>01. 티켓 판매\t</br>___예상을 빗나가는 코드\t</br></br>◎ 2장: 객체지향</BR>01. 영화 예매"
+
+        assertThat(Yes24Contents.clean(raw))
+            .isEqualTo("1장: 객체, 설계\n01. 티켓 판매\n   예상을 빗나가는 코드\n\n2장: 객체지향\n01. 영화 예매")
+    }
+
+    @Test
     fun `a tag that is a title's own stays, and entities are read`() {
         val raw = "1.1 <script> 태그의 위치<br>1.2 R&amp;D 와 &lt;template&gt;<br>1.3 &amp;lt; 라고 쓰기"
 
