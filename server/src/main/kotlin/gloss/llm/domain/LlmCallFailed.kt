@@ -22,7 +22,10 @@ class LlmCallFailed(
         /** 429. */
         RATE_LIMITED,
 
-        /** Any other answer that was not a stream: a 4xx we caused or a 5xx. */
+        /** Any other 4xx: the request as it stands, which the provider would refuse again. */
+        REFUSED_REQUEST,
+
+        /** A 5xx, or a stream that was not one: the provider's own fault, which may pass. */
         PROVIDER_ERROR,
 
         /** No answer, a dropped connection, or nothing for longer than the idle timeout. */

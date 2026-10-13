@@ -7,7 +7,7 @@ import org.springframework.http.ResponseEntity
 import tools.jackson.databind.ObjectMapper
 
 /** [cause] keeps what went wrong underneath for the log; the reader only sees [error]. */
-class GlossException(
+open class GlossException(
     val error: ErrorCode,
     cause: Throwable? = null,
 ) : RuntimeException(error.code, cause)

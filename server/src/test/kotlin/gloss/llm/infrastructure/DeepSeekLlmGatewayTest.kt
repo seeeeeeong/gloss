@@ -7,6 +7,7 @@ import gloss.llm.domain.LlmCallFailed
 import gloss.llm.domain.TokenUsage
 import gloss.llm.domain.chat.ChatMessage
 import gloss.llm.domain.chat.FinishReason
+import gloss.llm.domain.chat.ReplyFormat
 import gloss.llm.domain.chat.Role
 import gloss.llm.domain.chat.Thinking
 import org.assertj.core.api.Assertions.assertThat
@@ -46,10 +47,31 @@ class DeepSeekLlmGatewayTest : DeepSeekFixture() {
         assertThat(sent.get("stream").asBoolean()).isTrue()
         assertThat(sent.get("stream_options").get("include_usage").asBoolean()).isTrue()
         assertThat(sent.get("messages").toList().map { it.get("role").asString() }).containsExactly("system", "user")
+        assertThat(sent.has("response_format")).isFalse()
     }
 
     @Test
-    fun `a refused key, an empty balance and a rate limit each say which`() {
+    fun `a call for JSON asks the provider for its JSON output`() {
+        answering {
+            it.streams(chunk(finish = "stop"), usage, "data: [DONE]\n\n")
+        }.stream(
+            secret = "sk-reader",
+            request = request.copy(format = ReplyFormat.JSON),
+            onText = {},
+            isCancelled = { false },
+        )
+
+        assertThat(
+            json
+                .readTree(body)
+                .get("response_format")
+                .get("type")
+                .asString(),
+        ).isEqualTo("json_object")
+    }
+
+    @Test
+    fun `a refused key, an empty balance, a rate limit, a refused request and a failing provider each say which`() {
         fun failure(status: Int) =
             runCatching {
                 answering {
@@ -62,6 +84,10 @@ class DeepSeekLlmGatewayTest : DeepSeekFixture() {
         assertThat(failure(402).kind).isEqualTo(LlmCallFailed.Kind.INSUFFICIENT_BALANCE)
         stop()
         assertThat(failure(429).kind).isEqualTo(LlmCallFailed.Kind.RATE_LIMITED)
+        stop()
+        assertThat(listOf(400, 403, 404, 422).map { failure(it).also { stop() }.kind })
+            .containsOnly(LlmCallFailed.Kind.REFUSED_REQUEST)
+        assertThat(failure(500).kind).isEqualTo(LlmCallFailed.Kind.PROVIDER_ERROR)
         stop()
         assertThat(
             failure(503),

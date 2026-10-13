@@ -2,6 +2,7 @@ package gloss.llm.domain
 
 import gloss.llm.domain.chat.ChatMessage
 import gloss.llm.domain.chat.FinishReason
+import gloss.llm.domain.chat.ReplyFormat
 import gloss.llm.domain.chat.Thinking
 
 /**
@@ -26,6 +27,7 @@ data class ChatRequest(
     val messages: List<ChatMessage>,
     val maxTokens: Int,
     val thinking: Thinking,
+    val format: ReplyFormat = ReplyFormat.TEXT,
 )
 
 /** [usage] is null when the stream ended without reporting it. */
