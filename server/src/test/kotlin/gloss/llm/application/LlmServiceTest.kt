@@ -19,6 +19,7 @@ import gloss.llm.domain.LlmCallFailed
 import gloss.llm.domain.TokenUsage
 import gloss.llm.domain.chat.ChatMessage
 import gloss.llm.domain.chat.FinishReason
+import gloss.llm.domain.chat.ReplyFormat
 import gloss.llm.domain.chat.Role
 import gloss.llm.domain.chat.Thinking
 import org.assertj.core.api.Assertions.assertThat
@@ -124,6 +125,13 @@ class LlmServiceTest(
         }
     }
 
+    private fun reservations(account: UUID): List<UUID?> =
+        jdbc
+            .sql("select reservation_id from usage_ledger where account_id = :id and kind = 'reserve'")
+            .param("id", account)
+            .query(UUID::class.java)
+            .list()
+
     private fun endings(account: UUID): List<String?> =
         jdbc
             .sql(
@@ -149,6 +157,11 @@ class LlmServiceTest(
 
         assertThat(reply.text).isEqualTo("Hello")
         assertThat(reply.finishReason).isEqualTo(FinishReason.STOP)
+        assertThat(reply.model).isEqualTo("deepseek-flash")
+        assertThat(reply.usage).isEqualTo(
+            ReplyUsage(cacheHitTokens = 20, cacheMissTokens = 10, completionTokens = 7, reasoningTokens = 0),
+        )
+        assertThat(reservations(account)).containsExactly(reply.reservationId)
         assertThat(pieces).containsExactly("Hel", "lo")
         assertThat(fakeLlmGateway.secrets).containsExactly(typed)
         assertThat(fakeLlmGateway.requests.single().model).isEqualTo("deepseek-flash")
@@ -162,6 +175,16 @@ class LlmServiceTest(
                 .query()
                 .singleValue(),
         ).isNotNull()
+    }
+
+    @Test
+    fun `a call for JSON reaches the provider as one`() {
+        val account = account()
+        fakeLlmGateway.answer = { _, _ -> ChatResult("{}", FinishReason.STOP, usage) }
+
+        llmService.stream(call(account).copy(format = ReplyFormat.JSON), onText = {})
+
+        assertThat(fakeLlmGateway.requests.single().format).isEqualTo(ReplyFormat.JSON)
     }
 
     @Test
@@ -201,6 +224,34 @@ class LlmServiceTest(
     }
 
     @Test
+    fun `a request the provider refuses is released, and answered as one that would be refused again`() {
+        val account = account()
+        failsWith(LlmCallFailed.Kind.REFUSED_REQUEST)
+
+        assertFails(LlmError.REQUEST_REFUSED) { llmService.stream(call(account), onText = {}) }
+        assertThat(endings(account)).containsExactly("release:error:false")
+    }
+
+    @Test
+    fun `a call that fails after the provider said what it used carries that and its reservation`() {
+        val account = account()
+        fakeLlmGateway.answer = { _, _ ->
+            throw LlmCallFailed(LlmCallFailed.Kind.PROVIDER_ERROR, outputStarted = true, usage = usage)
+        }
+
+        val failed = runCatching { llmService.stream(call(account), onText = {}) }.exceptionOrNull()
+
+        assertThat(failed).isInstanceOfSatisfying(LlmCallError::class.java) {
+            assertThat(it.error).isEqualTo(LlmError.PROVIDER_FAILED)
+            assertThat(it.usage).isEqualTo(
+                ReplyUsage(cacheHitTokens = 20, cacheMissTokens = 10, completionTokens = 7, reasoningTokens = 0),
+            )
+            assertThat(reservations(account)).containsExactly(it.reservationId)
+        }
+        assertThat(endings(account)).containsExactly("settle:error:false")
+    }
+
+    @Test
     fun `a connection dropped after some text is settled at the most it could have cost, marked estimated`() {
         val account = account()
         failsWith(LlmCallFailed.Kind.NETWORK, outputStarted = true)
@@ -219,6 +270,7 @@ class LlmServiceTest(
         val reply = llmService.stream(call(account), onText = {})
 
         assertThat(reply.cancelled).isTrue()
+        assertThat(reservations(account)).containsExactly(reply.reservationId)
         assertThat(endings(account)).containsExactly("settle:cancelled_before_output:true")
     }
 
@@ -265,6 +317,7 @@ class LlmServiceTest(
         val reply = llmService.stream(call(account), onText = {}, isCancelled = { true })
 
         assertThat(reply.cancelled).isTrue()
+        assertThat(reply.reservationId).isNull()
         assertThat(fakeLlmGateway.requests).isEmpty()
         assertThat(endings(account)).isEmpty()
         assertThat(budgetService.usage(account).inFlightMicros).isZero()

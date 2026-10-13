@@ -68,7 +68,7 @@ class LlmService(
             if (isCancelled()) {
                 budgetService.release(reservation, Outcome.CANCELLED_BEFORE_OUTPUT)
                 ended = true
-                return CANCELLED
+                return CANCELLED.copy(reservationId = reservation.id)
             }
             val request =
                 ChatRequest(
@@ -76,6 +76,7 @@ class LlmService(
                     messages = call.messages,
                     maxTokens = maxTokens,
                     thinking = call.thinking,
+                    format = call.format,
                 )
             val reply =
                 try {
@@ -90,7 +91,7 @@ class LlmService(
                     // open, to expire at its full amount, rather than release what was billed.
                     ended = true
                     settleCompleted(reservation, result, Estimate(promptTokens, maxTokens.toLong()))
-                    LlmReply(result.text, result.finishReason)
+                    LlmReply.of(result, reservation.id)
                 } catch (e: LlmCallFailed) {
                     // A call that may have billed is settled or left to expire, never released again;
                     // one that billed nothing is only done once its release went through.
@@ -101,12 +102,12 @@ class LlmService(
                         apiKeyService.markRejected(call.accountId, key.keyId)
                     }
                     when (e.kind) {
-                        LlmCallFailed.Kind.CANCELLED -> CANCELLED
+                        LlmCallFailed.Kind.CANCELLED -> CANCELLED.copy(reservationId = reservation.id)
 
                         // The caller's own error, after paying for what the call may have billed.
                         LlmCallFailed.Kind.CALLER_FAILED -> throw e.cause ?: e
 
-                        else -> throw GlossException(LlmError.of(e.kind), e)
+                        else -> throw LlmCallError.of(e, reservation.id)
                     }
                 }
             ended = true

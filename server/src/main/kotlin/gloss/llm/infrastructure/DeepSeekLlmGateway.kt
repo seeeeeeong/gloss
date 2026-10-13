@@ -4,6 +4,7 @@ import gloss.llm.domain.ChatRequest
 import gloss.llm.domain.ChatResult
 import gloss.llm.domain.LlmCallFailed
 import gloss.llm.domain.LlmGateway
+import gloss.llm.domain.chat.ReplyFormat
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -190,20 +191,24 @@ class DeepSeekLlmGateway(
             "stream" to true,
             // Without it a stream reports no usage, and the ledger could only guess.
             "stream_options" to mapOf("include_usage" to true),
-        )
+        ) + if (request.format == ReplyFormat.JSON) mapOf("response_format" to JSON_OBJECT) else emptyMap()
 
     private fun kindOf(status: Int): LlmCallFailed.Kind =
         when (status) {
             HttpURLConnection.HTTP_UNAUTHORIZED -> LlmCallFailed.Kind.REJECTED_KEY
             HttpURLConnection.HTTP_PAYMENT_REQUIRED -> LlmCallFailed.Kind.INSUFFICIENT_BALANCE
             TOO_MANY_REQUESTS -> LlmCallFailed.Kind.RATE_LIMITED
+            in CLIENT_ERRORS -> LlmCallFailed.Kind.REFUSED_REQUEST
             else -> LlmCallFailed.Kind.PROVIDER_ERROR
         }
 
     private companion object {
+        val JSON_OBJECT = mapOf("type" to "json_object")
+
         // A TCP and TLS handshake with a healthy API takes well under a second.
         val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(3)
         const val TOO_MANY_REQUESTS = 429
+        val CLIENT_ERRORS = 400..499
 
         // How soon a cancel closes a call between lines of the stream, or before it has any: at most a
         // second more output billed after a cancel, for one check a second per call.

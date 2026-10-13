@@ -21,6 +21,12 @@ enum class Thinking(
     ENABLED("enabled"),
 }
 
+/** JSON is the provider's JSON output: the reply is one valid JSON value, and the prompt must ask for one. */
+enum class ReplyFormat {
+    TEXT,
+    JSON,
+}
+
 /** DeepSeek's finish_reason values; only STOP is a complete answer worth storing. */
 enum class FinishReason(
     val code: String,

@@ -14,6 +14,11 @@ enum class LlmError(
     KEY_UNREADABLE(HttpStatus.CONFLICT, "llm.key_unreadable", "저장된 API 키를 읽지 못했습니다. 마이페이지에서 키를 다시 입력해 주세요"),
     KEY_REJECTED(HttpStatus.CONFLICT, "llm.key_rejected", "DeepSeek이 API 키를 받지 않았습니다. 마이페이지에서 키를 확인해 주세요"),
     INSUFFICIENT_BALANCE(HttpStatus.CONFLICT, "llm.insufficient_balance", "DeepSeek 계정의 잔액이 부족합니다. DeepSeek에서 충전해 주세요"),
+    REQUEST_REFUSED(
+        HttpStatus.INTERNAL_SERVER_ERROR,
+        "llm.request_refused",
+        "DeepSeek이 요청을 받지 않았습니다. 다시 해도 같으면 운영자에게 알려 주세요",
+    ),
     PROVIDER_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "llm.provider_busy", "DeepSeek이 바쁩니다. 잠시 뒤 다시 시도해 주세요"),
     PROVIDER_FAILED(HttpStatus.BAD_GATEWAY, "llm.provider_failed", "DeepSeek에서 답을 받지 못했습니다. 잠시 뒤 다시 시도해 주세요"),
     ;
@@ -26,6 +31,8 @@ enum class LlmError(
                 LlmCallFailed.Kind.INSUFFICIENT_BALANCE -> INSUFFICIENT_BALANCE
 
                 LlmCallFailed.Kind.RATE_LIMITED -> PROVIDER_BUSY
+
+                LlmCallFailed.Kind.REFUSED_REQUEST -> REQUEST_REFUSED
 
                 LlmCallFailed.Kind.PROVIDER_ERROR,
                 LlmCallFailed.Kind.NETWORK,
