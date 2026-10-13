@@ -7,12 +7,13 @@ package gloss.book.infrastructure
  */
 internal object Yes24Contents {
     // With the line end after it, so a page that writes both does not get a blank line between every two.
-    private val BREAK = Regex("""(?i)(?:<br\s*/?>|</(?:p|div|li|tr|h[1-6])>)[ \t]*\r?\n?""")
+    // An e-book's contents break lines with "</br>" alone.
+    private val BREAK = Regex("""(?i)(?:</?br\s*/?>|</(?:p|div|li|tr|h[1-6])>)[ \t]*\r?\n?""")
 
     // Only tags that format: a title may hold one of its own, as "<script> 태그" does.
     private val FORMAT =
         Regex("""(?i)</?(?:strong|b|em|i|u|p|div|span|font|center|li|ul|ol|table|tbody|tr|td|h[1-6])(?:\s[^<>]*)?/?>""")
-    private val MARK = Regex("""^[▣■□●○◆◇▶▷]+\s*""")
+    private val MARK = Regex("""^[▣■□●○◎◆◇▶▷]+\s*""")
     private val RULE = Regex("""^_+""")
     private val BLANK_RUN = Regex("""\n{3,}""")
 
