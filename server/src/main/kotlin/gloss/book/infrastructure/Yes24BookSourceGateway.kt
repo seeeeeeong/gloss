@@ -51,8 +51,8 @@ class Yes24BookSourceGateway(
             .mapNotNull(::bookOf)
 
     override fun find(ref: String): SourcedBook? {
-        if (!ITEM_ID.matches(ref)) return null
-        return items("/goods/itemDetail?searchType=ItemId&query={ref}&detail=Y", ref).firstNotNullOfOrNull(::bookOf)
+        val id = ref.takeIf(ITEM_ID::matches)?.toIntOrNull()?.takeIf { it > 0 } ?: return null
+        return items("/goods/itemDetail?searchType=ItemId&query={id}&detail=Y", id).firstNotNullOfOrNull(::bookOf)
     }
 
     private fun items(
@@ -192,8 +192,8 @@ class Yes24BookSourceGateway(
         const val PRODUCT_PAGE = "https://www.yes24.com/product/goods/"
         val DATE_FORMATS = listOf(DateTimeFormatter.BASIC_ISO_DATE, DateTimeFormatter.ISO_LOCAL_DATE)
 
-        // As many digits as the number an item is read as can have, so every item a search lists can be found.
-        val ITEM_ID = Regex("[0-9]{1,19}")
+        // YES24 answers a number past a 32-bit int as a bad query (400 PARAM_004), not as no such item.
+        val ITEM_ID = Regex("[0-9]{1,10}")
 
         // No results, no such item, no such ISBN. SEARCH_002 is not among them: it is the search engine
         // failing, which the documentation says to wait out.
