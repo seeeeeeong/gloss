@@ -3,6 +3,7 @@ package gloss.book.application
 import gloss.TestcontainersConfiguration
 import gloss.book.application.dto.BookCreateRequest
 import gloss.book.application.dto.TocReviseRequest
+import gloss.book.domain.event.TocConfirmed
 import gloss.common.error.ErrorCode
 import gloss.common.error.GlossException
 import jakarta.persistence.EntityManager
@@ -13,6 +14,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.simple.JdbcClient
+import org.springframework.test.context.event.ApplicationEvents
+import org.springframework.test.context.event.RecordApplicationEvents
 import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
@@ -23,6 +26,7 @@ import java.util.concurrent.TimeUnit
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
 @Transactional
+@RecordApplicationEvents
 class BookServiceTest(
     @Autowired private val bookService: BookService,
     @Autowired private val jdbc: JdbcClient,
@@ -132,7 +136,9 @@ class BookServiceTest(
     }
 
     @Test
-    fun `confirming puts the version in use, and confirming it again changes nothing`() {
+    fun `confirming puts the version in use and says so once, and confirming it again changes nothing`(
+        @Autowired events: ApplicationEvents,
+    ) {
         val account = accountId()
         val created = bookService.create(account, request())
 
@@ -142,6 +148,8 @@ class BookServiceTest(
         assertThat(confirmed.currentTocId).isEqualTo(created.toc.id)
         assertThat(confirmed.toc.status).isEqualTo("confirmed")
         assertThat(again.toc.confirmedAt).isEqualTo(confirmed.toc.confirmedAt)
+        val said = events.stream(TocConfirmed::class.java).toList().single()
+        assertThat(listOf(said.accountId, said.bookId, said.tocId)).containsExactly(account, created.id, created.toc.id)
     }
 
     @Test
