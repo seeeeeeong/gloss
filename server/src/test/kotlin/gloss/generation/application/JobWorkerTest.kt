@@ -2,7 +2,7 @@ package gloss.generation.application
 
 import gloss.TestcontainersConfiguration
 import gloss.account.Members
-import gloss.generation.FakePlanHandler
+import gloss.generation.FakeJobHandler
 import gloss.generation.domain.job.JobKind
 import gloss.generation.domain.job.NewJob
 import gloss.generation.newReader
@@ -25,11 +25,11 @@ import java.util.concurrent.TimeUnit
 
 // A fast heartbeat, so a test sees a cancel or a renewed lease in well under a second.
 @SpringBootTest(properties = ["gloss.generation.heartbeat-every=PT0.2S"])
-@Import(TestcontainersConfiguration::class, FakePlanHandler.Config::class)
+@Import(TestcontainersConfiguration::class, FakeJobHandler.Config::class)
 class JobWorkerTest(
     @Autowired private val jobWorker: JobWorker,
     @Autowired private val generationService: GenerationService,
-    @Autowired private val fakePlanHandler: FakePlanHandler,
+    @Autowired private val fakeJobHandler: FakeJobHandler,
     @Autowired private val jdbc: JdbcClient,
     @Autowired passwordEncoder: PasswordEncoder,
     @Autowired clock: Clock,
@@ -53,7 +53,7 @@ class JobWorkerTest(
         val stopped = CountDownLatch(1)
         jobWorker.stop { stopped.countDown() }
         stopped.await(WAIT.toSeconds(), TimeUnit.SECONDS)
-        fakePlanHandler.behaviour = { {} }
+        fakeJobHandler.behaviour = { {} }
         jdbc.sql("delete from generation_job").update()
     }
 
@@ -62,8 +62,8 @@ class JobWorkerTest(
         generationService.enqueue(
             NewJob(
                 accountId = account,
-                kind = JobKind.PLAN,
-                dedupeKey = "plan:${UUID.randomUUID()}",
+                kind = JobKind.CHECK,
+                dedupeKey = "check:${UUID.randomUUID()}",
                 payload = mapOf(),
             ),
         )
@@ -92,7 +92,7 @@ class JobWorkerTest(
 
     @Test
     fun `a running job hears of a cancel at its next heartbeat`() {
-        fakePlanHandler.behaviour = { job ->
+        fakeJobHandler.behaviour = { job ->
             await().atMost(WAIT).until { job.isCancelled() }
             val write: () -> Unit = {}
             write
@@ -113,7 +113,7 @@ class JobWorkerTest(
     @Test
     fun `a running job's lease is renewed until it ends`() {
         val release = CountDownLatch(1)
-        fakePlanHandler.behaviour = {
+        fakeJobHandler.behaviour = {
             release.await(WAIT.toSeconds(), TimeUnit.SECONDS)
             val write: () -> Unit = {}
             write
@@ -131,7 +131,7 @@ class JobWorkerTest(
     @Test
     fun `stopping waits for the running job, which still ends well`() {
         val release = CountDownLatch(1)
-        fakePlanHandler.behaviour = {
+        fakeJobHandler.behaviour = {
             release.await(WAIT.toSeconds(), TimeUnit.SECONDS)
             val write: () -> Unit = {}
             write

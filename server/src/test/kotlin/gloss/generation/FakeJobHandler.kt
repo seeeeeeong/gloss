@@ -6,9 +6,9 @@ import gloss.generation.domain.job.JobKind
 import org.springframework.boot.test.context.TestConfiguration
 import org.springframework.context.annotation.Bean
 
-/** Stands in for the plan handler; each test says what it does. */
-class FakePlanHandler : JobHandler {
-    override val kind = JobKind.PLAN
+/** A handler for the one kind that has none of its own, so no real one runs beside it; each test says what it does. */
+class FakeJobHandler : JobHandler {
+    override val kind = JobKind.CHECK
 
     @Volatile var behaviour: (RunningJob) -> () -> Unit = { {} }
 
@@ -17,6 +17,6 @@ class FakePlanHandler : JobHandler {
     @TestConfiguration(proxyBeanMethods = false)
     class Config {
         @Bean
-        fun fakePlanHandler() = FakePlanHandler()
+        fun fakeJobHandler() = FakeJobHandler()
     }
 }

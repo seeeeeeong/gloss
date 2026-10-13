@@ -32,6 +32,7 @@ class ModularityTest {
             "common",
             "generation",
             "llm",
+            "plan",
             "post",
         )
     }

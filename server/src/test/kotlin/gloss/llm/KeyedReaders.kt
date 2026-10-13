@@ -4,6 +4,8 @@ import gloss.apikey.application.ApiKeyService
 import gloss.apikey.application.dto.ApiKeySaveRequest
 import gloss.budget.application.BudgetService
 import gloss.budget.application.dto.LimitRequest
+import org.springframework.boot.test.context.TestConfiguration
+import org.springframework.context.annotation.Bean
 import org.springframework.jdbc.core.simple.JdbcClient
 import java.util.UUID
 
@@ -38,6 +40,16 @@ class KeyedReaders(
         if (key) apiKeyService.save(id, ApiKeySaveRequest("sk-0123456789abcdef"))
         if (limitMicros != null) budgetService.setLimit(id, LimitRequest(limitMicros))
         return id
+    }
+
+    @TestConfiguration(proxyBeanMethods = false)
+    class Config {
+        @Bean
+        fun keyedReaders(
+            jdbc: JdbcClient,
+            apiKeyService: ApiKeyService,
+            budgetService: BudgetService,
+        ) = KeyedReaders(jdbc, apiKeyService, budgetService)
     }
 
     // The ledger is append-only and holds no key to an account, so its rows stay.

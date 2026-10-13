@@ -2,7 +2,7 @@ package gloss.generation.application
 
 import gloss.TestcontainersConfiguration
 import gloss.account.Members
-import gloss.generation.FakePlanHandler
+import gloss.generation.FakeJobHandler
 import gloss.generation.domain.job.JobKind
 import gloss.generation.domain.job.NewJob
 import gloss.generation.infrastructure.JdbcJobQueue
@@ -22,11 +22,11 @@ import java.util.UUID
 
 // Not transactional: the runner commits its own transactions, and a write that fails must roll back for real.
 @SpringBootTest
-@Import(TestcontainersConfiguration::class, FakePlanHandler.Config::class)
+@Import(TestcontainersConfiguration::class, FakeJobHandler.Config::class)
 class JobRunnerTest(
     @Autowired private val jobRunner: JobRunner,
     @Autowired private val jdbcJobQueue: JdbcJobQueue,
-    @Autowired private val fakePlanHandler: FakePlanHandler,
+    @Autowired private val fakeJobHandler: FakeJobHandler,
     @Autowired private val jdbc: JdbcClient,
     @Autowired private val clock: Clock,
     @Autowired passwordEncoder: PasswordEncoder,
@@ -43,10 +43,10 @@ class JobRunnerTest(
     @AfterEach
     fun emptyQueue() {
         jdbc.sql("delete from generation_job").update()
-        fakePlanHandler.behaviour = { {} }
+        fakeJobHandler.behaviour = { {} }
     }
 
-    private fun claimed(kind: JobKind = JobKind.PLAN): RunningJob {
+    private fun claimed(kind: JobKind = JobKind.CHECK): RunningJob {
         val now = clock.instant()
         jdbcJobQueue.enqueue(
             NewJob(
@@ -73,7 +73,7 @@ class JobRunnerTest(
     fun `a job that succeeds is written in the transaction that marks it succeeded`() {
         val job = claimed()
         var seenInWrite: String? = null
-        fakePlanHandler.behaviour = { { seenInWrite = state(job) } }
+        fakeJobHandler.behaviour = { { seenInWrite = state(job) } }
 
         jobRunner.run(job)
 
@@ -85,7 +85,7 @@ class JobRunnerTest(
     fun `an attempt that lost its lease writes nothing and leaves the job to whoever holds it`() {
         val job = claimed()
         var written = false
-        fakePlanHandler.behaviour = {
+        fakeJobHandler.behaviour = {
             jdbc
                 .sql("update generation_job set lease_owner = 'worker-b' where id = :id")
                 .param("id", job.claimed.lease.jobId)
@@ -104,7 +104,7 @@ class JobRunnerTest(
     fun `an attempt the heartbeat found lost does not even try`() {
         val job = claimed()
         var written = false
-        fakePlanHandler.behaviour = {
+        fakeJobHandler.behaviour = {
             job.lose()
             val write = { written = true }
             write
@@ -120,7 +120,7 @@ class JobRunnerTest(
     fun `a job asked to stop ends cancelled, its work dropped`() {
         val job = claimed()
         var written = false
-        fakePlanHandler.behaviour = {
+        fakeJobHandler.behaviour = {
             job.requestCancel()
             val write = { written = true }
             write
@@ -135,7 +135,7 @@ class JobRunnerTest(
     @Test
     fun `a fault that may pass goes back to the queue for later`() {
         val job = claimed()
-        fakePlanHandler.behaviour = { throw JobFailed("provider_busy", retryable = true) }
+        fakeJobHandler.behaviour = { throw JobFailed("provider_busy", retryable = true) }
 
         jobRunner.run(job)
 
@@ -157,7 +157,7 @@ class JobRunnerTest(
         )
         val second =
             RunningJob(checkNotNull(jdbcJobQueue.claim("worker-a", clock.instant(), Duration.ofSeconds(60))))
-        fakePlanHandler.behaviour = { throw JobFailed("provider_busy", retryable = true) }
+        fakeJobHandler.behaviour = { throw JobFailed("provider_busy", retryable = true) }
 
         jobRunner.run(second)
 
@@ -167,7 +167,7 @@ class JobRunnerTest(
     @Test
     fun `a fault that will not pass fails the job at once`() {
         val job = claimed()
-        fakePlanHandler.behaviour = { throw JobFailed("cut_at_cap", retryable = false) }
+        fakeJobHandler.behaviour = { throw JobFailed("cut_at_cap", retryable = false) }
 
         jobRunner.run(job)
 
@@ -177,7 +177,7 @@ class JobRunnerTest(
     @Test
     fun `an unexpected error fails the job`() {
         val job = claimed()
-        fakePlanHandler.behaviour = { error("bug") }
+        fakeJobHandler.behaviour = { error("bug") }
 
         jobRunner.run(job)
 
@@ -187,7 +187,7 @@ class JobRunnerTest(
     @Test
     fun `a job asked to stop that then fails ends cancelled`() {
         val job = claimed()
-        fakePlanHandler.behaviour = {
+        fakeJobHandler.behaviour = {
             job.requestCancel()
             throw JobFailed("provider_busy", retryable = true)
         }
@@ -199,7 +199,7 @@ class JobRunnerTest(
 
     @Test
     fun `a job no handler knows fails`() {
-        val job = claimed(JobKind.CHECK)
+        val job = claimed(JobKind.POST)
 
         jobRunner.run(job)
 
@@ -209,7 +209,7 @@ class JobRunnerTest(
     @Test
     fun `a job whose writes fail ends failed, not left running to be run again`() {
         val job = claimed()
-        fakePlanHandler.behaviour = { { error("constraint") } }
+        fakeJobHandler.behaviour = { { error("constraint") } }
 
         jobRunner.run(job)
 
@@ -220,7 +220,7 @@ class JobRunnerTest(
     fun `a cancel the heartbeat has not yet passed on still wins over a success`() {
         val job = claimed()
         var written = false
-        fakePlanHandler.behaviour = {
+        fakeJobHandler.behaviour = {
             jdbcJobQueue.cancelAll(account, clock.instant())
             val write = { written = true }
             write
@@ -235,7 +235,7 @@ class JobRunnerTest(
     @Test
     fun `a cancel the heartbeat has not yet passed on stops a retry`() {
         val job = claimed()
-        fakePlanHandler.behaviour = {
+        fakeJobHandler.behaviour = {
             jdbcJobQueue.cancelAll(account, clock.instant())
             throw JobFailed("provider_busy", retryable = true)
         }
@@ -249,7 +249,7 @@ class JobRunnerTest(
     fun `a job of a reader disabled before it started is cancelled without running`() {
         val job = claimed()
         var ran = false
-        fakePlanHandler.behaviour = {
+        fakeJobHandler.behaviour = {
             ran = true
             val write = {}
             write

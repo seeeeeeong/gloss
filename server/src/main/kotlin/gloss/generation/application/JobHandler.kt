@@ -2,6 +2,7 @@ package gloss.generation.application
 
 import gloss.generation.domain.ClaimedJob
 import gloss.generation.domain.job.JobKind
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -21,6 +22,12 @@ class RunningJob(
 ) {
     private val cancelRequested = AtomicBoolean(false)
     private val lost = AtomicBoolean(false)
+
+    val jobId: UUID get() = claimed.lease.jobId
+
+    val accountId: UUID get() = claimed.accountId
+
+    val payload: Map<String, String> get() = claimed.payload
 
     val wasCancelled: Boolean get() = cancelRequested.get()
 
