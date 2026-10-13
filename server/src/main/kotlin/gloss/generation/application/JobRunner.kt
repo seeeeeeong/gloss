@@ -24,8 +24,9 @@ class JobRunner(
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
-    // None until each kind's pull request brings its handler; a job of a kind without one fails.
-    private val handlers = jobHandlers.orderedStream().toList().associateBy { it.kind }
+    // Looked up at the first job, not at startup: a handler's module also enqueues, so its beans
+    // reach back to this one. A job of a kind without a handler fails.
+    private val handlers by lazy { jobHandlers.orderedStream().toList().associateBy { it.kind } }
 
     fun run(job: RunningJob) {
         // Disabled before the job started, perhaps before its cancel was delivered: nothing may run on
