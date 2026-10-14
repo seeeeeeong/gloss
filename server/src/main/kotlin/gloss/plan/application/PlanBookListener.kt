@@ -11,6 +11,6 @@ class PlanBookListener(
     // The id names this listener's undelivered events in event_publication; keep it when renaming.
     @ApplicationModuleListener(id = "plan.book")
     fun on(event: TocConfirmed) {
-        planService.request(accountId = event.accountId, bookId = event.bookId, tocId = event.tocId)
+        planService.requestOnce(accountId = event.accountId, bookId = event.bookId, tocId = event.tocId)
     }
 }

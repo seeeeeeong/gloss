@@ -122,6 +122,8 @@ class PlanJobHandler(
         private const val EMPTY_REPLY = "plan.empty_reply"
         private const val NOT_JSON = "plan.not_json"
 
+        fun keyOf(tocId: UUID) = "plan:toc:$tocId"
+
         /** One live job for a version of the contents, however often it is asked for. */
         fun jobFor(
             accountId: UUID,
@@ -130,7 +132,7 @@ class PlanJobHandler(
         ) = NewJob(
             accountId = accountId,
             kind = JobKind.PLAN,
-            dedupeKey = "plan:toc:$tocId",
+            dedupeKey = keyOf(tocId),
             payload = mapOf(BOOK_ID to bookId.toString(), TOC_ID to tocId.toString()),
         )
     }
