@@ -37,6 +37,11 @@ class Post private constructor(
         stale = false
     }
 
+    /** The book has a newer plan than the one this post was written from; it stays to read until rewritten. */
+    fun outdate() {
+        stale = true
+    }
+
     companion object {
         // Same as post.item_key's check, and toc_item's.
         const val MAX_ITEM_KEY = 600
