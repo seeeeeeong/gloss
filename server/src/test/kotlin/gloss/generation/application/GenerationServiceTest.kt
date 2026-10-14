@@ -5,6 +5,8 @@ import gloss.account.Members
 import gloss.account.application.AccountService
 import gloss.common.error.GlossException
 import gloss.generation.domain.job.JobKind
+import gloss.generation.domain.job.JobState
+import gloss.generation.domain.job.JobStatus
 import gloss.generation.domain.job.NewJob
 import gloss.generation.newReader
 import org.assertj.core.api.Assertions.assertThat
@@ -79,6 +81,30 @@ class GenerationServiceTest(
 
         assertThat(second).isEqualTo(first)
         assertThat(states()).containsExactly("queued")
+    }
+
+    @Test
+    fun `the newest job for a piece of work says how it stands, and work never asked for has none`() {
+        val key = "plan:${UUID.randomUUID()}"
+        assertThat(generationService.latest(account, key)).isNull()
+
+        generationService.enqueue(job(key))
+        assertThat(generationService.latest(account, key)).isEqualTo(JobStatus(JobState.QUEUED, null))
+
+        jdbc
+            .sql(
+                """
+                update generation_job set state = 'failed', error_kind = 'llm.no_key', finished_at = now()
+                where account_id = :account and dedupe_key = :key
+                """.trimIndent(),
+            ).param("account", account)
+            .param("key", key)
+            .update()
+        assertThat(generationService.latest(account, key)).isEqualTo(JobStatus(JobState.FAILED, "llm.no_key"))
+        assertThat(generationService.latest(UUID.randomUUID(), key)).isNull()
+
+        generationService.enqueue(job(key))
+        assertThat(generationService.latest(account, key)?.state).isEqualTo(JobState.QUEUED)
     }
 
     private fun disable() {
