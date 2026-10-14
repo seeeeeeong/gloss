@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { PostGeneration } from '@/components/PostGeneration'
 import { Prose } from '@/components/Prose'
 import { SourceCredit } from '@/components/SourceCredit'
 import { formatDateTime } from '@/lib/accounts'
@@ -46,11 +47,15 @@ export default async function PostPage(props: Props) {
           <p className="post-meta">
             <span className="tag">AI 학습 콘텐츠 · 책 본문 요약 아님</span>
             <span>{formatDateTime(post.generatedAt)} 생성</span>
+            {post.stale && <span className="tag">이전 목차 기준</span>}
           </p>
+          {post.stale && (
+            <PostGeneration key={post.versionId} bookId={book.id} itemKey={item.itemKey} rewrite />
+          )}
           <Prose markdown={post.contentMd} />
         </>
       ) : (
-        <div className="empty">아직 글이 없습니다.</div>
+        <PostGeneration key={item.itemKey} bookId={book.id} itemKey={item.itemKey} />
       )}
       <nav className="post-nav" aria-label="앞뒤 항목">
         {previous ? (
