@@ -387,6 +387,17 @@ button:disabled {
   text-align: center;
   line-height: 1.6;
 }
+.generation {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-3);
+  color: var(--fg-muted);
+}
+.post-meta + .generation {
+  justify-items: start;
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-sm);
+}
 .scrim {
   display: none;
 }

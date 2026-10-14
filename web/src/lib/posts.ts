@@ -27,6 +27,30 @@ export const postHref = (bookId: string, itemKey: string) =>
 export const postPath = (bookId: string, itemKey: string) =>
   `/api/me/books/${bookId}/post?itemKey=${encodeURIComponent(itemKey)}`
 
+/** How far a section's post has come, as POST /api/me/books/{id}/post/generation answers. */
+export type Generation = {
+  state: string
+  code: string | null
+  message: string | null
+}
+
+/** Asking is what moves the work on; `retry` asks again for work that failed. */
+export const generationPath = (bookId: string, itemKey: string, retry = false) =>
+  `/api/me/books/${bookId}/post/generation?itemKey=${encodeURIComponent(itemKey)}${retry ? '&retry=true' : ''}`
+
+const GENERATION_LABELS: Record<string, string> = {
+  planning: '학습 계획 작성 중',
+  writing: '글 작성 중',
+  ready: '글 작성 중',
+  none: '글이 없는 항목입니다',
+}
+
+/** What the page shows for a state; null for one that shows its own message, or one it does not know. */
+export const generationLabel = (state: string): string | null => GENERATION_LABELS[state] ?? null
+
+/** While the plan or the post is being written the page asks again; any other state is where it stops. */
+export const isUnderway = (state: string) => state === 'planning' || state === 'writing'
+
 export const headingOf = (item: Pick<TocItem, 'number' | 'title'>) =>
   item.number ? `${item.number} ${item.title}` : item.title
 
