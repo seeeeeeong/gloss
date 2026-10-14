@@ -1,7 +1,10 @@
 package gloss.plan.application
 
 import gloss.TestcontainersConfiguration
+import gloss.generation.domain.job.JobState
+import gloss.generation.domain.job.JobStatus
 import gloss.plan.domain.BookPlanDraft
+import gloss.plan.domain.event.PlanKept
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
@@ -9,12 +12,15 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.simple.JdbcClient
+import org.springframework.test.context.event.ApplicationEvents
+import org.springframework.test.context.event.RecordApplicationEvents
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
 @Transactional
+@RecordApplicationEvents
 class PlanServiceTest(
     @Autowired private val planService: PlanService,
     @Autowired private val jdbc: JdbcClient,
@@ -99,7 +105,9 @@ class PlanServiceTest(
     }
 
     @Test
-    fun `a plan is kept as the contents' first, with the hash of its bytes`() {
+    fun `a plan is kept as the contents' first, with the hash of its bytes, and said to be kept`(
+        @Autowired events: ApplicationEvents,
+    ) {
         val shelf = Shelf()
 
         val id = planService.keep(shelf.draft())
@@ -118,6 +126,8 @@ class PlanServiceTest(
                 .singleRow()
         assertThat(row.values).containsExactly(1, """{"audience":"독자"}""", "deepseek-flash", "plan-1", true)
         assertThat(planService.exists(shelf.account, shelf.toc)).isTrue()
+        val said = events.stream(PlanKept::class.java).toList().single()
+        assertThat(listOf(said.accountId, said.bookId, said.planId)).containsExactly(shelf.account, shelf.book, id)
     }
 
     @Test
@@ -136,6 +146,53 @@ class PlanServiceTest(
                 .query(Int::class.java)
                 .single()
         assertThat(kept).isEqualTo(1)
+    }
+
+    @Test
+    fun `a kept plan is found with its bytes and each item's kind, and only by its reader`() {
+        val shelf = Shelf()
+        val json =
+            """{"audience":"독자","items":[{"i":0,"kind":"overview"},{"i":1,"kind":"none"},{"i":2,"kind":"lesson"}]}"""
+        val id = planService.keep(shelf.draft(json))
+
+        val plan = checkNotNull(planService.find(shelf.account, shelf.toc))
+
+        assertThat(plan.id).isEqualTo(id)
+        assertThat(plan.canonicalJson).isEqualTo(json)
+        assertThat(plan.kinds).containsExactly(PlanItemKind.OVERVIEW, PlanItemKind.NONE, PlanItemKind.LESSON)
+        assertThat(planService.find(UUID.randomUUID(), shelf.toc)).isNull()
+        assertThat(planService.find(shelf.account, shelf.newerToc())).isNull()
+    }
+
+    @Test
+    fun `the job writing a plan says how it stands, and contents never asked for have none`() {
+        val shelf = Shelf()
+        assertThat(planService.progress(shelf.account, shelf.toc)).isNull()
+
+        planService.request(shelf.account, shelf.book, shelf.toc)
+
+        assertThat(planService.progress(shelf.account, shelf.toc)).isEqualTo(JobStatus(JobState.QUEUED, null))
+    }
+
+    @Test
+    fun `an event's request asks only for contents never asked for, while a reader's own asks again`() {
+        val shelf = Shelf()
+        val first = planService.requestOnce(shelf.account, shelf.book, shelf.toc)
+        jdbc
+            .sql(
+                """
+                update generation_job set state = 'failed', error_kind = 'plan.missing_item', finished_at = now()
+                where id = :id
+                """.trimIndent(),
+            ).param("id", first)
+            .update()
+
+        val delivered = planService.requestOnce(shelf.account, shelf.book, shelf.toc)
+        val asked = planService.request(shelf.account, shelf.book, shelf.toc)
+
+        assertThat(first).isNotNull()
+        assertThat(delivered).isNull()
+        assertThat(asked).isNotNull().isNotEqualTo(first)
     }
 
     @Test

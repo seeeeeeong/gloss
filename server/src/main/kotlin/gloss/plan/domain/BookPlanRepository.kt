@@ -9,4 +9,9 @@ interface BookPlanRepository : JpaRepository<BookPlan, UUID> {
         tocId: UUID,
         accountId: UUID,
     ): Boolean
+
+    fun findTopByTocIdAndAccountIdOrderByVersionNoDesc(
+        tocId: UUID,
+        accountId: UUID,
+    ): BookPlan?
 }

@@ -54,6 +54,12 @@ class PlanJsonTest {
     }
 
     @Test
+    fun `a kept plan gives each item's kind back, in order`() {
+        assertThat(planJson.kinds(planJson.write(subject, plan)))
+            .containsExactly(PlanPolicy.Kind.OVERVIEW, PlanPolicy.Kind.LESSON)
+    }
+
+    @Test
     fun `one plan is always the same bytes`() {
         assertThat(planJson.write(subject, plan)).isEqualTo(PlanJson().write(subject.copy(), plan.copy()))
     }
