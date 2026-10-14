@@ -82,11 +82,12 @@ class PostServiceTest(
         fun writing(
             content: String = "# 객체\n\n본문이다.",
             key: String = itemKey,
+            planId: UUID = plan,
         ) = PublishRequest(
             accountId = account,
             bookId = book,
             itemKey = key,
-            planId = plan,
+            planId = planId,
             contentMd = content,
             finishReason = "stop",
             model = "model-x",
@@ -125,6 +126,37 @@ class PostServiceTest(
     }
 
     @Test
+    fun `a section has a post once one is published, for its reader alone`() {
+        val shelf = Shelf()
+        val before = postService.freshness(shelf.account, shelf.book, itemKey)
+
+        postService.publish(shelf.writing())
+
+        assertThat(before).isEqualTo(PostFreshness.MISSING)
+        assertThat(postService.freshness(shelf.account, shelf.book, itemKey)).isEqualTo(PostFreshness.FRESH)
+        assertThat(postService.freshness(UUID.randomUUID(), shelf.book, itemKey)).isEqualTo(PostFreshness.MISSING)
+        assertThat(postService.freshness(shelf.account, shelf.book, "2장 설계")).isEqualTo(PostFreshness.MISSING)
+    }
+
+    @Test
+    fun `a post is stale once the book has another plan, and fresh again once rewritten`() {
+        val shelf = Shelf()
+        postService.publish(shelf.writing())
+
+        postService.outdate(shelf.account, shelf.book, shelf.plan)
+        val sameplan = postService.freshness(shelf.account, shelf.book, itemKey)
+        postService.outdate(shelf.account, shelf.book, UUID.randomUUID())
+        val otherPlan = postService.freshness(shelf.account, shelf.book, itemKey)
+        val shown = postService.get(shelf.account, shelf.book, itemKey)
+        postService.publish(shelf.writing(content = "## 학습 목표\n\n다시 쓴 본문이다."))
+
+        assertThat(sameplan).isEqualTo(PostFreshness.FRESH)
+        assertThat(otherPlan).isEqualTo(PostFreshness.STALE)
+        assertThat(shown.stale).isTrue()
+        assertThat(postService.freshness(shelf.account, shelf.book, itemKey)).isEqualTo(PostFreshness.FRESH)
+    }
+
+    @Test
     fun `a rewrite is the next version and replaces what the reader sees`() {
         val shelf = Shelf()
         val first = postService.publish(shelf.writing())
@@ -149,6 +181,32 @@ class PostServiceTest(
         assertThat(again.created).isFalse()
         assertThat(again.versionId).isEqualTo(first.versionId)
         assertThat(versionsOf(first.postId)).isEqualTo(1)
+    }
+
+    @Test
+    fun `the same content written from another plan is that plan's version, and the post is fresh`() {
+        val shelf = Shelf()
+        val first = postService.publish(shelf.writing())
+        val newer = UUID.randomUUID()
+        jdbc
+            .sql(
+                """
+                insert into book_plan (id, version, account_id, book_id, toc_id, version_no, canonical_json,
+                                       json_sha256, model, prompt_version, created_at)
+                select :id, 0, account_id, book_id, toc_id, 2, '{}', repeat('c', 64), model, prompt_version, now()
+                from book_plan where id = :plan
+                """.trimIndent(),
+            ).param("id", newer)
+            .param("plan", shelf.plan)
+            .update()
+        postService.outdate(shelf.account, shelf.book, newer)
+
+        val again = postService.publish(shelf.writing(planId = newer))
+
+        assertThat(again.created).isTrue()
+        assertThat(again.versionNo).isEqualTo(2)
+        assertThat(postService.freshness(shelf.account, shelf.book, itemKey)).isEqualTo(PostFreshness.FRESH)
+        assertThat(first.versionNo).isEqualTo(1)
     }
 
     @Test

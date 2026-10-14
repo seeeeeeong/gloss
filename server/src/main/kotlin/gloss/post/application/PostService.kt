@@ -46,9 +46,44 @@ class PostService(
         return PostResponse.from(post, version)
     }
 
+    /** Whether the section has a post to read, and whether it is of the plan in use. */
+    fun freshness(
+        accountId: UUID,
+        bookId: UUID,
+        itemKey: String,
+    ): PostFreshness {
+        val post = postRepository.findByBookIdAndAccountIdAndItemKey(bookId, accountId, itemKey)
+        return when {
+            post?.currentVersionId == null -> PostFreshness.MISSING
+            post.stale -> PostFreshness.STALE
+            else -> PostFreshness.FRESH
+        }
+    }
+
     /**
-     * Adds a version and shows it, in one transaction. Content the same as the version before
-     * adds nothing. The book and the plan must be the account's own: the schema refuses others.
+     * Marks the book's posts written from any plan but [planId] as stale. A post already rewritten
+     * from that plan is left alone, so the mark may come late.
+     */
+    @Transactional
+    fun outdate(
+        accountId: UUID,
+        bookId: UUID,
+        planId: UUID,
+    ) {
+        postRepository.lockBook(bookId)
+        val posts = postRepository.findAllByBookIdAndAccountIdAndCurrentVersionIdIsNotNull(bookId, accountId)
+        val fromThisPlan =
+            postVersionRepository
+                .findAllByIdInAndAccountId(posts.mapNotNull { it.currentVersionId }, accountId)
+                .filter { it.planId == planId }
+                .map { it.postId }
+                .toSet()
+        posts.filterNot { it.id in fromThisPlan }.forEach(Post::outdate)
+    }
+
+    /**
+     * Adds a version and shows it, in one transaction. Content the same as the version before, from
+     * the same plan, adds nothing. The book and the plan must be the account's own: the schema refuses others.
      */
     @Transactional
     fun publish(request: PublishRequest): PublishedVersion {
@@ -66,7 +101,9 @@ class PostService(
             postRepository.findByBookIdAndAccountIdAndItemKey(request.bookId, request.accountId, request.itemKey)
                 ?: newPost(request, now)
         val last = postVersionRepository.findTopByPostIdAndAccountIdOrderByVersionNoDesc(post.id, post.accountId)
-        if (last != null && last.contentSha256 == content.sha256()) return PublishedVersion.of(last, created = false)
+        // The same words under another plan are still a writing from that plan, and end the post's staleness.
+        val same = last != null && last.contentSha256 == content.sha256() && last.planId == request.planId
+        if (same) return PublishedVersion.of(checkNotNull(last), created = false)
         val draft =
             PostVersionDraft(
                 content = content,
@@ -101,4 +138,14 @@ class PostService(
         postRepository.save(post)
         return post
     }
+}
+
+enum class PostFreshness {
+    /** No post to read yet. */
+    MISSING,
+
+    /** A post written from a plan the book has since replaced. */
+    STALE,
+
+    FRESH,
 }

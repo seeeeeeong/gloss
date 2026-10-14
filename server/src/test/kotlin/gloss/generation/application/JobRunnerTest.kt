@@ -2,6 +2,7 @@ package gloss.generation.application
 
 import gloss.TestcontainersConfiguration
 import gloss.account.Members
+import gloss.account.application.AccountService
 import gloss.generation.FakeJobHandler
 import gloss.generation.domain.job.JobKind
 import gloss.generation.domain.job.NewJob
@@ -11,14 +12,18 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.mockito.Mockito
+import org.springframework.beans.factory.ObjectProvider
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.security.crypto.password.PasswordEncoder
+import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
 import java.time.Duration
 import java.util.UUID
+import java.util.stream.Stream
 
 // Not transactional: the runner commits its own transactions, and a write that fails must roll back for real.
 @SpringBootTest
@@ -32,6 +37,10 @@ class JobRunnerTest(
     @Autowired passwordEncoder: PasswordEncoder,
 ) {
     private val account = Members(jdbc, passwordEncoder, clock).newReader(jdbc)
+
+    private object NoHandlers : ObjectProvider<JobHandler> {
+        override fun stream(): Stream<JobHandler> = Stream.empty()
+    }
 
     private data class Row(
         val state: String,
@@ -199,9 +208,20 @@ class JobRunnerTest(
 
     @Test
     fun `a job no handler knows fails`() {
-        val job = claimed(JobKind.POST)
+        val job = claimed()
+        val accountService = Mockito.mock(AccountService::class.java)
+        Mockito.`when`(accountService.isActive(account)).thenReturn(true)
+        // Every kind has a handler once the application is whole, so this runner is given none.
+        val withoutHandlers =
+            JobRunner(
+                jobHandlers = NoHandlers,
+                jdbcJobQueue = jdbcJobQueue,
+                transactionTemplate = TransactionTemplate(),
+                clock = clock,
+                accountService = accountService,
+            )
 
-        jobRunner.run(job)
+        withoutHandlers.run(job)
 
         assertThat(row(job)).extracting("state", "errorKind").containsExactly("failed", "no_handler")
     }
