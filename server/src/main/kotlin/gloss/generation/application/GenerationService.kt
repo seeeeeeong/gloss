@@ -2,8 +2,10 @@ package gloss.generation.application
 
 import gloss.account.application.AccountService
 import gloss.common.error.GlossException
+import gloss.generation.domain.job.JobStatus
 import gloss.generation.domain.job.NewJob
 import gloss.generation.infrastructure.JdbcJobQueue
+import gloss.generation.infrastructure.JdbcJobStatuses
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
@@ -15,6 +17,7 @@ import java.util.UUID
 class GenerationService(
     private val accountService: AccountService,
     private val jdbcJobQueue: JdbcJobQueue,
+    private val jdbcJobStatuses: JdbcJobStatuses,
     private val jobWorker: JobWorker,
     private val clock: Clock,
 ) {
@@ -35,6 +38,13 @@ class GenerationService(
         )
         return id
     }
+
+    /** How the newest job for a piece of work stands; null when it was never asked for. */
+    @Transactional(readOnly = true)
+    fun latest(
+        accountId: UUID,
+        dedupeKey: String,
+    ): JobStatus? = jdbcJobStatuses.latest(accountId, dedupeKey)
 
     @Transactional
     fun cancelForDisabledAccount(accountId: UUID) {
