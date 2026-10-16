@@ -22,6 +22,9 @@ import gloss.domain.llm.domain.chat.FinishReason
 import gloss.domain.llm.domain.chat.ReplyFormat
 import gloss.domain.llm.domain.chat.Role
 import gloss.domain.llm.domain.chat.Thinking
+import gloss.domain.llm.domain.chat.ToolCall
+import gloss.domain.llm.domain.chat.ToolChoice
+import gloss.domain.llm.domain.chat.ToolDefinition
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterEach
@@ -185,6 +188,116 @@ class LlmServiceTest(
         llmService.stream(call(account).copy(format = ReplyFormat.JSON), onText = {})
 
         assertThat(fakeLlmGateway.requests.single().format).isEqualTo(ReplyFormat.JSON)
+    }
+
+    private val searchWeb =
+        ToolDefinition(
+            name = "search_web",
+            description = "Search the web",
+            parameters = """{"type":"object","properties":{"query":{"type":"string"}}}""",
+        )
+
+    @Test
+    fun `a call that ends in tool calls is settled with what it used as such, and hands the calls back`() {
+        val account = account()
+        val called = ToolCall(id = "call_a", name = "search_web", arguments = """{"query": "os"}""")
+        fakeLlmGateway.answer = { _, _ ->
+            ChatResult(text = "", finishReason = FinishReason.TOOL_CALLS, usage = usage, toolCalls = listOf(called))
+        }
+
+        val reply =
+            llmService.stream(
+                call(account).copy(tools = listOf(searchWeb), toolChoice = ToolChoice.Required),
+                onText = {},
+            )
+
+        assertThat(reply.finishReason).isEqualTo(FinishReason.TOOL_CALLS)
+        assertThat(reply.toolCalls).containsExactly(called)
+        assertThat(reply.usage).isEqualTo(
+            ReplyUsage(cacheHitTokens = 20, cacheMissTokens = 10, completionTokens = 7, reasoningTokens = 0),
+        )
+        assertThat(fakeLlmGateway.requests.single().tools).containsExactly(searchWeb)
+        assertThat(fakeLlmGateway.requests.single().toolChoice).isEqualTo(ToolChoice.Required)
+        assertThat(reservations(account)).containsExactly(reply.reservationId)
+        assertThat(endings(account)).containsExactly("settle:tool_calls:false")
+        assertThat(budgetService.usage(account).spentMicros).isEqualTo(12)
+    }
+
+    @Test
+    fun `a call offering tools that fails before billing is released`() {
+        val account = account()
+        failsWith(LlmCallFailed.Kind.RATE_LIMITED)
+
+        assertFails(LlmError.PROVIDER_BUSY) {
+            llmService.stream(call(account).copy(tools = listOf(searchWeb)), onText = {})
+        }
+        assertThat(endings(account)).containsExactly("release:error:false")
+        assertThat(budgetService.usage(account).inFlightMicros).isZero()
+    }
+
+    @Test
+    fun `a call offering tools cut mid-call is settled at the most it could have cost`() {
+        val account = account()
+        failsWith(LlmCallFailed.Kind.NETWORK, outputStarted = true)
+
+        assertFails(LlmError.PROVIDER_FAILED) {
+            llmService.stream(call(account).copy(tools = listOf(searchWeb)), onText = {})
+        }
+        assertThat(endings(account)).containsExactly("settle:error:true")
+        assertThat(budgetService.usage(account).inFlightMicros).isZero()
+    }
+
+    @Test
+    fun `forcing a tool with thinking on is refused before anything is reserved or sent`() {
+        val account = account()
+        val forcedWhileThinking =
+            call(account).copy(
+                thinking = Thinking.ENABLED,
+                tools = listOf(searchWeb),
+                toolChoice = ToolChoice.Named("search_web"),
+            )
+
+        assertFails(LlmError.TOOLS_REFUSED) { llmService.stream(forcedWhileThinking, onText = {}) }
+        assertThat(fakeLlmGateway.requests).isEmpty()
+        assertThat(reservations(account)).isEmpty()
+    }
+
+    @Test
+    fun `tool results out of their calls' order, or thinking not sent back, are refused before anything is reserved`() {
+        val account = account()
+        val calls =
+            ChatMessage(
+                role = Role.ASSISTANT,
+                content = "",
+                toolCalls = listOf(ToolCall("call_a", "search_web", "{}"), ToolCall("call_b", "search_web", "{}")),
+            )
+        val swapped =
+            messages + calls + ChatMessage.toolResult("call_b", "b") + ChatMessage.toolResult("call_a", "a")
+        val inOrder =
+            messages + calls + ChatMessage.toolResult("call_a", "a") + ChatMessage.toolResult("call_b", "b")
+
+        assertFails(LlmError.TOOLS_REFUSED) {
+            llmService.stream(call(account).copy(messages = swapped, tools = listOf(searchWeb)), onText = {})
+        }
+        assertFails(LlmError.TOOLS_REFUSED) {
+            llmService.stream(
+                call(account).copy(messages = inOrder, tools = listOf(searchWeb), thinking = Thinking.ENABLED),
+                onText = {},
+            )
+        }
+        assertThat(fakeLlmGateway.requests).isEmpty()
+        assertThat(reservations(account)).isEmpty()
+    }
+
+    @Test
+    fun `a call without tools reaches the gateway offering none`() {
+        val account = account()
+        fakeLlmGateway.answer = { _, _ -> ChatResult("ok", FinishReason.STOP, usage) }
+
+        llmService.stream(call(account), onText = {})
+
+        assertThat(fakeLlmGateway.requests.single().tools).isEmpty()
+        assertThat(fakeLlmGateway.requests.single().toolChoice).isEqualTo(ToolChoice.Auto)
     }
 
     @Test

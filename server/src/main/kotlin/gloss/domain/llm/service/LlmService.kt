@@ -16,8 +16,8 @@ import gloss.domain.llm.domain.PromptSizePolicy
 import gloss.domain.llm.domain.SettlementDecision
 import gloss.domain.llm.domain.SettlementPolicy
 import gloss.domain.llm.domain.TokenUsage
+import gloss.domain.llm.domain.ToolUseDecision
 import gloss.domain.llm.domain.chat.FinishReason
-import gloss.domain.llm.domain.chat.Thinking
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Propagation
@@ -54,13 +54,9 @@ class LlmService(
         isCancelled: () -> Boolean = { false },
     ): LlmReply {
         if (isCancelled()) return CANCELLED
+        checkTools(call)
         val key = usableKey(call)
-        val promptTokens =
-            PromptSizePolicy.upperBoundTokens(
-                call.messages.map { it.content },
-                thinking =
-                    call.thinking == Thinking.ENABLED,
-            )
+        val promptTokens = call.promptTokens()
         val maxTokens = capFor(call, promptTokens)
         val reservation = reserve(call = call, key = key, promptTokens = promptTokens, maxTokens = maxTokens)
         var ended = false
@@ -77,6 +73,8 @@ class LlmService(
                     maxTokens = maxTokens,
                     thinking = call.thinking,
                     format = call.format,
+                    tools = call.tools,
+                    toolChoice = call.toolChoice,
                 )
             val reply =
                 try {
@@ -118,6 +116,13 @@ class LlmService(
         } finally {
             // Whatever escaped above, the reservation does not stay open.
             if (!ended) budgetService.release(reservation, Outcome.ERROR)
+        }
+    }
+
+    private fun checkTools(call: LlmCall) {
+        val decision = call.toolUse()
+        if (decision is ToolUseDecision.Refused) {
+            throw GlossException(LlmError.TOOLS_REFUSED, IllegalArgumentException(decision.problem.name))
         }
     }
 
@@ -181,6 +186,7 @@ class LlmService(
                 FinishReason.STOP -> Outcome.STOP
                 FinishReason.LENGTH -> Outcome.LENGTH
                 FinishReason.CONTENT_FILTER -> Outcome.CONTENT_FILTER
+                FinishReason.TOOL_CALLS -> Outcome.TOOL_CALLS
                 else -> Outcome.ERROR
             }
         budgetService.settle(reservation, reportOf(result.usage, outcome, estimate.full()))

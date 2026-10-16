@@ -4,6 +4,9 @@ import gloss.domain.llm.domain.chat.ChatMessage
 import gloss.domain.llm.domain.chat.FinishReason
 import gloss.domain.llm.domain.chat.ReplyFormat
 import gloss.domain.llm.domain.chat.Thinking
+import gloss.domain.llm.domain.chat.ToolCall
+import gloss.domain.llm.domain.chat.ToolChoice
+import gloss.domain.llm.domain.chat.ToolDefinition
 
 /**
  * A streaming chat completion on the reader's own key. [onText] gets each piece as it comes and
@@ -28,13 +31,20 @@ data class ChatRequest(
     val maxTokens: Int,
     val thinking: Thinking,
     val format: ReplyFormat = ReplyFormat.TEXT,
+    val tools: List<ToolDefinition> = emptyList(),
+    val toolChoice: ToolChoice = ToolChoice.Auto,
 )
 
-/** [usage] is null when the stream ended without reporting it. */
+/**
+ * [usage] is null when the stream ended without reporting it. [toolCalls] are whole, in the order
+ * the model made them; [reasoning] is the thinking, which a later call offering tools sends back.
+ */
 data class ChatResult(
     val text: String,
     val finishReason: FinishReason,
     val usage: TokenUsage?,
+    val toolCalls: List<ToolCall> = emptyList(),
+    val reasoning: String = "",
 )
 
 /** As the provider reported it: hit and miss both, never one derived from the other. */

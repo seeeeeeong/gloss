@@ -17,6 +17,7 @@ enum class Outcome(
     STOP("stop"),
     LENGTH("length"),
     CONTENT_FILTER("content_filter"),
+    TOOL_CALLS("tool_calls"),
     CANCELLED_BEFORE_OUTPUT("cancelled_before_output"),
     CANCELLED_AFTER_OUTPUT("cancelled_after_output"),
     ERROR("error"),
