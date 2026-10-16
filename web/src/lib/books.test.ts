@@ -3,10 +3,14 @@ import {
   authorsOf,
   type BookCandidate,
   bylineOf,
+  contentsHref,
+  contentsSectionsOf,
   creditOf,
   editionOf,
   isBookId,
+  landingOf,
   searchPath,
+  type Toc,
   type TocItem,
   tocStatusLabel,
   treeOf,
@@ -120,5 +124,48 @@ describe('searchPath', () => {
     expect(searchPath('Real MySQL 8.0 & more')).toBe(
       '/api/me/books/search?query=Real%20MySQL%208.0%20%26%20more',
     )
+  })
+})
+
+const tocOf = (id: string, versionNo: number, status = 'confirmed'): Toc => ({
+  id,
+  versionNo,
+  origin: 'typed',
+  status,
+  confirmedAt: null,
+  raw: '',
+  items: [],
+})
+
+describe('landingOf', () => {
+  it('opens a confirmed book in the reader and an unconfirmed one at its review', () => {
+    expect(landingOf({ currentTocId: 't1' })).toBe('reader')
+    expect(landingOf({ currentTocId: null })).toBe('review')
+    expect(contentsHref('b1')).toBe('/books/b1/contents')
+  })
+})
+
+describe('contentsSectionsOf', () => {
+  it('reviews the only draft of a book not yet confirmed', () => {
+    const draft = tocOf('t1', 1, 'draft')
+    expect(contentsSectionsOf(null, draft)).toEqual([
+      { id: 'draft', title: '목차', toc: draft, review: true },
+    ])
+  })
+
+  it('edits the version in use when nothing newer waits', () => {
+    const inUse = tocOf('t1', 1)
+    expect(contentsSectionsOf(inUse, inUse)).toEqual([
+      { id: 'toc', title: '목차', toc: inUse, review: true },
+    ])
+  })
+
+  it('shows the version in use and reviews the newer draft beside it', () => {
+    const inUse = tocOf('t1', 1)
+    const draft = tocOf('t2', 2, 'draft')
+    expect(contentsSectionsOf(inUse, draft)).toEqual([
+      { id: 'toc', title: '목차', toc: inUse, review: false },
+      { id: 'draft', title: '새 목차', toc: draft, review: true },
+    ])
   })
 })

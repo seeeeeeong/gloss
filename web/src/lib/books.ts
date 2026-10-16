@@ -114,3 +114,28 @@ export function treeOf(items: TocItem[]): TocNode[] {
 const TOC_STATUSES: Record<string, string> = { draft: '확정 전', confirmed: '확정' }
 
 export const tocStatusLabel = (status: string) => TOC_STATUSES[status] ?? status
+
+export const contentsHref = (bookId: string) => `/books/${bookId}/contents`
+
+/** A book opens in the reader once its contents are confirmed, and at their review until then. */
+export const landingOf = (book: Pick<Book, 'currentTocId'>): 'reader' | 'review' =>
+  book.currentTocId === null ? 'review' : 'reader'
+
+/** A section of the contents page: one version, and whether it can be edited and confirmed there. */
+export type ContentsSection = { id: 'toc' | 'draft'; title: string; toc: Toc; review: boolean }
+
+/**
+ * The version in use, then a newer draft when the latest differs from it. Only the latest is
+ * edited or confirmed; with no newer draft, that is the version in use.
+ */
+export function contentsSectionsOf(inUse: Toc | null, latest: Toc): ContentsSection[] {
+  if (!inUse) return [{ id: 'draft', title: '목차', toc: latest, review: true }]
+  const current: ContentsSection = {
+    id: 'toc',
+    title: '목차',
+    toc: inUse,
+    review: inUse.id === latest.id,
+  }
+  if (inUse.id === latest.id) return [current]
+  return [current, { id: 'draft', title: '새 목차', toc: latest, review: true }]
+}

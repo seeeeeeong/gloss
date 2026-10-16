@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import type { Me } from '@/lib/session'
 import { Icon } from './Icon'
 import { ShellPanelContext } from './ShellPanel'
+import { ShellTitleContext } from './ShellTitle'
 import { Tooltip } from './Tooltip'
 
 export type ShelfBook = { id: string; title: string }
@@ -26,6 +27,9 @@ export function AppShell({ me, books, children }: Props) {
   const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
   const panel = useMemo(() => ({ slot: panelSlot, setOpen: setPanelOpen }), [panelSlot])
+  const [pillSlot, setPillSlot] = useState<HTMLElement | null>(null)
+  const [barSlot, setBarSlot] = useState<HTMLElement | null>(null)
+  const title = useMemo(() => ({ pill: pillSlot, bar: barSlot }), [pillSlot, barSlot])
   const opener = useRef<HTMLButtonElement>(null)
   const firstRow = useRef<HTMLAnchorElement>(null)
   // Escape and the scrim hand focus back to the menu button; following a link leaves it on the new page.
@@ -215,10 +219,12 @@ export function AppShell({ me, books, children }: Props) {
             >
               <Icon name="menu" />
             </button>
+            <span ref={setPillSlot} className="top-slot" />
             <Link className="name" href="/">
               Gloss
             </Link>
           </div>
+          <span ref={setBarSlot} className="top-slot" />
           <Link className="top-title" href="/">
             Gloss
           </Link>
@@ -226,7 +232,9 @@ export function AppShell({ me, books, children }: Props) {
             <Icon name="newbook" />
           </Link>
         </div>
-        <ShellPanelContext value={panel}>{children}</ShellPanelContext>
+        <ShellPanelContext value={panel}>
+          <ShellTitleContext value={title}>{children}</ShellTitleContext>
+        </ShellPanelContext>
       </main>
       <aside ref={setPanelSlot} className="panel" hidden={!panelOpen} />
       <Tooltip />

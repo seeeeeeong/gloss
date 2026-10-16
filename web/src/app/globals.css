@@ -454,6 +454,14 @@ svg {
 .top-pill {
   display: none;
 }
+/* A screen's own title, portalled in; the shell's title and new-book button step aside for it */
+.top-slot {
+  display: contents;
+}
+.top:has(.top-slot > *) :is(.top-title, .top-new),
+.top-pill:has(.top-slot > *) > .name {
+  display: none;
+}
 .top-new {
   display: none;
   margin-left: auto;
@@ -810,8 +818,7 @@ svg {
   font: 400 14px / 22px var(--font);
   color: var(--tx2);
 }
-.meta a,
-.post-origin a {
+.meta a {
   text-decoration: underline dotted var(--tx3);
   text-decoration-thickness: 1px;
   text-underline-offset: 4px;
@@ -1590,31 +1597,6 @@ svg {
   flex: 1;
   min-width: 0;
 }
-.toc-link {
-  margin: 0 -10px;
-  padding: 3px 10px;
-  border-radius: 10px;
-  transition: background-color 150ms var(--ease);
-}
-.toc-link:hover {
-  background: var(--selected);
-}
-.toc-link:focus-visible {
-  outline: none;
-  background: var(--hover);
-}
-.toc-mark {
-  flex: none;
-  align-self: center;
-  width: 6px;
-  height: 6px;
-  border: 1px solid var(--b-heavy);
-  border-radius: 999px;
-}
-.toc-mark[data-written="true"] {
-  border-color: var(--tx);
-  background: var(--tx);
-}
 .raw {
   display: block;
   width: 100%;
@@ -1636,90 +1618,6 @@ svg {
 }
 .raw::placeholder {
   color: var(--tx3);
-}
-
-/* A post */
-.post-origin {
-  margin-bottom: 8px;
-  font: 400 14px / 20px var(--font);
-  color: var(--tx2);
-}
-.post-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
-  margin: 8px 0 24px;
-  font: 400 12px / 16px var(--font);
-  color: var(--tx3);
-}
-.post-meta .spill {
-  vertical-align: 0;
-}
-.gen {
-  color: var(--tx3);
-}
-.post-body {
-  margin-top: 16px;
-}
-.gen-fail {
-  display: grid;
-  justify-items: start;
-  gap: 12px;
-}
-.stale {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 6px;
-  margin-bottom: 16px;
-}
-.stale .tbtn {
-  margin-left: -8px;
-}
-.post-nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 32px;
-  padding-top: 8px;
-}
-.navl {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  max-width: 50%;
-  height: 32px;
-  padding: 0 8px;
-  border-radius: 8px;
-  font: 400 14px / 20px var(--font);
-  color: var(--tx2);
-  white-space: nowrap;
-  transition:
-    background-color 150ms var(--ease),
-    color 150ms var(--ease);
-}
-.navl.prev {
-  margin-left: -8px;
-  padding-left: 4px;
-}
-.navl.next {
-  margin-left: auto;
-  margin-right: -8px;
-  padding-right: 4px;
-}
-.navl:hover,
-.navl:focus-visible {
-  outline: none;
-  background: var(--hover);
-  color: var(--tx);
-}
-.navl svg {
-  color: var(--tx3);
-}
-.navl span {
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* Post Markdown, ChatGPT's answer rhythm */
