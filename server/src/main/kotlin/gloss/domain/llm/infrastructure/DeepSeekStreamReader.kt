@@ -4,12 +4,14 @@ import gloss.domain.llm.domain.ChatResult
 import gloss.domain.llm.domain.LlmCallFailed
 import gloss.domain.llm.domain.TokenUsage
 import gloss.domain.llm.domain.chat.FinishReason
+import gloss.domain.llm.domain.chat.ToolCall
 import tools.jackson.core.JacksonException
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 import java.io.BufferedReader
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.util.TreeMap
 
 /** Reads DeepSeek's server-sent events into a result, or into a failure that says what may have billed. */
 internal class DeepSeekStreamReader(
@@ -18,10 +20,14 @@ internal class DeepSeekStreamReader(
     /** What the stream has given so far, for the result or for saying what a failure may have billed. */
     private class Received {
         val text = StringBuilder()
+        val reasoning = StringBuilder()
+
+        // By the index the provider gives each call; its first fragment names it, the rest add arguments.
+        val calls = TreeMap<Int, CallParts>()
         var finish: FinishReason? = null
         var usage: TokenUsage? = null
 
-        // Thinking bills as output too, though none of it reaches the text.
+        // Thinking and tool calls bill as output too, though none of it reaches the text.
         var billed = false
 
         val finished: Boolean get() = finish != null && usage != null
@@ -29,12 +35,38 @@ internal class DeepSeekStreamReader(
         // The last chunk carries both; with them in hand a missing [DONE] loses nothing.
         fun complete(): ChatResult? {
             val reason = finish ?: return null
-            return usage?.let { ChatResult(text.toString(), reason, it) }
+            return usage?.let { result(reason) }
+        }
+
+        // A call without its id or name could neither be run nor answered, and tool_calls without
+        // a call leaves nothing to act on: the answer is unusable, though billed.
+        fun result(reason: FinishReason): ChatResult {
+            val toolCalls = calls.values.mapNotNull { it.call() }
+            val unusable = toolCalls.size != calls.size || (reason == FinishReason.TOOL_CALLS && toolCalls.isEmpty())
+            if (unusable) throw failed(LlmCallFailed.Kind.PROVIDER_ERROR)
+            return ChatResult(
+                text = text.toString(),
+                finishReason = reason,
+                usage = usage,
+                toolCalls = toolCalls,
+                reasoning = reasoning.toString(),
+            )
         }
 
         // A stream is a request the provider took on, so its prompt may have billed.
         fun failed(kind: LlmCallFailed.Kind) =
             LlmCallFailed(kind = kind, outputStarted = billed, usage = usage, promptMayHaveBilled = true)
+    }
+
+    private class CallParts {
+        var id: String? = null
+        var name: String? = null
+        val arguments = StringBuilder()
+
+        fun call(): ToolCall? {
+            val id = id ?: return null
+            return name?.let { ToolCall(id = id, name = it, arguments = arguments.toString()) }
+        }
     }
 
     /** [watch] says whether the gateway closed the connection for a cancel, or for a check that threw. */
@@ -88,9 +120,7 @@ internal class DeepSeekStreamReader(
             }
             // Blank lines end an event; a line starting with ':' is a comment, as DeepSeek's keep-alive.
             val data = line.takeIf { it.startsWith(DATA) }?.removePrefix(DATA)?.trim() ?: continue
-            if (data == DONE) {
-                return ChatResult(received.text.toString(), received.finish ?: FinishReason.UNKNOWN, received.usage)
-            }
+            if (data == DONE) return received.result(received.finish ?: FinishReason.UNKNOWN)
             take(data, received, onText)
         }
         return null
@@ -124,7 +154,11 @@ internal class DeepSeekStreamReader(
             }
         val choice = event.path("choices").path(0)
         val delta = choice.path("delta")
-        if (delta.path("reasoning_content").stringOrNull()?.isNotEmpty() == true) received.billed = true
+        delta.path("reasoning_content").stringOrNull()?.takeIf { it.isNotEmpty() }?.let {
+            received.billed = true
+            received.reasoning.append(it)
+        }
+        delta.path("tool_calls").takeIf { it.isArray }?.let { takeCalls(it, received) }
         delta.path("content").stringOrNull()?.takeIf { it.isNotEmpty() }?.let { piece ->
             received.billed = true
             received.text.append(piece)
@@ -136,6 +170,23 @@ internal class DeepSeekStreamReader(
         }
         choice.path("finish_reason").stringOrNull()?.let { received.finish = FinishReason.of(it) }
         event.path("usage").takeIf { it.isObject }?.let { received.usage = usageOf(it) ?: received.usage }
+    }
+
+    private fun takeCalls(
+        fragments: JsonNode,
+        received: Received,
+    ) {
+        if (fragments.size() > 0) received.billed = true
+        for (fragment in fragments) {
+            val index =
+                fragment.path("index").takeIf { it.isIntegralNumber }?.asInt()
+                    ?: throw received.failed(LlmCallFailed.Kind.PROVIDER_ERROR)
+            val parts = received.calls.getOrPut(index) { CallParts() }
+            val function = fragment.path("function")
+            parts.id = parts.id ?: fragment.path("id").stringOrNull()?.takeIf { it.isNotEmpty() }
+            parts.name = parts.name ?: function.path("name").stringOrNull()?.takeIf { it.isNotEmpty() }
+            function.path("arguments").stringOrNull()?.let { parts.arguments.append(it) }
+        }
     }
 
     // Every count a whole non-negative number, or no usage at all: a missing field read as 0

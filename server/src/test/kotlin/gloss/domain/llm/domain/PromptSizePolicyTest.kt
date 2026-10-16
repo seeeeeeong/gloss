@@ -23,6 +23,19 @@ class PromptSizePolicyTest {
     }
 
     @Test
+    fun `a call without tools or tool calls adds nothing for them`() {
+        assertThat(PromptSizePolicy.toolTokens(definitions = emptyList(), calls = emptyList())).isZero()
+    }
+
+    @Test
+    fun `tools add the template's instructions, and each definition and call counted twice with its framing`() {
+        assertThat(PromptSizePolicy.toolTokens(definitions = listOf("abcd"), calls = emptyList()))
+            .isEqualTo(2_048L + 2 * 4 + 8)
+        assertThat(PromptSizePolicy.toolTokens(definitions = emptyList(), calls = listOf("가", "ab")))
+            .isEqualTo(2 * 3L + 256 + 2 * 2 + 256)
+    }
+
+    @Test
     fun `a cap is kept when it fits under the model's ceiling and the context left`() {
         assertThat(fit(requested = 4_000, promptTokens = 1_000)).isEqualTo(4_000)
     }

@@ -1,9 +1,31 @@
 package gloss.domain.llm.domain.chat
 
+/**
+ * One turn. An assistant turn may carry the [toolCalls] the model made, and a tool turn answers
+ * one of them by [toolCallId]. With thinking on and tools offered, DeepSeek wants every earlier
+ * assistant turn's [reasoning] sent back, or refuses the call with a 400.
+ */
 data class ChatMessage(
     val role: Role,
     val content: String,
-)
+    val toolCalls: List<ToolCall> = emptyList(),
+    val toolCallId: String? = null,
+    val reasoning: String? = null,
+) {
+    init {
+        require((role == Role.TOOL) == (toolCallId != null)) { "Only a tool turn answers a call, and it must" }
+        require(role == Role.ASSISTANT || (toolCalls.isEmpty() && reasoning == null)) {
+            "Only an assistant turn carries tool calls or reasoning"
+        }
+    }
+
+    companion object {
+        fun toolResult(
+            toolCallId: String,
+            content: String,
+        ) = ChatMessage(role = Role.TOOL, content = content, toolCallId = toolCallId)
+    }
+}
 
 enum class Role(
     val code: String,
@@ -11,6 +33,7 @@ enum class Role(
     SYSTEM("system"),
     USER("user"),
     ASSISTANT("assistant"),
+    TOOL("tool"),
 }
 
 /** DeepSeek thinks by default, which costs output tokens; every call says which it wants. */
@@ -27,7 +50,10 @@ enum class ReplyFormat {
     JSON,
 }
 
-/** DeepSeek's finish_reason values; only STOP is a complete answer worth storing. */
+/**
+ * DeepSeek's finish_reason values. Only STOP is a complete answer worth storing; TOOL_CALLS is a
+ * normal ending too, that hands the turn back to the caller to run the calls.
+ */
 enum class FinishReason(
     val code: String,
 ) {

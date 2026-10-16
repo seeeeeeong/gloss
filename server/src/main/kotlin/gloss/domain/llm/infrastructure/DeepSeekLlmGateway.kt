@@ -4,7 +4,6 @@ import gloss.domain.llm.domain.ChatRequest
 import gloss.domain.llm.domain.ChatResult
 import gloss.domain.llm.domain.LlmCallFailed
 import gloss.domain.llm.domain.LlmGateway
-import gloss.domain.llm.domain.chat.ReplyFormat
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -24,8 +23,8 @@ import java.util.concurrent.locks.ReentrantLock
  * the socket, so a cancelled or overdue call stops generating instead of being read to the end.
  * Once a stream is open, disconnect waits for the read under way, so a quiet stream closes at
  * most one idle timeout late, still well inside a reservation's expiry. Pieces go to onText as
- * they come and are provisional: only a result that finished with STOP is an answer. Never logs
- * the key or the text.
+ * they come and are provisional: only a result that finished with STOP is an answer, or with
+ * TOOL_CALLS a turn handed back with its calls. Never logs the key or the text.
  */
 @Component
 class DeepSeekLlmGateway(
@@ -35,6 +34,7 @@ class DeepSeekLlmGateway(
 ) : LlmGateway {
     private val log = LoggerFactory.getLogger(javaClass)
     private val json = JsonMapper()
+    private val writer = DeepSeekRequestWriter(json)
     private val reader = DeepSeekStreamReader(json)
 
     // Only marks a call overdue and hands its close to a thread of its own: once a stream is open,
@@ -51,7 +51,7 @@ class DeepSeekLlmGateway(
         onText: (String) -> Unit,
         isCancelled: () -> Boolean,
     ): ChatResult {
-        val body = json.writeValueAsBytes(body(request))
+        val body = writer.bytesOf(request)
         val connection = connectionFor(secret, body.size)
         val watch = CancelWatch()
         val overdue =
@@ -182,17 +182,6 @@ class DeepSeekLlmGateway(
             throw watch.failure(lost = e, outputStarted = false, promptMayHaveBilled = true)
         }
 
-    private fun body(request: ChatRequest): Map<String, Any> =
-        mapOf(
-            "model" to request.model,
-            "messages" to request.messages.map { mapOf("role" to it.role.code, "content" to it.content) },
-            "max_tokens" to request.maxTokens,
-            "thinking" to mapOf("type" to request.thinking.code),
-            "stream" to true,
-            // Without it a stream reports no usage, and the ledger could only guess.
-            "stream_options" to mapOf("include_usage" to true),
-        ) + if (request.format == ReplyFormat.JSON) mapOf("response_format" to JSON_OBJECT) else emptyMap()
-
     private fun kindOf(status: Int): LlmCallFailed.Kind =
         when (status) {
             HttpURLConnection.HTTP_UNAUTHORIZED -> LlmCallFailed.Kind.REJECTED_KEY
@@ -203,8 +192,6 @@ class DeepSeekLlmGateway(
         }
 
     private companion object {
-        val JSON_OBJECT = mapOf("type" to "json_object")
-
         // A TCP and TLS handshake with a healthy API takes well under a second.
         val CONNECT_TIMEOUT: Duration = Duration.ofSeconds(3)
         const val TOO_MANY_REQUESTS = 429
