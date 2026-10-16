@@ -22,6 +22,7 @@ import {
   rowMarkOf,
   runningHeadOf,
   sameLayout,
+  turnsPageFrom,
   unitAt,
   visibleUnits,
 } from './reader'
@@ -339,5 +340,21 @@ describe('readingItemOf', () => {
   it('is only the page shown on a phone', () => {
     expect(read(3, 1, written)).toBeNull()
     expect(read(8, 1, written)).toBe(1)
+  })
+})
+
+describe('turnsPageFrom', () => {
+  // A stand-in for an element: it sits inside whatever its classes name.
+  const at = (...within: string[]) => ({
+    closest: (selectors: string) =>
+      selectors.split(',').some((s) => within.includes(s.trim())) ? {} : null,
+  })
+
+  it('turns the page from the book, and never from the tutor or its controls', () => {
+    expect(turnsPageFrom(at('.flow'))).toBe(true)
+    expect(turnsPageFrom(null)).toBe(true)
+    for (const control of ['.tg', '.t-fab', '.t-phone', '.tutor', '.ask', 'textarea']) {
+      expect(turnsPageFrom(at(control))).toBe(false)
+    }
   })
 })

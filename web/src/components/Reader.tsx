@@ -29,6 +29,7 @@ import {
   openItemOf,
   readingItemOf,
   rowMarkOf,
+  turnsPageFrom,
   unitOfItem,
   visibleUnits,
 } from '@/lib/reader'
@@ -37,6 +38,7 @@ import { Edges, PageChrome, Pager } from './ReaderChrome'
 import { MENU_ID, ReaderMenu } from './ReaderMenu'
 import { Contents, Cover, ItemArticle, type ReaderBook } from './ReaderPages'
 import { useShellTitle } from './ShellTitle'
+import { Tutor } from './Tutor'
 import { useBookPosts } from './useBookPosts'
 import { useSpreads } from './useSpreads'
 import { useStageGeometry } from './useStageGeometry'
@@ -51,7 +53,6 @@ const TURN_KEYS: Record<string, -1 | 1> = {
   ArrowRight: 1,
   PageDown: 1,
 }
-const NOT_FOR_TURNING = 'input, textarea, select, [contenteditable="true"], .sb, .tocpop, dialog'
 
 type Props = { book: ReaderBook; items: TocItem[]; posts: PostSummary[]; start: string | null }
 
@@ -64,10 +65,10 @@ const lastReadKey = (bookId: string) => `gloss.reader.${bookId}.lastRead`
  */
 export function Reader({ book, items, posts, start }: Props) {
   const index = useMemo(() => new Map(items.map((item, i) => [item.itemKey, i])), [items])
-  const { viewOf, texts, arrive, prefetch, retry } = useBookPosts(book.id, posts)
+  const { viewOf, texts, versions, arrive, prefetch, retry } = useBookPosts(book.id, posts)
   const stage = useRef<HTMLDivElement>(null)
   const flow = useRef<HTMLDivElement>(null)
-  const { geo, phone } = useStageGeometry(stage)
+  const { geo, phone, width } = useStageGeometry(stage)
 
   const [focus, setFocus] = useState<string | null>(start)
   const spreads = useSpreads(flow, geo, {
@@ -148,6 +149,8 @@ export function Reader({ book, items, posts, start }: Props) {
     const el = flow.current?.querySelector<HTMLElement>(`[data-unit="${unitOfItem(at)}"] > h1`)
     el?.focus({ preventScroll: true })
   })
+  // From the tutor, a divider goes to its item and leaves focus where it was.
+  const onJump = useCallback((key: string) => latest.current.goItem(key), [])
   useTurnKeys(latest)
   const swipe = useSwipe({ onDrag: spreads.follow, onTurn: turn, onSpringBack: spreads.springBack })
 
@@ -202,6 +205,17 @@ export function Reader({ book, items, posts, start }: Props) {
       <div className="sr-only" role="status">
         {spreads.announced}
       </div>
+      <Tutor
+        key={book.id}
+        bookId={book.id}
+        items={items}
+        current={ready ? currentKey : null}
+        phone={phone}
+        width={width}
+        versions={versions}
+        flow={flow}
+        onGo={onJump}
+      />
     </div>
   )
 }
@@ -311,7 +325,7 @@ function useTurnKeys(latest: RefObject<{ turn: (direction: -1 | 1) => void }>) {
       const direction = TURN_KEYS[event.key]
       const plain = !event.defaultPrevented && !event.altKey && !event.ctrlKey && !event.metaKey
       const target = event.target instanceof Element ? event.target : null
-      if (!direction || !plain || target?.closest(NOT_FOR_TURNING)) return
+      if (!direction || !plain || !turnsPageFrom(target)) return
       event.preventDefault()
       latest.current.turn(direction)
     }

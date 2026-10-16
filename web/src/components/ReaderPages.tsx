@@ -12,8 +12,8 @@ export type ReaderBook = Pick<
   'id' | 'title' | 'authors' | 'publisher' | 'source' | 'sourceUrl'
 > & { tocVersionNo: number }
 
-const KEY_HREF = '/me#api-key-head'
-const USAGE_HREF = '/me#usage'
+export const KEY_HREF = '/me#api-key-head'
+export const USAGE_HREF = '/me#usage'
 
 /** The first page: the book's title and where it came from, centred on the page. */
 export function Cover({ book }: { book: ReaderBook }) {

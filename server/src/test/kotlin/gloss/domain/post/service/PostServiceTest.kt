@@ -126,6 +126,20 @@ class PostServiceTest(
     }
 
     @Test
+    fun `another module reads the version a reader sees, for that reader alone`() {
+        val shelf = Shelf()
+        val before = postService.current(shelf.account, shelf.book, itemKey)
+
+        postService.publish(shelf.writing())
+        val second = postService.publish(shelf.writing(content = "# 객체\n\n다시 쓴 본문이다."))
+
+        assertThat(before).isNull()
+        assertThat(postService.current(shelf.account, shelf.book, itemKey))
+            .isEqualTo(PostText(versionId = second.versionId, contentMd = "# 객체\n\n다시 쓴 본문이다."))
+        assertThat(postService.current(UUID.randomUUID(), shelf.book, itemKey)).isNull()
+    }
+
+    @Test
     fun `a section has a post once one is published, for its reader alone`() {
         val shelf = Shelf()
         val before = postService.freshness(shelf.account, shelf.book, itemKey)
@@ -345,5 +359,30 @@ class PostServiceTest(
         assertThat(versions.map { it.versionNo }).containsExactlyInAnyOrder(1, 2)
         assertThat(postService.get(shelf.account, shelf.book, itemKey).versionNo).isEqualTo(2)
         pool.shutdown()
+    }
+
+    @Test
+    fun `a version a page still shows is read as it was, and only from its own post`() {
+        val shelf = Shelf()
+        val first = postService.publish(shelf.writing())
+        postService.publish(shelf.writing(content = "# 객체\n\n다시 쓴 본문이다."))
+
+        val shown =
+            postService.current(
+                accountId = shelf.account,
+                bookId = shelf.book,
+                itemKey = itemKey,
+                shown = first.versionId,
+            )
+        val elsewhere =
+            postService.current(
+                accountId = shelf.account,
+                bookId = shelf.book,
+                itemKey = "2장 설계",
+                shown = first.versionId,
+            )
+
+        assertThat(shown?.contentMd).isEqualTo("# 객체\n\n본문이다.")
+        assertThat(elsewhere).isNull()
     }
 }

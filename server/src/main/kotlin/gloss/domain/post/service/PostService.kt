@@ -46,6 +46,26 @@ class PostService(
         return PostResponse.from(post, version)
     }
 
+    /**
+     * A version of the section's post: [shown] when it is one of this post's, as a page still showing
+     * it asks, otherwise the current one; null when the section has no post yet.
+     */
+    fun current(
+        accountId: UUID,
+        bookId: UUID,
+        itemKey: String,
+        shown: UUID? = null,
+    ): PostText? {
+        val post = postRepository.findByBookIdAndAccountIdAndItemKey(bookId, accountId, itemKey) ?: return null
+        val pinned =
+            shown?.let { postVersionRepository.findByIdAndAccountId(it, accountId) }?.takeIf {
+                it.postId ==
+                    post.id
+            }
+        val version = pinned ?: post.currentVersionId?.let { postVersionRepository.findByIdAndAccountId(it, accountId) }
+        return version?.let { PostText(versionId = it.id, contentMd = it.contentMd) }
+    }
+
     /** Whether the section has a post to read, and whether it is of the plan in use. */
     fun freshness(
         accountId: UUID,
@@ -149,3 +169,9 @@ enum class PostFreshness {
 
     FRESH,
 }
+
+/** A post's version as another module reads it: versions never change, so [versionId] names these words. */
+data class PostText(
+    val versionId: UUID,
+    val contentMd: String,
+)

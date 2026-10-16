@@ -2,10 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Me } from '@/lib/session'
 import { Icon } from './Icon'
-import { ShellPanelContext } from './ShellPanel'
+import { type PanelKind, ShellPanelContext } from './ShellPanel'
 import { ShellTitleContext } from './ShellTitle'
 import { Tooltip } from './Tooltip'
 
@@ -25,14 +25,22 @@ export function AppShell({ me, books, children }: Props) {
   const [collapsed, setCollapsed] = useState(false)
   const [drawer, setDrawer] = useState(false)
   const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null)
-  const [panelOpen, setPanelOpen] = useState(false)
+  const [panelOpen, setPanelOpen] = useState<PanelKind | null>(null)
+  const setOpen = useCallback(
+    (open: boolean, kind: PanelKind = 'panel') => setPanelOpen(open ? kind : null),
+    [],
+  )
   const panel = useMemo(
-    () => ({ slot: panelSlot, open: panelOpen, setOpen: setPanelOpen }),
-    [panelSlot, panelOpen],
+    () => ({ slot: panelSlot, open: panelOpen !== null, setOpen }),
+    [panelSlot, panelOpen, setOpen],
   )
   const [pillSlot, setPillSlot] = useState<HTMLElement | null>(null)
   const [barSlot, setBarSlot] = useState<HTMLElement | null>(null)
-  const title = useMemo(() => ({ pill: pillSlot, bar: barSlot }), [pillSlot, barSlot])
+  const [actsSlot, setActsSlot] = useState<HTMLElement | null>(null)
+  const title = useMemo(
+    () => ({ pill: pillSlot, bar: barSlot, acts: actsSlot }),
+    [pillSlot, barSlot, actsSlot],
+  )
   const opener = useRef<HTMLButtonElement>(null)
   const firstRow = useRef<HTMLAnchorElement>(null)
   // Escape and the scrim hand focus back to the menu button; following a link leaves it on the new page.
@@ -82,10 +90,12 @@ export function AppShell({ me, books, children }: Props) {
   }
 
   const leave = () => setDrawer(false)
+  const wide = panelOpen === 'panel'
   const frame = [
     'app',
-    (collapsed || panelOpen) && 'rail',
-    panelOpen && 'panel-open',
+    (collapsed || wide) && 'rail',
+    wide && 'panel-open',
+    panelOpen === 'tutor' && 'tutor-open',
     drawer && 'drawer',
   ]
     .filter(Boolean)
@@ -214,6 +224,7 @@ export function AppShell({ me, books, children }: Props) {
             </Link>
           </div>
           <span ref={setBarSlot} className="top-slot" />
+          <div ref={setActsSlot} className="top-acts" />
           <Link className="top-title" href={NEW_BOOK}>
             Gloss
           </Link>
@@ -225,7 +236,7 @@ export function AppShell({ me, books, children }: Props) {
           <ShellTitleContext value={title}>{children}</ShellTitleContext>
         </ShellPanelContext>
       </main>
-      <aside ref={setPanelSlot} className="panel" hidden={!panelOpen} />
+      <aside ref={setPanelSlot} className="panel" hidden={panelOpen === null} />
       <Tooltip />
     </div>
   )

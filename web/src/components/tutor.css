@@ -1,0 +1,344 @@
+/* The tutor (v4 reader.html): a side chat of 380 in the shell's panel, a bottom sheet on a phone */
+@media (min-width: 768px) {
+  .app.tutor-open {
+    grid-template-columns: 260px minmax(0, 1fr) 380px;
+  }
+  .app.rail.tutor-open {
+    grid-template-columns: 52px minmax(0, 1fr) 380px;
+  }
+}
+
+/* The header's toggle, at its right */
+.top-acts {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+.top-acts:empty {
+  display: none;
+}
+.top-acts .ibtn[aria-pressed="true"] {
+  background: var(--hover);
+}
+
+.tutor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  background: var(--panel);
+}
+.t-grab {
+  display: none;
+}
+.t-head {
+  height: 52px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 0 8px 0 20px;
+  border-bottom: 1px solid transparent;
+  transition: border-color 150ms var(--ease);
+}
+.t-head.scrolled {
+  border-bottom-color: var(--b-light);
+}
+.t-title {
+  font: 600 14px / 20px var(--font);
+}
+.t-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 20px;
+}
+.t-thread {
+  padding: 8px 0 24px;
+  font: 400 14px / 1.6 var(--font);
+}
+.t-thread > * + * {
+  margin-top: 24px;
+}
+.t-div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: 16px;
+  font: 400 12px / 16px var(--font);
+  color: var(--tx3);
+  border-radius: 4px;
+  transition: color 150ms var(--ease);
+}
+.t-div::before,
+.t-div::after {
+  content: "";
+  flex: 1;
+  min-width: 16px;
+  height: 1px;
+  background: var(--b-default);
+}
+.t-div span {
+  max-width: 75%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.t-div:disabled {
+  cursor: default;
+}
+.t-div:not(:disabled):hover {
+  color: var(--tx2);
+}
+.t-div:focus-visible {
+  outline-offset: 4px;
+  color: var(--tx2);
+}
+.t-turn.user {
+  display: flex;
+  justify-content: flex-end;
+}
+.t-bub {
+  max-width: 85%;
+  padding: 8px 14px;
+  border-radius: 18px;
+  background: var(--bubble);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.t-q {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 2px 0 6px;
+  padding-left: 8px;
+  border-left: 2px solid var(--b-heavy);
+  font: 400 13px / 20px var(--font);
+  color: var(--tx2);
+  white-space: normal;
+}
+.t-turn.gloss {
+  position: relative;
+}
+.t-turn.gloss p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.t-turn .t-note {
+  color: var(--tx2);
+}
+.t-turn .t-note.quiet {
+  color: var(--tx3);
+}
+.t-turn p + .t-note {
+  margin-top: 8px;
+}
+.t-note .dl {
+  display: inline-block;
+}
+.tutor .cur {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--tx);
+  vertical-align: 0;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.t-act {
+  position: absolute;
+  left: -4px;
+  top: 100%;
+  height: 24px;
+  display: flex;
+  align-items: center;
+}
+.t-act .ibtn {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  color: var(--tx2);
+  opacity: 0;
+  transition:
+    opacity 150ms var(--ease),
+    background-color 150ms var(--ease);
+}
+.t-turn.gloss:hover .t-act .ibtn,
+.t-act .ibtn:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .t-act {
+    position: static;
+    margin: 4px 0 -4px -4px;
+  }
+  .t-act .ibtn {
+    opacity: 1;
+  }
+}
+.t-retry {
+  margin-top: 8px;
+}
+
+/* The composer: one line of 44 that grows to five, send inside; the quote row above with its x */
+.t-dock {
+  flex: none;
+  padding: 0 20px 16px;
+}
+.tutor .composer {
+  grid-template-columns: minmax(0, 1fr) 36px;
+  grid-template-areas: "text send";
+  column-gap: 4px;
+  align-items: end;
+  min-height: 44px;
+  padding: 4px;
+  border-radius: 22px;
+}
+.tutor .composer.has-quote {
+  grid-template-areas: "quote quote" "text send";
+}
+.tutor .composer textarea {
+  align-self: end;
+  min-height: 36px;
+  max-height: 124px;
+  padding: 7px 0 7px 12px;
+  font: 400 14px / 22px var(--font);
+}
+.t-quote {
+  grid-area: quote;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  margin: 6px 4px 0 12px;
+  font: 400 13px / 20px var(--font);
+  color: var(--tx2);
+}
+.t-quote p {
+  flex: 1;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  padding-left: 8px;
+  border-left: 2px solid var(--b-heavy);
+}
+.t-quote .ibtn {
+  width: 24px;
+  height: 24px;
+  margin: -2px 0 0;
+  border-radius: 999px;
+  color: var(--tx2);
+}
+.tutor .c-send.stop {
+  background: var(--btn-bg);
+  color: var(--btn-tx);
+}
+
+/* "Gloss에게 묻기" over a phrase picked in the book */
+.ask {
+  position: fixed;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px 0 12px;
+  border-radius: 999px;
+  background: var(--bg-primary);
+  color: var(--tx);
+  box-shadow: var(--dialog-shadow);
+  font: 500 14px / 20px var(--font);
+  white-space: nowrap;
+  transition: background-color 150ms var(--ease);
+}
+.ask:hover {
+  background: var(--bg-tertiary);
+}
+.ask:focus-visible {
+  outline-offset: 2px;
+}
+
+/* A phone, or a window too narrow to dock it: the tutor is a sheet behind a floating button, and
+   the scrim closes it. The page renders .t-phone only then, so these hold at any width. */
+.t-phone .t-scrim {
+  display: none;
+}
+.t-fab {
+  position: fixed;
+  right: 16px;
+  bottom: 24px;
+  z-index: 8;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-primary);
+  color: var(--tx);
+  box-shadow:
+    0 0 0 1px var(--b-default),
+    0 4px 16px rgba(0, 0, 0, 0.08);
+  transition: background-color 150ms var(--ease);
+}
+.t-fab:hover {
+  background: var(--bg-tertiary);
+}
+.t-phone .t-scrim.open {
+  display: block;
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 44;
+}
+.t-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(100dvh - 40px);
+  border-radius: 16px 16px 0 0;
+  box-shadow: var(--dialog-shadow);
+  transform: translateY(100%);
+  visibility: hidden;
+  transition:
+    transform 240ms var(--ease),
+    visibility 0s linear 240ms;
+  z-index: 45;
+}
+.t-sheet.open {
+  transform: none;
+  visibility: visible;
+  transition:
+    transform 240ms var(--ease),
+    visibility 0s;
+}
+.t-sheet .t-grab {
+  display: block;
+  flex: none;
+  width: 36px;
+  height: 5px;
+  margin: 8px auto 0;
+  border-radius: 999px;
+  background: var(--b-heavy);
+}
+.t-sheet .t-head {
+  height: 48px;
+  padding: 0 8px 0 16px;
+}
+.t-sheet .t-body {
+  padding: 0 16px;
+}
+.t-sheet .t-dock {
+  padding: 0 16px calc(24px + env(safe-area-inset-bottom));
+}
+@media (min-width: 768px) {
+  .t-sheet {
+    left: auto;
+    width: 420px;
+    right: 16px;
+  }
+}

@@ -29,6 +29,7 @@ class ModularityTest {
             "audit",
             "book",
             "budget",
+            "chat",
             "common",
             "generation",
             "llm",

@@ -15,6 +15,8 @@ export function useBookPosts(bookId: string, posts: PostSummary[]) {
     () => new Map(posts.map((post) => [post.itemKey, post])),
   )
   const [texts, setTexts] = useState<ReadonlyMap<string, string>>(new Map())
+  // The version each text on the page is of, so a question about it names the words the reader saw.
+  const [versions, setVersions] = useState<ReadonlyMap<string, string>>(new Map())
   const { generations, ask, done, fail } = useGenerations(bookId)
   const reading = useRef(new Set<string>())
   const mounted = useRef(true)
@@ -37,8 +39,9 @@ export function useBookPosts(bookId: string, posts: PostSummary[]) {
         fail(key, result.code, result.message)
         return
       }
-      const { contentMd, versionNo, stale, generatedAt } = result.data
+      const { contentMd, versionId, versionNo, stale, generatedAt } = result.data
       setTexts((before) => new Map(before).set(key, contentMd))
+      setVersions((before) => new Map(before).set(key, versionId))
       setSummaries((before) =>
         new Map(before).set(key, { itemKey: key, versionNo, stale, generatedAt }),
       )
@@ -79,5 +82,5 @@ export function useBookPosts(bookId: string, posts: PostSummary[]) {
 
   const retry = useCallback((key: string) => void ask(key, true), [ask])
 
-  return { viewOf, texts, arrive, prefetch, retry }
+  return { viewOf, texts, versions, arrive, prefetch, retry }
 }
