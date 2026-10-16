@@ -9,14 +9,16 @@ import gloss.domain.book.domain.event.TocConfirmed
 import gloss.domain.book.service.BookError
 import gloss.domain.book.service.BookService
 import gloss.domain.book.service.EditionCache
+import gloss.domain.setup.TitleSearchModel
 import gloss.domain.setup.domain.BooksFound
 import gloss.domain.setup.domain.ContentsBrought
+import gloss.domain.setup.domain.GlossSaid
 import gloss.domain.setup.domain.ReaderConfirmed
 import gloss.domain.setup.domain.ReaderPicked
 import gloss.domain.setup.domain.ReaderSaid
 import gloss.domain.setup.domain.ReaderTyped
-import gloss.domain.setup.domain.SearchFailed
 import gloss.domain.setup.domain.SetupDone
+import gloss.domain.setup.domain.ToolRefused
 import gloss.domain.setup.dto.request.SetupConfirmRequest
 import gloss.domain.setup.dto.request.SetupContentsRequest
 import gloss.domain.setup.dto.request.SetupMessageRequest
@@ -42,11 +44,12 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 @SpringBootTest
-@Import(TestcontainersConfiguration::class, FakeBookSourceGateway.Config::class)
+@Import(TestcontainersConfiguration::class, FakeBookSourceGateway.Config::class, TitleSearchModel.Config::class)
 @Transactional
 @RecordApplicationEvents
 class SetupSessionServiceTest(
     @Autowired private val setupSessionService: SetupSessionService,
+    @Autowired private val setupMessageService: SetupMessageService,
     @Autowired private val bookService: BookService,
     @Autowired private val fakeBookSourceGateway: FakeBookSourceGateway,
     @Autowired private val editionCache: EditionCache,
@@ -92,7 +95,7 @@ class SetupSessionServiceTest(
         ref: String = "101",
     ): SetupSessionResponse {
         fakeBookSourceGateway.holds(ref)
-        val session = setupSessionService.start(account, said("오브젝트"))
+        val session = setupMessageService.start(account, said("오브젝트"))
         return pickRef(account, session.id, ref)
     }
 
@@ -111,7 +114,7 @@ class SetupSessionServiceTest(
         account: UUID,
         sessionId: UUID,
         text: String,
-    ) = setupSessionService.say(account, sessionId, SetupMessageRequest(text, revision = rev(account, sessionId)))
+    ) = setupMessageService.say(account, sessionId, SetupMessageRequest(text, revision = rev(account, sessionId)))
 
     private fun pickRef(
         account: UUID,
@@ -126,20 +129,37 @@ class SetupSessionServiceTest(
             .query(Int::class.java)
             .single()
 
+    // What the reader sees of a session; the model's own calls are SetupTurnServiceTest's.
+    private fun kinds(session: SetupSessionResponse) = session.messages.map { it.kind }.filterNot { it in MODEL }
+
+    private fun payloadOf(
+        session: SetupSessionResponse,
+        kind: String,
+    ) = session.messages.last { it.kind == kind }.payload
+
+    private companion object {
+        val MODEL = setOf("tool_calls", "books_shown")
+    }
+
     @Test
     fun `a session starts with the reader's message, answered with the editions a search found`() {
         fakeBookSourceGateway.holds("101")
         fakeBookSourceGateway.holds(ref = "102", isbn13 = "9788998139766", contents = null, title = "오브젝트 원서")
 
-        val session = setupSessionService.start(accountId(), said("  오브젝트\n코드로 이해하는 객체지향 "))
+        val session = setupMessageService.start(accountId(), said("  오브젝트\n코드로 이해하는 객체지향 "))
 
         assertThat(fakeBookSourceGateway.asked).containsExactly("오브젝트 코드로 이해하는 객체지향")
         assertThat(session.state).isEqualTo("searching")
         assertThat(session.bookId).isNull()
-        assertThat(session.messages.map { it.seq to (it.role to it.kind) })
-            .containsExactly(1 to ("reader" to "text"), 2 to ("gloss" to "books"))
+        assertThat(session.messages.map { it.seq to (it.role to it.kind) }).containsExactly(
+            1 to ("reader" to "text"),
+            2 to ("gloss" to "tool_calls"),
+            3 to ("gloss" to "books"),
+            4 to ("gloss" to "tool_calls"),
+            5 to ("gloss" to "books_shown"),
+        )
         assertThat(session.messages[0].payload).isEqualTo(ReaderSaid("오브젝트 코드로 이해하는 객체지향"))
-        val found = session.messages[1].payload as BooksFound
+        val found = payloadOf(session, "books") as BooksFound
         assertThat(found.query).isEqualTo("오브젝트 코드로 이해하는 객체지향")
         assertThat(found.books.map { it.ref to it.hasContents }).containsExactly("101" to true, "102" to false)
         val kept =
@@ -152,26 +172,27 @@ class SetupSessionServiceTest(
     }
 
     @Test
-    fun `a search that fails is answered with the error, and the reader may search again`() {
+    fun `a search that fails is told to the model, which answers, and the reader may search again`() {
         val account = accountId()
         fakeBookSourceGateway.failing = BookSourceFailed.Kind.UNAVAILABLE
 
-        val session = setupSessionService.start(account, said("오브젝트"))
+        val session = setupMessageService.start(account, said("오브젝트"))
         fakeBookSourceGateway.failing = null
         val again = say(account, session.id, "오브젝트 조영호")
 
-        assertThat(session.messages[1].payload)
-            .isEqualTo(SearchFailed(BookError.SOURCE_UNAVAILABLE.code, BookError.SOURCE_UNAVAILABLE.message))
-        assertThat(again.messages.map { it.seq to it.kind })
-            .containsExactly(1 to "text", 2 to "search_failed", 3 to "text", 4 to "books")
-        assertThat((again.messages[3].payload as BooksFound).books).isEmpty()
+        assertThat((payloadOf(session, "tool_refused") as ToolRefused).problem)
+            .contains(BookError.SOURCE_UNAVAILABLE.code)
+        assertThat(payloadOf(session, "said")).isEqualTo(GlossSaid(TitleSearchModel.NOTHING_FOUND))
+        assertThat(kinds(again)).containsExactly("text", "tool_refused", "said", "text", "books", "said")
+        assertThat((payloadOf(again, "books") as BooksFound).books).isEmpty()
+        assertThat(again.searching).isFalse()
     }
 
     @Test
     fun `a message too long is refused before anything is kept or searched`() {
         val account = accountId()
 
-        assertFails(SetupError.INVALID_TEXT) { setupSessionService.start(account, said("가".repeat(101))) }
+        assertFails(SetupError.INVALID_TEXT) { setupMessageService.start(account, said("가".repeat(501))) }
         assertThat(fakeBookSourceGateway.asked).isEmpty()
         assertThat(
             jdbc
@@ -191,9 +212,9 @@ class SetupSessionServiceTest(
         assertThat(fakeBookSourceGateway.asked).containsExactly("오브젝트", "101")
         assertThat(session.state).isEqualTo("book_chosen")
         assertThat(session.bookId).isNull()
-        assertThat(session.messages.map { it.kind }).containsExactly("text", "books", "pick", "contents")
-        assertThat(session.messages[2].payload).isEqualTo(ReaderPicked(ref = "101", title = "오브젝트"))
-        val brought = session.messages[3].payload as ContentsBrought
+        assertThat(kinds(session)).containsExactly("text", "books", "pick", "contents")
+        assertThat(payloadOf(session, "pick")).isEqualTo(ReaderPicked(ref = "101", title = "오브젝트"))
+        val brought = payloadOf(session, "contents") as ContentsBrought
         assertThat(brought.ref).isEqualTo("101")
         assertThat(brought.title).isEqualTo("오브젝트")
         assertThat(brought.items).isEqualTo(3)
@@ -212,10 +233,10 @@ class SetupSessionServiceTest(
         val account = accountId()
         fakeBookSourceGateway.holds("101")
         fakeBookSourceGateway.holds("102", contents = null)
-        val session = setupSessionService.start(account, said("오브젝트"))
+        val session = setupMessageService.start(account, said("오브젝트"))
         fakeBookSourceGateway.holds("103")
         // Found, but by another session of the same reader's.
-        setupSessionService.start(account, said("오브젝트 원서"))
+        setupMessageService.start(account, said("오브젝트 원서"))
 
         assertFails(SetupError.BOOK_NOT_OFFERED) {
             pickRef(account, session.id, "103")
@@ -227,19 +248,66 @@ class SetupSessionServiceTest(
     }
 
     @Test
+    fun `only editions the reader was shown are picked, never a search the model kept to itself`() {
+        val account = accountId()
+        fakeBookSourceGateway.holds("101")
+        val session = setupMessageService.start(account, said("오브젝트"))
+        fakeBookSourceGateway.holds(ref = "102", isbn13 = "9788998139766", title = "숨은 판본")
+        fakeBookSourceGateway.holds(ref = "103", isbn13 = "9791158391409", title = "추천 판본")
+        fakeBookSourceGateway.holds(ref = "104", isbn13 = "9788966261208", contents = null, title = "목차 없는 숨은 판본")
+        val hidden =
+            """{"query": "숨은 검색", "callId": "hidden", "books": [{"ref": "102", "hasContents": true},""" +
+                """ {"ref": "103", "hasContents": true}, {"ref": "104", "hasContents": false}]}"""
+        val recommended =
+            """{"callId": "rec", "intro": "골랐어요.", "books": [{"ref": "101", "reason": "번역서", "sources": []},""" +
+                """ {"ref": "103", "reason": "추천", "sources": []}]}"""
+        keep(account = account, sessionId = session.id, kind = "books", payload = hidden)
+        keep(account = account, sessionId = session.id, kind = "recommend", payload = recommended)
+
+        assertFails(SetupError.BOOK_NOT_OFFERED) { pickRef(account, session.id, "102") }
+        assertFails(SetupError.BOOK_NOT_OFFERED) {
+            setupSessionService.type(
+                account,
+                session.id,
+                SetupTypedRequest(ref = "104", toc = "1장 객체", revision = rev(account, session.id)),
+            )
+        }
+        assertThat(pickRef(account, session.id, "103").held?.ref).isEqualTo("103")
+    }
+
+    private fun keep(
+        account: UUID,
+        sessionId: UUID,
+        kind: String,
+        payload: String,
+    ) = jdbc
+        .sql(
+            """
+            insert into setup_message (id, session_id, account_id, seq, role, kind, payload, created_at)
+            select :id, :session, :account, max(seq) + 1, 'gloss', :kind, cast(:payload as jsonb), now()
+            from setup_message where session_id = :session
+            """.trimIndent(),
+        ).param("id", UUID.randomUUID())
+        .param("session", sessionId)
+        .param("account", account)
+        .param("kind", kind)
+        .param("payload", payload)
+        .update()
+
+    @Test
     fun `a message after a pick searches again, and an edition from an earlier list replaces the pick`() {
         val account = accountId()
         fakeBookSourceGateway.holds("101")
         fakeBookSourceGateway.holds("102", isbn13 = "9788998139766", contents = "1장 다른 판본")
         val chosen =
-            pickRef(account, setupSessionService.start(account, said("오브젝트")).id, "101")
+            pickRef(account, setupMessageService.start(account, said("오브젝트")).id, "101")
 
         val again = say(account, chosen.id, "오브젝트 2판")
         val replaced = pickRef(account, chosen.id, "102")
 
         assertThat(again.state).isEqualTo("searching")
         assertThat(again.held).isNull()
-        assertThat(again.messages.map { it.kind }).containsExactly("text", "books", "pick", "contents", "text", "books")
+        assertThat(kinds(again)).containsExactly("text", "books", "pick", "contents", "text", "books")
         assertThat(replaced.state).isEqualTo("book_chosen")
         assertThat(replaced.held?.ref).isEqualTo("102")
         assertThat(replaced.held?.raw).isEqualTo("1장 다른 판본")
@@ -286,11 +354,9 @@ class SetupSessionServiceTest(
         val book = bookService.get(account, bookId)
         assertThat(session.state).isEqualTo("confirmed")
         assertThat(session.held).isNull()
-        assertThat(
-            session.messages.map { it.kind },
-        ).containsExactly("text", "books", "pick", "contents", "confirm", "done")
-        assertThat(session.messages[4].payload).isEqualTo(ReaderConfirmed(book.toc.id))
-        assertThat(session.messages[5].payload).isEqualTo(SetupDone(bookId))
+        assertThat(kinds(session)).containsExactly("text", "books", "pick", "contents", "confirm", "done")
+        assertThat(payloadOf(session, "confirm")).isEqualTo(ReaderConfirmed(book.toc.id))
+        assertThat(payloadOf(session, "done")).isEqualTo(SetupDone(bookId))
         assertThat(books(account)).isEqualTo(1)
         assertThat(book.source).isEqualTo("yes24")
         assertThat(book.toc.versionNo).isEqualTo(1)
@@ -385,7 +451,7 @@ class SetupSessionServiceTest(
     @Test
     fun `nothing is edited or started before a book is picked`() {
         val account = accountId()
-        val session = setupSessionService.start(account, said("오브젝트"))
+        val session = setupMessageService.start(account, said("오브젝트"))
 
         assertFails(SetupError.NO_BOOK_YET) {
             setupSessionService.confirm(account, session.id, SetupConfirmRequest(revision = 1))
@@ -400,7 +466,7 @@ class SetupSessionServiceTest(
         val account = accountId()
         fakeBookSourceGateway.holds("101")
         fakeBookSourceGateway.holds(ref = "102", isbn13 = "9788998139766", contents = null, title = "오브젝트 원서")
-        val session = setupSessionService.start(account, said("오브젝트"))
+        val session = setupMessageService.start(account, said("오브젝트"))
 
         val held =
             setupSessionService.type(
@@ -410,9 +476,9 @@ class SetupSessionServiceTest(
             )
 
         assertThat(held.state).isEqualTo("book_chosen")
-        assertThat(held.messages.map { it.kind }).containsExactly("text", "books", "typed", "contents")
-        assertThat(held.messages[2].payload).isEqualTo(ReaderTyped("오브젝트 원서"))
-        val brought = held.messages[3].payload as ContentsBrought
+        assertThat(kinds(held)).containsExactly("text", "books", "typed", "contents")
+        assertThat(payloadOf(held, "typed")).isEqualTo(ReaderTyped("오브젝트 원서"))
+        val brought = payloadOf(held, "contents") as ContentsBrought
         assertThat(
             listOf(brought.ref, brought.title, brought.items, brought.typed),
         ).containsExactly("102", "오브젝트 원서", 2, true)
@@ -498,23 +564,23 @@ class SetupSessionServiceTest(
     }
 
     @Test
-    fun `a search left unanswered past its time no longer holds the next message back`() {
+    fun `a message left unanswered past its time no longer holds the next one back`() {
         val account = accountId()
-        val session = setupSessionService.start(account, said("오브젝트"))
+        val session = setupMessageService.start(account, said("오브젝트"))
         jdbc
-            .sql("update setup_session set searching_since = now() - interval '1 minute' where id = :id")
+            .sql("update setup_session set searching_since = now() - interval '5 minutes' where id = :id")
             .param("id", session.id)
             .update()
 
         val again = say(account, session.id, "오브젝트 원서")
 
         assertThat(again.searching).isFalse()
-        assertThat(again.messages.map { it.kind }).containsExactly("text", "books", "text", "books")
+        assertThat(kinds(again)).containsExactly("text", "books", "said", "text", "books", "said")
     }
 
     @Test
     fun `another reader's session is not found`() {
-        val session = setupSessionService.start(accountId(), said("오브젝트"))
+        val session = setupMessageService.start(accountId(), said("오브젝트"))
         val stranger = accountId()
 
         assertFails(SetupError.SESSION_NOT_FOUND) { setupSessionService.get(stranger, session.id) }
@@ -529,13 +595,13 @@ class SetupSessionServiceTest(
         val account = accountId()
         fakeBookSourceGateway.holds("101")
         fakeBookSourceGateway.holds(ref = "102", isbn13 = "9788998139766", contents = null, title = "오브젝트 원서")
-        val searching = setupSessionService.start(account, said("오브젝트"))
+        val searching = setupMessageService.start(account, said("오브젝트"))
         val stale = searching.revision - 1
         val chosen = pickRef(account, searching.id, "101")
         val old = chosen.revision - 1
 
         assertFails(SetupError.SESSION_CHANGED) {
-            setupSessionService.say(account, chosen.id, SetupMessageRequest("객체지향", revision = old))
+            setupMessageService.say(account, chosen.id, SetupMessageRequest("객체지향", revision = old))
         }
         assertFails(SetupError.SESSION_CHANGED) {
             setupSessionService.pick(account, chosen.id, SetupPickRequest("101", revision = old))

@@ -9,6 +9,7 @@ import gloss.domain.book.domain.event.TocConfirmed
 import gloss.domain.book.service.BookError
 import gloss.domain.book.service.BookService
 import gloss.domain.book.service.EditionCache
+import gloss.domain.setup.TitleSearchModel
 import gloss.domain.setup.domain.BooksFound
 import gloss.domain.setup.domain.ContentsBrought
 import gloss.domain.setup.domain.ReaderConfirmed
@@ -42,11 +43,12 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 @SpringBootTest
-@Import(TestcontainersConfiguration::class, FakeBookSourceGateway.Config::class)
+@Import(TestcontainersConfiguration::class, FakeBookSourceGateway.Config::class, TitleSearchModel.Config::class)
 @Transactional
 @RecordApplicationEvents
 class SetupEditionsServiceTest(
     @Autowired private val setupSessionService: SetupSessionService,
+    @Autowired private val setupMessageService: SetupMessageService,
     @Autowired private val setupEditionsService: SetupEditionsService,
     @Autowired private val fakeBookSourceGateway: FakeBookSourceGateway,
     @Autowired private val editionCache: EditionCache,
@@ -90,7 +92,7 @@ class SetupEditionsServiceTest(
         ref: String = "101",
     ): SetupSessionResponse {
         fakeBookSourceGateway.holds(ref)
-        val session = setupSessionService.start(account, said("오브젝트"))
+        val session = setupMessageService.start(account, said("오브젝트"))
         return pickRef(account, session.id, ref)
     }
 
@@ -104,7 +106,7 @@ class SetupEditionsServiceTest(
         account: UUID,
         sessionId: UUID,
         text: String,
-    ) = setupSessionService.say(account, sessionId, SetupMessageRequest(text, revision = rev(account, sessionId)))
+    ) = setupMessageService.say(account, sessionId, SetupMessageRequest(text, revision = rev(account, sessionId)))
 
     private fun pickRef(
         account: UUID,
@@ -120,17 +122,49 @@ class SetupEditionsServiceTest(
             .single()
 
     @Test
+    fun `a recommendation's editions are asked for again, in its order, each search once`() {
+        val account = accountId()
+        fakeBookSourceGateway.holds("101")
+        fakeBookSourceGateway.holds(ref = "102", isbn13 = "9788998139766", title = "오브젝트 원서")
+        val session = setupMessageService.start(account, said("오브젝트"))
+        // As the model's recommendation of both is kept, the original first.
+        val seq = session.messages.last().seq + 1
+        jdbc
+            .sql(
+                """
+                insert into setup_message (id, session_id, account_id, seq, role, kind, payload, created_at)
+                values (:id, :session, :account, :seq, 'gloss', 'recommend', cast(:payload as jsonb), now())
+                """.trimIndent(),
+            ).param("id", UUID.randomUUID())
+            .param("session", session.id)
+            .param("account", account)
+            .param("seq", seq)
+            .param(
+                "payload",
+                """{"callId": "r1", "intro": "두 권", "books": [{"ref": "102", "reason": "원서", "sources": []},""" +
+                    """ {"ref": "101", "reason": "번역서", "sources": []}]}""",
+            ).update()
+        editionCache.clear()
+        fakeBookSourceGateway.asked.clear()
+
+        val shown = setupEditionsService.books(account, session.id, seq)
+
+        assertThat(shown.map { it.ref to it.title }).containsExactly("102" to "오브젝트 원서", "101" to "오브젝트")
+        assertThat(fakeBookSourceGateway.asked).containsExactly("오브젝트")
+    }
+
+    @Test
     fun `a list is shown by asking again, in the order it was shown, never from what is kept`() {
         val account = accountId()
         fakeBookSourceGateway.holds("101")
         fakeBookSourceGateway.holds(ref = "102", isbn13 = "9788998139766", contents = null, title = "오브젝트 원서")
-        val session = setupSessionService.start(account, said("오브젝트"))
+        val session = setupMessageService.start(account, said("오브젝트"))
 
-        val shown = setupEditionsService.books(account, session.id, 2)
+        val shown = setupEditionsService.books(account, session.id, BOOKS_SEQ)
         editionCache.clear()
         fakeBookSourceGateway.reset()
         fakeBookSourceGateway.holds("101")
-        val later = setupEditionsService.books(account, session.id, 2)
+        val later = setupEditionsService.books(account, session.id, BOOKS_SEQ)
 
         assertThat(shown.map { it.ref to it.title }).containsExactly("101" to "오브젝트", "102" to "오브젝트 원서")
         assertThat(shown.first().url).isEqualTo("https://www.yes24.com/product/goods/101")
@@ -139,7 +173,7 @@ class SetupEditionsServiceTest(
         assertThat(later.map { it.ref }).containsExactly("101")
         assertThat(fakeBookSourceGateway.asked).containsExactly("오브젝트")
         assertFails(SetupError.MESSAGE_NOT_FOUND) { setupEditionsService.books(account, session.id, 1) }
-        assertFails(SetupError.SESSION_NOT_FOUND) { setupEditionsService.books(accountId(), session.id, 2) }
+        assertFails(SetupError.SESSION_NOT_FOUND) { setupEditionsService.books(accountId(), session.id, BOOKS_SEQ) }
     }
 
     // Committed, so nothing but the service itself opens a transaction around the source.
@@ -176,12 +210,12 @@ class SetupEditionsServiceTest(
     fun `a list shows each edition as it was offered, and a pick whose contents are gone says so`() {
         val account = accountId()
         fakeBookSourceGateway.holds("101")
-        val session = setupSessionService.start(account, said("오브젝트"))
+        val session = setupMessageService.start(account, said("오브젝트"))
         editionCache.clear()
         fakeBookSourceGateway.reset()
         fakeBookSourceGateway.holds("101", contents = null)
 
-        val shown = setupEditionsService.books(account, session.id, 2)
+        val shown = setupEditionsService.books(account, session.id, BOOKS_SEQ)
 
         assertThat(shown.single().hasContents).isTrue()
         assertFails(SetupError.CONTENTS_GONE) {
@@ -194,5 +228,10 @@ class SetupEditionsServiceTest(
                 SetupTypedRequest(ref = "101", toc = "1장 객체", revision = rev(account, session.id)),
             )
         }
+    }
+
+    private companion object {
+        // The reader's message, the model's call, then what the search found.
+        const val BOOKS_SEQ = 3
     }
 }

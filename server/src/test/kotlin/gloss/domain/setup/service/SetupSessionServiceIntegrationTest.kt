@@ -9,6 +9,7 @@ import gloss.domain.book.domain.event.TocConfirmed
 import gloss.domain.book.service.BookError
 import gloss.domain.book.service.BookService
 import gloss.domain.book.service.EditionCache
+import gloss.domain.setup.TitleSearchModel
 import gloss.domain.setup.domain.BooksFound
 import gloss.domain.setup.domain.ContentsBrought
 import gloss.domain.setup.domain.ReaderConfirmed
@@ -42,11 +43,12 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 @SpringBootTest
-@Import(TestcontainersConfiguration::class, FakeBookSourceGateway.Config::class)
+@Import(TestcontainersConfiguration::class, FakeBookSourceGateway.Config::class, TitleSearchModel.Config::class)
 @Transactional
 @RecordApplicationEvents
 class SetupSessionServiceIntegrationTest(
     @Autowired private val setupSessionService: SetupSessionService,
+    @Autowired private val setupMessageService: SetupMessageService,
     @Autowired private val fakeBookSourceGateway: FakeBookSourceGateway,
     @Autowired private val editionCache: EditionCache,
     @Autowired private val jdbc: JdbcClient,
@@ -89,7 +91,7 @@ class SetupSessionServiceIntegrationTest(
         ref: String = "101",
     ): SetupSessionResponse {
         fakeBookSourceGateway.holds(ref)
-        val session = setupSessionService.start(account, said("오브젝트"))
+        val session = setupMessageService.start(account, said("오브젝트"))
         return pickRef(account, session.id, ref)
     }
 
@@ -108,7 +110,7 @@ class SetupSessionServiceIntegrationTest(
         account: UUID,
         sessionId: UUID,
         text: String,
-    ) = setupSessionService.say(account, sessionId, SetupMessageRequest(text, revision = rev(account, sessionId)))
+    ) = setupMessageService.say(account, sessionId, SetupMessageRequest(text, revision = rev(account, sessionId)))
 
     private fun pickRef(
         account: UUID,
@@ -151,10 +153,10 @@ class SetupSessionServiceIntegrationTest(
     // Committed, as two tabs' requests are: nothing here is rolled back.
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    fun `a message, a pick or typed contents while a search is answered are refused, so answers keep their order`() {
+    fun `a message, a pick or typed contents while a message is answered are refused, so answers keep their order`() {
         val account = accountId()
         fakeBookSourceGateway.holds("101")
-        val session = setupSessionService.start(account, said("오브젝트"))
+        val session = setupMessageService.start(account, said("오브젝트"))
         val gate = CountDownLatch(1)
         fakeBookSourceGateway.holdCalls(gate)
         val pool = Executors.newSingleThreadExecutor()
@@ -177,8 +179,9 @@ class SetupSessionServiceIntegrationTest(
         val answered = first.get(10, TimeUnit.SECONDS)
 
         assertThat(answered.searching).isFalse()
-        assertThat(answered.messages.map { it.kind }).containsExactly("text", "books", "text", "books")
-        assertThat((answered.messages[3].payload as BooksFound).query).isEqualTo("첫째")
+        assertThat(answered.messages.map { it.kind }.filter { it == "text" || it == "books" })
+            .containsExactly("text", "books", "text", "books")
+        assertThat((answered.messages.last { it.kind == "books" }.payload as BooksFound).query).isEqualTo("첫째")
         pool.shutdown()
     }
 

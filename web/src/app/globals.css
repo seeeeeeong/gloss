@@ -799,6 +799,132 @@ svg {
   font: 400 12px / 16px var(--font);
   color: var(--tx3);
 }
+.bk-why {
+  margin-top: 4px;
+  font: 400 16px / 26px var(--font);
+}
+.bk-src {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-top: 4px;
+  font: 400 14px / 24px var(--font);
+}
+.bk-src .dl {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  min-width: 0;
+}
+.bk-src .dl span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bk-src svg {
+  flex: none;
+  color: var(--tx2);
+}
+.bk-src .spill {
+  vertical-align: 0;
+  transition:
+    background-color 150ms var(--ease),
+    color 150ms var(--ease);
+}
+.bk-src .spill:hover {
+  background: var(--bg-secondary);
+  color: var(--tx);
+}
+.bk-src .spill[aria-expanded="true"] {
+  background: var(--bg-secondary);
+  color: var(--tx);
+}
+.src-more {
+  position: relative;
+  display: inline-flex;
+}
+/* Each row isolates its hover surface, so the row with the list open is lifted over the rows after it. */
+.bk-in:has(.src-more [aria-expanded="true"]) {
+  z-index: 1;
+}
+.src-list {
+  display: block;
+  right: auto;
+  left: -8px;
+  width: max-content;
+  max-width: min(360px, calc(100vw - 32px));
+}
+.src-list .mi {
+  justify-content: space-between;
+  gap: 12px;
+}
+.src-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.src-host {
+  flex: none;
+  font-size: 12px;
+  color: var(--tx3);
+}
+
+/* The model's thinking line: how long it took, opening to the searches it ran */
+.turn.gloss > .think + * {
+  margin-top: 4px;
+}
+.think-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--tx3);
+  transition: color 150ms var(--ease);
+}
+button.think-head:hover {
+  color: var(--tx2);
+}
+.think-head svg {
+  opacity: 0;
+  transition:
+    opacity 150ms var(--ease),
+    transform 150ms var(--ease);
+}
+button.think-head:hover svg,
+button.think-head:focus-visible svg,
+.think-head[aria-expanded="true"] svg {
+  opacity: 1;
+}
+.think-head[aria-expanded="true"] svg {
+  transform: rotate(90deg);
+}
+.step-list {
+  margin: 4px 0;
+}
+.step-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+  font: 400 14px / 20px var(--font);
+  color: var(--tx2);
+}
+.step-list li svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--tx3);
+}
+.step-list b {
+  margin-right: 6px;
+  font-weight: 500;
+  color: var(--tx);
+}
+@media (hover: none) {
+  .think-head svg {
+    opacity: 1;
+  }
+}
 
 /* Pages inside the shell: the thread's column, title 24/32 */
 .page {

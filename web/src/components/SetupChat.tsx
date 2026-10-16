@@ -15,15 +15,16 @@ import {
   readerLine,
   SESSION_PARAM,
   type SetupSession,
+  showsTurn,
 } from '@/lib/setup'
 
-// Every message is a book search for now, and the server takes a hundred characters.
-const MAX_TEXT = 100
+// As the server takes them: a question in a few sentences.
+const MAX_TEXT = 500
 
 /**
- * Adding a book by talking it through: the reader names a book, Gloss answers with the editions
- * found, a pick brings its contents into the side panel, and starting with them makes the book. Empty,
- * the screen is a heading over the composer.
+ * Adding a book by talking it through: the reader names a book or asks what to read, Gloss answers
+ * with the editions found or the books it recommends, a pick brings its contents into the side panel,
+ * and starting with them makes the book. Empty, the screen is a heading over the composer.
  */
 export function SetupChat({ initial }: { initial: SetupSession | null }) {
   const params = useSearchParams()
@@ -56,8 +57,8 @@ export function SetupChat({ initial }: { initial: SetupSession | null }) {
 
   const composer = (docked: boolean) => (
     <Composer
-      label="책 제목"
-      placeholder="책 제목"
+      label="메시지"
+      placeholder="Gloss에게 물어보세요"
       maxLength={MAX_TEXT}
       busy={pending !== null || session?.state === 'confirmed' || session?.searching === true}
       autoFocus={docked}
@@ -169,16 +170,20 @@ function Turns({ session, pending, panel, onPick, onType, onPanel }: TurnsProps)
   return (
     <>
       {session &&
-        messages.map((message, i) =>
-          message.role === 'reader' ? (
-            <div
-              className="turn user"
-              key={message.seq}
-              ref={i === lastReader ? lastTurn : undefined}
-            >
-              <div className="bubble">{readerLine(message)}</div>
-            </div>
-          ) : (
+        messages.map((message, i) => {
+          // The model's own steps show inside the answer they led to.
+          if (!showsTurn(message)) return null
+          if (message.role === 'reader')
+            return (
+              <div
+                className="turn user"
+                key={message.seq}
+                ref={i === lastReader ? lastTurn : undefined}
+              >
+                <div className="bubble">{readerLine(message)}</div>
+              </div>
+            )
+          return (
             <div className="turn gloss" key={message.seq}>
               <GlossTurn
                 message={message}
@@ -190,8 +195,8 @@ function Turns({ session, pending, panel, onPick, onType, onPanel }: TurnsProps)
                 onPanel={onPanel}
               />
             </div>
-          ),
-        )}
+          )
+        })}
       {!pending && session?.searching && (
         <div className="turn gloss">
           <p className="think pulse">찾는 중</p>

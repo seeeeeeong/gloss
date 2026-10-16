@@ -5,6 +5,7 @@ import gloss.domain.account.Browser
 import gloss.domain.account.Members
 import gloss.domain.book.FakeBookSourceGateway
 import gloss.domain.book.service.EditionCache
+import gloss.domain.setup.TitleSearchModel
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -17,7 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import java.time.Clock
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(TestcontainersConfiguration::class, FakeBookSourceGateway.Config::class)
+@Import(TestcontainersConfiguration::class, FakeBookSourceGateway.Config::class, TitleSearchModel.Config::class)
 class SetupSessionControllerTest(
     @LocalServerPort private val port: Int,
     @Autowired private val fakeBookSourceGateway: FakeBookSourceGateway,
@@ -37,19 +38,17 @@ class SetupSessionControllerTest(
     }
 
     @Test
-    fun `a reader searches, picks an edition, edits its contents and starts, then the book stands confirmed`() {
+    fun `a reader names a book, picks an edition, edits its contents and starts, then the book stands confirmed`() {
         fakeBookSourceGateway.holds("101")
         val browser = signedIn()
 
         val started = browser.post("/api/me/setup-sessions", mapOf("text" to "오브젝트"))
         val sessionId = started.body?.get("id")?.asString()
-        // The one edition the source holds, as the search's first ref.
-        val ref = "101"
-        val shown = browser.get("/api/me/setup-sessions/$sessionId/messages/2/books")
+        val shown = browser.get("/api/me/setup-sessions/$sessionId/messages/$BOOKS_SEQ/books")
         val picked =
             browser.post(
                 "/api/me/setup-sessions/$sessionId/pick",
-                mapOf("ref" to ref, "revision" to started.body?.get("revision")?.asInt()),
+                mapOf("ref" to "101", "revision" to started.body?.get("revision")?.asInt()),
             )
         val seen =
             picked.body
@@ -98,6 +97,7 @@ class SetupSessionControllerTest(
                 ?.toList()
                 .orEmpty()
                 .map { it.get("kind").asString() }
+                .filterNot { it in MODEL }
         assertThat(kinds).containsExactly("text", "books", "pick", "contents", "confirm", "done")
     }
 
@@ -178,5 +178,13 @@ class SetupSessionControllerTest(
 
         assertThat(browser.post("/api/me/setup-sessions", mapOf("text" to "오브젝트")).status).isEqualTo(401)
         assertThat(fakeBookSourceGateway.asked).isEmpty()
+    }
+
+    private companion object {
+        // The model's own calls and the list it showed, between the reader's message and the pick.
+        val MODEL = setOf("tool_calls", "books_shown")
+
+        // The reader's message, the model's call, then what its search found.
+        const val BOOKS_SEQ = 3
     }
 }

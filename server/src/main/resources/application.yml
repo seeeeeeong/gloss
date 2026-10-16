@@ -86,6 +86,19 @@ gloss:
     base-url: ${GLOSS_YES24_BASE_URL:https://apis.yes24.com/v1}
     # The operator's key for YES24's Open API; without one, books are typed in.
     api-key: ${GLOSS_YES24_API_KEY:}
+  exa:
+    base-url: ${GLOSS_EXA_BASE_URL:https://api.exa.ai}
+    # The operator's key for Exa's search; without one, the model is not offered a web search.
+    api-key: ${GLOSS_EXA_API_KEY:}
+  setup:
+    # Web searches run on the operator's key at about $0.007 each (Exa's auto search, five results).
+    # In any 24 hours one reader may ask this many, and every reader together this many: at most
+    # about $0.70 a day. Each change is its own pull request that states the cost.
+    web-searches-per-reader: 20
+    web-searches-per-day: 100
+    # Model turns one instance runs at once, across readers; one more is answered "busy" at once.
+    turns-at-once: 4
+    async-turns: true
   book-source:
     # YES24's basic tier allows the key 10 calls a second and 20,000 a day, for every reader together.
     # Under both, so a second that falls across two of theirs, or a restart that forgets the day's

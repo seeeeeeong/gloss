@@ -13,7 +13,7 @@ import {
   type TypedContents,
 } from '@/lib/setup'
 
-// A search answers within a few seconds; looking every two is quick enough and light.
+// The model answers in a few seconds to a minute; looking every two is quick enough and light.
 const LOOK_AGAIN_MS = 2000
 
 /** What the reader just did, shown until the server answers. */
@@ -29,7 +29,8 @@ export function useSetupSession(initial: SetupSession | null, onChosen: () => vo
   const [pending, setPending] = useState<Pending | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // A search another tab started is still being answered: look again until its answer is kept.
+  // A message is answered after the request that sent it returns, here or in another tab: look
+  // again until its answer is kept.
   const waiting = session?.searching === true && pending === null
   const id = session?.id
   useEffect(() => {

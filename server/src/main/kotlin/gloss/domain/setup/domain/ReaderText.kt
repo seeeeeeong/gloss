@@ -6,8 +6,8 @@ value class ReaderText private constructor(
     val value: String,
 ) {
     companion object {
-        // Every message is a book search until a model reads them, and the source takes 100.
-        private const val MAX_LENGTH = 100
+        // A question to the model in a few sentences; the prompt grows by every message kept.
+        private const val MAX_LENGTH = 500
         private val SPACES = Regex("\\s+")
 
         /**

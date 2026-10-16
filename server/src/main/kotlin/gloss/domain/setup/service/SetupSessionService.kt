@@ -7,24 +7,19 @@ import gloss.domain.book.service.BookSourceService
 import gloss.domain.book.service.ContentsReader
 import gloss.domain.book.service.OutlineItem
 import gloss.domain.book.service.TypedBook
-import gloss.domain.setup.domain.BooksFound
 import gloss.domain.setup.domain.ContentsBrought
 import gloss.domain.setup.domain.FoundEdition
 import gloss.domain.setup.domain.ReaderConfirmed
 import gloss.domain.setup.domain.ReaderPicked
-import gloss.domain.setup.domain.ReaderSaid
-import gloss.domain.setup.domain.ReaderText
 import gloss.domain.setup.domain.ReaderTyped
-import gloss.domain.setup.domain.SearchFailed
-import gloss.domain.setup.domain.SetupContent
 import gloss.domain.setup.domain.SetupDone
 import gloss.domain.setup.domain.SetupMessage
 import gloss.domain.setup.domain.SetupPolicy
 import gloss.domain.setup.domain.SetupSession
+import gloss.domain.setup.domain.ShownEditions
 import gloss.domain.setup.domain.repository.SetupSessionRepository
 import gloss.domain.setup.dto.request.SetupConfirmRequest
 import gloss.domain.setup.dto.request.SetupContentsRequest
-import gloss.domain.setup.dto.request.SetupMessageRequest
 import gloss.domain.setup.dto.request.SetupPickRequest
 import gloss.domain.setup.dto.request.SetupTypedRequest
 import gloss.domain.setup.dto.response.SetupContentsItemResponse
@@ -39,10 +34,10 @@ import java.time.Instant
 import java.util.UUID
 
 /**
- * A reader adds a book by talking it through: each message searches the book source, a pick holds
- * the edition's contents in the session for the reader to look over and edit, and starting makes the
- * book from them. No book exists before that. The source is asked between transactions, so a slow
- * answer holds no connection and no lock.
+ * A reader adds a book by talking it through: the model answers each message (SetupMessageService), a
+ * pick holds the edition's contents in the session for the reader to look over and edit, and starting
+ * makes the book from them. No book exists before that. The source is asked between transactions, so a
+ * slow answer holds no connection and no lock.
  */
 @Service
 class SetupSessionService(
@@ -53,49 +48,6 @@ class SetupSessionService(
     private val transactionTemplate: TransactionTemplate,
     private val clock: Clock,
 ) {
-    /** A session starts with the reader's first message, so opening the screen alone keeps nothing. */
-    fun start(
-        accountId: UUID,
-        request: SetupMessageRequest,
-    ): SetupSessionResponse {
-        val text = ReaderText.of(request.text) ?: throw GlossException(SetupError.INVALID_TEXT)
-        val sessionId =
-            write {
-                val now = clock.instant()
-                val session = SetupSession.start(accountId = accountId, now = now)
-                session.say(now)
-                setupSessionRepository.saveAndFlush(session)
-                jdbcSetupMessages.append(session, ReaderSaid(text.value), now)
-                session.id
-            }
-        answer(accountId, sessionId, text)
-        return get(accountId, sessionId)
-    }
-
-    /**
-     * Every message is a title search for now, after a pick too: it drops the pick and searches again.
-     * One at a time: a message while the last one's search is still being answered is refused, so
-     * answers are kept in the order of their messages.
-     */
-    fun say(
-        accountId: UUID,
-        sessionId: UUID,
-        request: SetupMessageRequest,
-    ): SetupSessionResponse {
-        val text = ReaderText.of(request.text) ?: throw GlossException(SetupError.INVALID_TEXT)
-        val revision = request.revision ?: throw GlossException(CommonError.INVALID_INPUT)
-        write {
-            val session =
-                held(accountId = accountId, sessionId = sessionId, step = SetupPolicy.Step.SAY, revision = revision)
-            val now = clock.instant()
-            session.say(now)
-            setupSessionRepository.saveAndFlush(session)
-            jdbcSetupMessages.append(session, ReaderSaid(text.value), now)
-        }
-        answer(accountId, sessionId, text)
-        return get(accountId, sessionId)
-    }
-
     /**
      * Only an edition with contents that one of this session's searches found, so what the reader saw
      * is what is held. A later pick replaces an earlier one.
@@ -276,29 +228,6 @@ class SetupSessionService(
         return SetupSessionResponse.from(session = session, messages = messages, held = held, now = clock.instant())
     }
 
-    // A failed search is an answer too, kept with the message it answers.
-    private fun answer(
-        accountId: UUID,
-        sessionId: UUID,
-        text: ReaderText,
-    ) {
-        val reply: SetupContent =
-            try {
-                val found = bookSourceService.editions(accountId, text.value)
-                BooksFound(text.value, found.map { FoundEdition(it.ref, it.hasContents) })
-            } catch (e: GlossException) {
-                SearchFailed(e.error.code, e.error.message)
-            }
-        write {
-            val session =
-                setupSessionRepository.findForUpdate(sessionId, accountId)
-                    ?: throw GlossException(SetupError.SESSION_NOT_FOUND)
-            session.answered()
-            setupSessionRepository.saveAndFlush(session)
-            jdbcSetupMessages.append(session, reply, clock.instant())
-        }
-    }
-
     private fun offered(
         accountId: UUID,
         sessionId: UUID,
@@ -311,12 +240,9 @@ class SetupSessionService(
         refuseUnless(session, SetupPolicy.Step.PICK)
         // Before the source is asked for the edition; checked again under the lock.
         refuseWhileSearching(session, clock.instant())
-        return jdbcSetupMessages
-            .list(session.id, accountId)
-            .asSequence()
-            .map { it.content }
-            .filterIsInstance<BooksFound>()
-            .flatMap { it.books }
+        val contents = jdbcSetupMessages.list(session.id, accountId).map { it.content }
+        return ShownEditions
+            .of(contents)
             .firstOrNull { it.ref == ref && it.hasContents == withContents }
             ?: throw GlossException(SetupError.BOOK_NOT_OFFERED)
     }
@@ -336,13 +262,9 @@ class SetupSessionService(
                 ?: throw GlossException(SetupError.SESSION_NOT_FOUND)
         refuseUnless(session, step)
         refuseChanged(session, revision)
-        // A message, a pick or typed contents while a search is answered would land between the
-        // question and its answer, and a pick would outlive the message that dropped it.
-        if (step == SetupPolicy.Step.SAY ||
-            step == SetupPolicy.Step.PICK
-        ) {
-            refuseWhileSearching(session, clock.instant())
-        }
+        // A pick or typed contents while a message is answered would land between the question and
+        // its answer, and would outlive the message that dropped it.
+        if (step == SetupPolicy.Step.PICK) refuseWhileSearching(session, clock.instant())
         return session
     }
 
@@ -357,7 +279,7 @@ class SetupSessionService(
         }
 }
 
-private fun refuseUnless(
+internal fun refuseUnless(
     session: SetupSession,
     step: SetupPolicy.Step,
 ) {
@@ -371,7 +293,7 @@ private fun refuseUnless(
     throw GlossException(error)
 }
 
-private fun refuseWhileSearching(
+internal fun refuseWhileSearching(
     session: SetupSession,
     now: Instant,
 ) {
@@ -384,7 +306,7 @@ private fun startedWith(
 ): Boolean = session.state == SetupPolicy.State.CONFIRMED && session.revision == revision
 
 // Every request that changes a session names the revision it saw; an older one changes nothing.
-private fun refuseChanged(
+internal fun refuseChanged(
     session: SetupSession,
     revision: Int,
 ) {
