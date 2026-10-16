@@ -11,6 +11,7 @@ import gloss.domain.generation.service.RunningJob
 import gloss.domain.llm.FakeLlmGateway
 import gloss.domain.llm.KeyedReaders
 import gloss.domain.llm.domain.ChatResult
+import gloss.domain.llm.domain.LlmCallFailed
 import gloss.domain.llm.domain.TokenUsage
 import gloss.domain.llm.domain.chat.FinishReason
 import gloss.domain.llm.domain.chat.ReplyFormat
@@ -56,7 +57,7 @@ class PostJobHandlerTest(
             """{"i":0,"kind":"overview","covers":["장의 흐름"],"excludes":[],"example":""},""" +
             """{"i":1,"kind":"lesson","covers":["의존성 문제"],"excludes":[],"example":"영화관"},""" +
             """{"i":2,"kind":"none","covers":[],"excludes":[],"example":""}]}"""
-    private val written = "## 학습 목표\n\n- 의존성 문제를 설명한다.\n\n## 1. 티켓 판매\n\n본문이다.\n\n## 요약\n\n- 요약이다."
+    private val written = lesson("본문이다.")
     private val usage =
         TokenUsage(cacheHitTokens = 700, cacheMissTokens = 200, completionTokens = 300, reasoningTokens = 0)
 
@@ -72,6 +73,32 @@ class PostJobHandlerTest(
         val errorKind: String?,
     )
 
+    private data class Check(
+        val writing: Int,
+        val passed: Boolean,
+        val failed: String,
+        val finishReason: String,
+    )
+
+    private fun passed(writing: Int) = Check(writing = writing, passed = true, failed = "", finishReason = "stop")
+
+    private fun failed(
+        writing: Int,
+        failed: String,
+        finishReason: String = "stop",
+    ) = Check(writing = writing, passed = false, failed = failed, finishReason = finishReason)
+
+    /** A post in the form the prompt asks of a lesson, [body] under each numbered section. */
+    private fun lesson(body: String) =
+        listOf(
+            "## 학습 목표\n\n- 의존성 문제를 설명한다.",
+            "## 1. 티켓 판매\n\n$body",
+            "## 2. 의존성\n\n$body",
+            "## 3. 설계 고치기\n\n$body",
+            "## 요약\n\n- 요약이다.",
+            "## 핵심 용어\n\n- **의존성**: 한 객체가 다른 객체를 아는 것이다.",
+        ).joinToString("\n\n")
+
     // The worker does not run in tests: each test claims the job it asked for, from a queue it emptied.
     @BeforeEach
     @AfterEach
@@ -86,6 +113,49 @@ class PostJobHandlerTest(
     ) {
         fakeLlmGateway.answer = { _, _ -> ChatResult(text, finish, usage) }
     }
+
+    private fun providerFailed() =
+        LlmCallFailed(LlmCallFailed.Kind.PROVIDER_ERROR, outputStarted = false, promptMayHaveBilled = false)
+
+    /** The account's job waiting for another attempt is due now, not after its backoff. */
+    private fun dueNow(book: Planned) {
+        jdbc
+            .sql("update generation_job set run_after = now() where account_id = :account and state = 'queued'")
+            .param("account", book.account)
+            .update()
+    }
+
+    /** One answer for each call, in turn. */
+    private fun answersInTurn(vararg results: ChatResult) {
+        val queue = ArrayDeque(results.toList())
+        fakeLlmGateway.answer = { _, _ -> queue.removeFirst() }
+    }
+
+    private fun checks(book: Planned): List<Check> =
+        jdbc
+            .sql(
+                """
+                select writing, passed, array_to_string(failed_checks, ','), finish_reason from post_check
+                where account_id = :account order by id
+                """.trimIndent(),
+            ).param("account", book.account)
+            .query { rs, _ ->
+                Check(
+                    writing = rs.getInt(1),
+                    passed = rs.getBoolean(2),
+                    failed = rs.getString(3),
+                    finishReason = rs.getString(4),
+                )
+            }.list()
+
+    /** Each of the account's post calls, by its reservation: the ledger rows it has, reserve and ending. */
+    private fun postReservations(book: Planned): Map<UUID, List<String>> =
+        jdbc
+            .sql("select reservation_id, kind from usage_ledger where account_id = :account and purpose = 'post'")
+            .param("account", book.account)
+            .query { rs, _ -> rs.getObject(1, UUID::class.java) to rs.getString(2) }
+            .list()
+            .groupBy({ it.first }, { it.second })
 
     // A delivery takes milliseconds; the margin is for a loaded CI runner, so only a lost event fails.
     private fun awaitJob(account: UUID) {
@@ -215,25 +285,218 @@ class PostJobHandlerTest(
                 .query()
                 .singleRow()
         assertThat(call.values).containsExactly("post", "post-1", "stop")
+        assertThat(checks(book)).containsExactly(passed(1))
+        assertThat(postReservations(book).values).containsExactly(listOf("reserve", "settle"))
     }
 
     @Test
-    fun `an answer cut at its cap is not kept`() {
+    fun `a post that fails its check is written once more, the same call, and kept when it passes`() {
+        val book = planned()
+        ask(book)
+        answersInTurn(
+            ChatResult("이 글은 의존성을 다룬다.\n\n본문이다.", FinishReason.STOP, usage),
+            ChatResult(written, FinishReason.STOP, usage),
+        )
+
+        val ending = runNext()
+
+        assertThat(ending).isEqualTo(Ending("succeeded", null))
+        assertThat(fakeLlmGateway.requests).hasSize(2)
+        assertThat(fakeLlmGateway.requests[1]).isEqualTo(fakeLlmGateway.requests[0])
+        assertThat(posts(book)).containsExactly(written)
+        assertThat(checks(book))
+            .containsExactly(failed(1, "opening,sections"), passed(2))
+        assertThat(postReservations(book).values).hasSize(2).allSatisfy {
+            assertThat(it).containsExactlyInAnyOrder("reserve", "settle")
+        }
+    }
+
+    @Test
+    fun `an answer cut at its cap is written once more, and a second cut leaves nothing kept`() {
         val book = planned()
         ask(book)
         answers(written, finish = FinishReason.LENGTH)
 
-        assertThat(runNext()).isEqualTo(Ending("failed", "finish.length"))
+        assertThat(runNext()).isEqualTo(Ending("failed", "post.check_failed"))
+        assertThat(fakeLlmGateway.requests).hasSize(2)
         assertThat(posts(book)).isEmpty()
+        assertThat(checks(book))
+            .containsExactly(failed(1, "finish", finishReason = "length"), failed(2, "finish", finishReason = "length"))
+        assertThat(postReservations(book).values).hasSize(2).allSatisfy {
+            assertThat(it).containsExactlyInAnyOrder("reserve", "settle")
+        }
     }
 
     @Test
     fun `an empty answer is not a post`() {
         val book = planned()
         ask(book)
-        answers("  \n")
+        answersInTurn(
+            ChatResult("  \n", FinishReason.STOP, usage),
+            ChatResult("# 오브젝트\n\n본문이다.", FinishReason.CONTENT_FILTER, usage),
+        )
 
-        assertThat(runNext()).isEqualTo(Ending("failed", "post.empty_reply"))
+        assertThat(runNext()).isEqualTo(Ending("failed", "post.check_failed"))
+        assertThat(posts(book)).isEmpty()
+        assertThat(checks(book))
+            .containsExactly(
+                failed(1, "empty"),
+                failed(2, "finish,title,opening,sections", finishReason = "content_filter"),
+            )
+    }
+
+    @Test
+    fun `a call that fails on its way is not written again here, and its reservation still ends`() {
+        val book = planned()
+        ask(book)
+        val calls = ArrayDeque(listOf(ChatResult("본문이다.", FinishReason.STOP, usage)))
+        fakeLlmGateway.answer = { _, _ ->
+            calls.removeFirstOrNull()
+                ?: throw LlmCallFailed(
+                    LlmCallFailed.Kind.PROVIDER_ERROR,
+                    outputStarted = false,
+                    promptMayHaveBilled = false,
+                )
+        }
+
+        val ending = runNext()
+
+        assertThat(ending.state).isEqualTo("queued")
+        assertThat(ending.errorKind).isEqualTo("llm.provider_failed")
+        assertThat(posts(book)).isEmpty()
+        assertThat(checks(book)).containsExactly(failed(1, "opening,sections"))
+        assertThat(postReservations(book).values)
+            .containsExactlyInAnyOrder(listOf("reserve", "settle"), listOf("reserve", "release"))
+    }
+
+    @Test
+    fun `a writing whose call failed on its way is spent, so a retry writes only what is left`() {
+        val book = planned()
+        ask(book)
+        val first = ArrayDeque(listOf(ChatResult("본문이다.", FinishReason.STOP, usage)))
+        fakeLlmGateway.answer = { _, _ -> first.removeFirstOrNull() ?: throw providerFailed() }
+        check(runNext().state == "queued")
+        dueNow(book)
+        answers(written)
+
+        val ending = runNext()
+
+        assertThat(ending).isEqualTo(Ending("failed", "post.check_failed"))
+        assertThat(fakeLlmGateway.requests).hasSize(2)
+        assertThat(posts(book)).isEmpty()
+        assertThat(checks(book)).containsExactly(failed(1, "opening,sections"))
+    }
+
+    @Test
+    fun `a retry after a first call failed on its way writes once more, as the job's second writing`() {
+        val book = planned()
+        ask(book)
+        fakeLlmGateway.answer = { _, _ -> throw providerFailed() }
+        check(runNext().state == "queued")
+        dueNow(book)
+        answers(written)
+
+        val ending = runNext()
+
+        assertThat(ending).isEqualTo(Ending("succeeded", null))
+        assertThat(fakeLlmGateway.requests).hasSize(2)
+        assertThat(posts(book)).containsExactly(written)
+        assertThat(checks(book)).containsExactly(passed(2))
+    }
+
+    @Test
+    fun `an attempt that lost its job to another takes no writing, so the two write twice in all`() {
+        val book = planned()
+        ask(book)
+        val first = RunningJob(checkNotNull(jdbcJobQueue.claim("worker-a", now, Duration.ofSeconds(60))))
+        var second: RunningJob? = null
+        fakeLlmGateway.answer = { _, _ ->
+            // The reaper hands the job on while the first attempt's call runs, before it sees it lost.
+            jdbc
+                .sql(
+                    """
+                    update generation_job set state = 'queued', lease_owner = null, lease_expires_at = null,
+                                              run_after = now() where id = :id
+                    """.trimIndent(),
+                ).param("id", first.jobId)
+                .update()
+            second = jdbcJobQueue.claim("worker-b", now, Duration.ofSeconds(60))?.let(::RunningJob)
+            ChatResult("본문이다.", FinishReason.STOP, usage)
+        }
+
+        jobRunner.run(first)
+        answers(written)
+        jobRunner.run(checkNotNull(second))
+
+        assertThat(fakeLlmGateway.requests).hasSize(2)
+        assertThat(posts(book)).containsExactly(written)
+        assertThat(checks(book)).containsExactly(failed(1, "opening,sections"), passed(2))
+        val taken =
+            jdbc
+                .sql("select writing, attempt from post_writing where account_id = :account order by writing")
+                .param("account", book.account)
+                .query { rs, _ -> rs.getInt(1) to rs.getInt(2) }
+                .list()
+        assertThat(taken).containsExactly(1 to 1, 2 to 2)
+    }
+
+    @Test
+    fun `another account's writings under the same job id count for nothing`() {
+        val book = planned()
+        ask(book)
+        val job =
+            jdbc
+                .sql("select id from generation_job where account_id = :account and kind = 'post'")
+                .param("account", book.account)
+                .query(UUID::class.java)
+                .single()
+        val other = UUID.randomUUID()
+        (1..2).forEach { writing ->
+            jdbc
+                .sql(
+                    """
+                    insert into post_writing (account_id, job_id, writing, attempt, claimed_at)
+                    values (:other, :job, :writing, 1, now())
+                    """.trimIndent(),
+                ).param("other", other)
+                .param("job", job)
+                .param("writing", writing)
+                .update()
+        }
+        answers(written)
+
+        assertThat(runNext()).isEqualTo(Ending("succeeded", null))
+        assertThat(fakeLlmGateway.requests).hasSize(1)
+        assertThat(checks(book)).containsExactly(passed(1))
+    }
+
+    @Test
+    fun `contents confirmed anew before a rewrite leave it unwritten`() {
+        val book = planned()
+        ask(book)
+        fakeLlmGateway.answer = { _, _ ->
+            val revised = bookService.reviseToc(book.account, book.bookId, TocReviseRequest("1장 다시 쓴 목차"))
+            bookService.confirmToc(book.account, book.bookId, revised.toc.id)
+            ChatResult("본문이다.", FinishReason.STOP, usage)
+        }
+
+        val ending = runNext()
+
+        assertThat(ending).isEqualTo(Ending("succeeded", null))
+        assertThat(fakeLlmGateway.requests).hasSize(1)
+        assertThat(posts(book)).isEmpty()
+        assertThat(checks(book)).containsExactly(failed(1, "opening,sections"))
+        awaitJob(book.account)
+    }
+
+    @Test
+    fun `a writing that passed but the database could not hold is not kept`() {
+        val book = planned()
+        ask(book)
+        answers(lesson("본문이다.\u0000"))
+
+        assertThat(runNext()).isEqualTo(Ending("failed", "post.unstorable_reply"))
+        assertThat(fakeLlmGateway.requests).hasSize(1)
         assertThat(posts(book)).isEmpty()
     }
 
@@ -287,12 +550,12 @@ class PostJobHandlerTest(
         runNext()
         jdbc.sql("update post set stale = true where book_id = :book").param("book", book.bookId).update()
         ask(book)
-        answers("## 학습 목표\n\n다시 쓴 본문이다.")
+        answers(lesson("다시 쓴 본문이다."))
 
         val ending = runNext()
 
         assertThat(ending).isEqualTo(Ending("succeeded", null))
-        assertThat(posts(book)).containsExactly("## 학습 목표\n\n다시 쓴 본문이다.")
+        assertThat(posts(book)).containsExactly(lesson("다시 쓴 본문이다."))
         val post =
             jdbc
                 .sql(

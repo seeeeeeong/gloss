@@ -40,6 +40,8 @@ dependencies {
     implementation(libs.kotlin.jdsl.spring.data.jpa.boot4.support)
     implementation(libs.spring.boot.starter.flyway)
     implementation(libs.flyway.database.postgresql)
+    implementation(libs.commonmark)
+    implementation(libs.commonmark.ext.gfm.tables)
     runtimeOnly(libs.postgresql)
 
     testImplementation(platform(libs.spring.boot.dependencies))

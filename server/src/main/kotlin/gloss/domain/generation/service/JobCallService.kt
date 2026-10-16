@@ -35,10 +35,23 @@ class JobCallService(
         call: LlmCall,
         promptVersion: String,
     ): LlmReply {
+        val reply = answer(job, call, promptVersion)
+        throw unfinished(reply) ?: return reply
+    }
+
+    /**
+     * As [complete], but an answer the model ended for a reason of its own comes back too, cut at
+     * its cap or filtered, for a caller that judges it. A cancel or the provider's own load still fails.
+     */
+    fun answer(
+        job: RunningJob,
+        call: LlmCall,
+        promptVersion: String,
+    ): LlmReply {
         val asked = Asked(job, call, promptVersion)
         val reply = answerTo(asked)
         record(asked, errorCode = CANCELLED.takeIf { reply.cancelled }, reply = reply)
-        throw failureOf(reply) ?: return reply
+        throw interrupted(reply) ?: return reply
     }
 
     @Suppress("TooGenericExceptionCaught")
@@ -54,15 +67,27 @@ class JobCallService(
             throw e
         }
 
-    private fun failureOf(reply: LlmReply): JobFailed? {
-        // Cut short by the provider's own load, not by the answer: another attempt may finish.
-        val passing = reply.finishReason == FinishReason.INSUFFICIENT_SYSTEM_RESOURCE
-        return when {
+    private fun interrupted(reply: LlmReply): JobFailed? =
+        when {
             reply.cancelled -> JobFailed(CANCELLED, retryable = false)
-            reply.finishReason == FinishReason.STOP -> null
-            else -> JobFailed("$UNFINISHED${reply.finishReason.code}", retryable = passing)
+
+            // Cut short by the provider's own load, not by the answer: another attempt may finish.
+            reply.finishReason == FinishReason.INSUFFICIENT_SYSTEM_RESOURCE -> unfinished(reply, retryable = true)
+
+            else -> null
         }
-    }
+
+    private fun unfinished(
+        reply: LlmReply,
+        retryable: Boolean = false,
+    ): JobFailed? =
+        if (reply.finishReason ==
+            FinishReason.STOP
+        ) {
+            null
+        } else {
+            JobFailed("$UNFINISHED${reply.finishReason.code}", retryable)
+        }
 
     private class Asked(
         val job: RunningJob,
