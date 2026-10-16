@@ -1,3 +1,5 @@
+import type { KeyboardEvent } from 'react'
+
 /** The parts of a keydown the composer reads. */
 export type EnterKey = {
   key: string
@@ -21,4 +23,17 @@ export function sendsOnEnter(event: EnterKey, coarsePointer: boolean): boolean {
     event.keyCode !== 229 &&
     !coarsePointer
   )
+}
+
+/** An Enter that only ends a syllable still being composed, as Safari's keyCode 229 says too. */
+export function composingEnter(event: Omit<EnterKey, 'shiftKey'>): boolean {
+  return event.key === 'Enter' && (event.isComposing || event.keyCode === 229)
+}
+
+/** For a form's keydown: that Enter must not submit it. */
+export function holdImeEnter(event: KeyboardEvent) {
+  const { key, keyCode } = event
+  if (composingEnter({ key, keyCode, isComposing: event.nativeEvent.isComposing })) {
+    event.preventDefault()
+  }
 }

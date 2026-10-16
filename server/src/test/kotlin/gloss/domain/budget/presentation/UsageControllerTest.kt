@@ -48,7 +48,17 @@ class UsageControllerTest(
     }
 
     @Test
+    fun `a reader who has made no calls sees none`() {
+        val response = signedIn().get("/api/me/usage/calls")
+
+        assertThat(response.status).isEqualTo(200)
+        assertThat(response.body?.isArray).isTrue()
+        assertThat(response.body?.size()).isZero()
+    }
+
+    @Test
     fun `no one signed out sees usage`() {
         assertThat(Browser(port).get("/api/me/usage").status).isEqualTo(401)
+        assertThat(Browser(port).get("/api/me/usage/calls").status).isEqualTo(401)
     }
 }

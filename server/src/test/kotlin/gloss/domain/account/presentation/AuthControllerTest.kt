@@ -54,6 +54,7 @@ class AuthControllerTest(
         assertThat(response.status).isEqualTo(200)
         assertThat(response.body!!["loginId"].asString()).isEqualTo(loginId)
         assertThat(response.body["role"].asString()).isEqualTo("member")
+        assertThat(response.body["lastLoginAt"].isNull).isFalse()
         assertThat(response.setCookie.single { it.startsWith("gloss_session=") }).contains("HttpOnly", "SameSite=Lax")
         assertThat(browser.get("/api/me").status).isEqualTo(200)
     }
@@ -109,6 +110,7 @@ class AuthControllerTest(
 
         assertThat(response.status).isEqualTo(429)
         assertThat(response.code).isEqualTo("account.too_many_attempts")
+        assertThat(response.headers["retry-after"]?.single()?.toLong()).isBetween(1, 15 * 60)
         assertThat(Browser(port).signIn(loginId, members.password).status).isEqualTo(200)
     }
 

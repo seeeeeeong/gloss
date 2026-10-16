@@ -8,25 +8,37 @@ type Props = {
   /** False for a dialog that must be answered: Escape and the backdrop leave it open. */
   dismissible?: boolean
   alert?: boolean
-  plain?: boolean
+  /** No close button to leave room for, or a confirmation's narrow, centred box. */
+  look?: 'plain' | 'confirm'
   children: ReactNode
 }
 
-/** A modal over the page while it is mounted; the browser keeps focus inside it. */
-export function Dialog({ labelledBy, onClose, dismissible = true, alert, plain, children }: Props) {
+/**
+ * A modal over the page while it is mounted; the browser keeps focus inside it. Focus starts on
+ * the element marked `data-autofocus`, else on the first that takes it.
+ */
+export function Dialog({ labelledBy, onClose, dismissible = true, alert, look, children }: Props) {
   const ref = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
     const dialog = ref.current
-    if (dialog && !dialog.open) dialog.showModal()
-    return () => dialog?.close()
+    // The browser hands focus back only to a dialog still on the page; this one is gone by then.
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    if (dialog && !dialog.open) {
+      dialog.showModal()
+      dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus()
+    }
+    return () => {
+      dialog?.close()
+      if (opener?.isConnected) opener.focus()
+    }
   }, [])
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: Escape reaches it as the dialog's cancel event
     <dialog
       ref={ref}
-      className={plain ? 'dlg plain' : 'dlg'}
+      className={look ? `dlg ${look}` : 'dlg'}
       role={alert ? 'alertdialog' : undefined}
       aria-labelledby={labelledBy}
       onCancel={(event) => {

@@ -1,12 +1,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { send } from '@/lib/api'
-import { dollarsToMicros, formatUsd } from '@/lib/money'
-import type { Usage } from '@/lib/usage'
-
-const MICROS = 1_000_000
+import { holdImeEnter } from '@/lib/composer'
+import { formatUsd } from '@/lib/money'
+import { LIMIT_ERROR, limitText, parseLimit, type Usage } from '@/lib/usage'
 
 function monthLabel(billingMonth: string): string {
   const [year, month] = billingMonth.split('-')
@@ -26,103 +25,126 @@ export function UsageLimitForm({ usage }: { usage: Usage }) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(
-    usage.limitMicros === null ? '' : String(usage.limitMicros / MICROS),
-  )
+  const [value, setValue] = useState('')
+  const field = useRef<HTMLInputElement>(null)
+  const edit = useRef<HTMLButtonElement>(null)
+  const returning = useRef(false)
+
+  // Opening selects the amount to retype; closing hands focus back to 수정.
+  useEffect(() => {
+    if (editing) field.current?.select()
+    else if (returning.current) edit.current?.focus()
+    returning.current = false
+  }, [editing])
+
+  // The row sits low on the page; its error line would otherwise appear out of sight.
+  useEffect(() => {
+    if (error) document.getElementById('limit-error')?.scrollIntoView({ block: 'nearest' })
+  }, [error])
+
+  function close() {
+    returning.current = true
+    setError(null)
+    setEditing(false)
+  }
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setError(null)
-    const micros = dollarsToMicros(value)
+    const micros = parseLimit(value)
     if (micros === null) {
-      setError('0보다 큰 금액을 달러로 입력해 주세요')
+      setError(LIMIT_ERROR)
+      field.current?.focus()
       return
     }
+    setError(null)
     setPending(true)
     const result = await send<Usage>('PUT', '/api/me/usage/limit', { monthlyLimitMicros: micros })
     setPending(false)
     if (!result.ok) {
       setError(result.message)
+      field.current?.focus()
       return
     }
-    // What the server kept, so the field never shows a value that was not saved.
-    if (result.data.limitMicros !== null) setValue(String(result.data.limitMicros / MICROS))
-    setEditing(false)
+    close()
     router.refresh()
   }
 
   const bar = shares(usage)
+  const limit = usage.limitMicros
   return (
     <>
       <p className="month">{monthLabel(usage.billingMonth)}</p>
-      {bar && (
-        <div className="ubar" aria-hidden="true">
+      {bar && limit !== null && (
+        <div
+          className="ubar"
+          role="img"
+          aria-label={`월 한도 ${formatUsd(limit)} 중 사용 ${formatUsd(usage.spentMicros)}, 진행 중 ${formatUsd(usage.inFlightMicros)}`}
+        >
           <i className="spent" style={{ width: `${bar.spent}%` }} />
           <i className="res" style={{ width: `${bar.reserved}%` }} />
         </div>
       )}
       <Figure swatch="spent" label="사용" micros={usage.spentMicros} />
       <Figure swatch="res" label="진행 중" micros={usage.inFlightMicros} />
-      {usage.remainingMicros !== null && (
-        <Figure swatch="left" label="남은 한도" micros={usage.remainingMicros} />
+      {limit !== null && usage.remainingMicros !== null && (
+        <Figure swatch="left" label="남은 한도" micros={Math.max(0, usage.remainingMicros)} />
       )}
       <div className="srow">
         {editing ? (
-          <form className="s-form" onSubmit={save}>
-            <div className="s-line">
-              <label className="s-k" htmlFor="limit">
-                월 한도
-              </label>
-            </div>
-            <div className="inl">
+          <form className="s-line" onSubmit={save} onKeyDown={holdImeEnter} noValidate>
+            <label className="s-k" htmlFor="limit">
+              월 한도
+            </label>
+            <span className="inl">
               <span className="money">
                 <span aria-hidden="true">$</span>
                 <input
+                  ref={field}
                   id="limit"
-                  className="field"
+                  className="field limit"
                   name="limit"
                   inputMode="decimal"
                   autoComplete="off"
-                  disabled={pending}
                   value={value}
                   onChange={(event) => setValue(event.target.value)}
-                  required
+                  aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? 'limit-error' : undefined}
                 />
               </span>
-              <button type="submit" className="btn primary" disabled={pending}>
+              <button type="submit" className="btn primary sm" disabled={pending}>
                 저장
               </button>
-              <button
-                type="button"
-                className="btn sec"
-                disabled={pending}
-                onClick={() => setEditing(false)}
-              >
+              <button type="button" className="btn sec sm" disabled={pending} onClick={close}>
                 취소
               </button>
-            </div>
-            {error && (
-              <p className="f-err" role="alert">
-                {error}
-              </p>
-            )}
+            </span>
           </form>
         ) : (
           <div className="s-line">
             <span className="s-k">월 한도</span>
-            <span className={usage.limitMicros === null ? 's-v none' : 's-v'}>
-              {usage.limitMicros === null ? '없음' : formatUsd(usage.limitMicros)}
+            <span className={limit === null ? 's-v none' : 's-v'}>
+              {limit === null ? '없음' : formatUsd(limit)}
             </span>
             <button
+              ref={edit}
               type="button"
               className="btn sec sm"
+              aria-label="월 한도 수정"
               onClick={() => {
+                setValue(limit === null ? '' : limitText(limit))
                 setError(null)
                 setEditing(true)
               }}
             >
               수정
             </button>
+          </div>
+        )}
+        {error && (
+          <div className="s-form">
+            <p className="f-err" id="limit-error" role="alert">
+              {error}
+            </p>
           </div>
         )}
       </div>

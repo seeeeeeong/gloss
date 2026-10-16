@@ -29,6 +29,7 @@ import org.springframework.security.crypto.password.PasswordEncoder
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
+import java.time.Duration
 import java.time.Instant
 import java.util.UUID
 
@@ -124,7 +125,9 @@ class AccountService(
         }
         accountRepository.recordLogin(signedIn.id, now)
         publish(SignedIn(eventId = UuidV7.at(now), occurredAt = now, accountId = signedIn.id, ip = clientIp))
-        return SignedInAccount(MyAccountResponse.from(signedIn), signedIn.role, signedIn.sessionEpoch)
+        // The update above bypasses the loaded entity, which still holds the previous sign-in.
+        val response = MyAccountResponse.from(signedIn).copy(lastLoginAt = now)
+        return SignedInAccount(response, signedIn.role, signedIn.sessionEpoch)
     }
 
     private fun requireNotThrottled(
@@ -135,10 +138,18 @@ class AccountService(
         val since = now.minus(LoginThrottlePolicy.WINDOW)
         val decision =
             LoginThrottlePolicy.decide(
-                failuresForLoginIdAndIp = jdbcLoginFailures.countForLoginIdAndIp(loginIdKey, clientIp, since),
-                failuresForIp = jdbcLoginFailures.countForIp(clientIp, since),
+                failuresForLoginIdAndIp =
+                    jdbcLoginFailures.latestForLoginIdAndIp(
+                        loginIdKey = loginIdKey,
+                        ip = clientIp,
+                        since = since,
+                        limit = LoginThrottlePolicy.PER_LOGIN_ID_AND_IP,
+                    ),
+                failuresForIp = jdbcLoginFailures.latestForIp(clientIp, since, LoginThrottlePolicy.PER_IP),
             )
-        if (decision == LoginThrottleDecision.Blocked) throw GlossException(AccountError.TOO_MANY_ATTEMPTS)
+        if (decision is LoginThrottleDecision.Blocked) {
+            throw GlossException(AccountError.TOO_MANY_ATTEMPTS, retryAfter = Duration.between(now, decision.until))
+        }
     }
 
     /** For other modules: false for a disabled account or none at all. */

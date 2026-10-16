@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { cookies } from 'next/headers'
 import { THEME_COOKIE, themeAttribute, themeColors, themeFrom } from '@/lib/theme'
-import { d2coding, pretendard } from './fonts'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -17,11 +16,7 @@ export async function generateViewport(): Promise<Viewport> {
 export default async function RootLayout({ children }: LayoutProps<'/'>) {
   const theme = themeFrom((await cookies()).get(THEME_COOKIE)?.value)
   return (
-    <html
-      lang="ko"
-      className={`${pretendard.variable} ${d2coding.variable}`}
-      data-theme={themeAttribute(theme)}
-    >
+    <html lang="ko" data-theme={themeAttribute(theme)}>
       <body>{children}</body>
     </html>
   )

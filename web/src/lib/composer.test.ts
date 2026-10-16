@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { type EnterKey, sendsOnEnter } from './composer'
+import { composingEnter, type EnterKey, sendsOnEnter } from './composer'
 
 const enter: EnterKey = { key: 'Enter', shiftKey: false, isComposing: false, keyCode: 13 }
 
@@ -20,5 +20,14 @@ describe('sendsOnEnter', () => {
 
   it('ignores other keys', () => {
     expect(sendsOnEnter({ ...enter, key: 'a', keyCode: 65 }, false)).toBe(false)
+  })
+})
+
+describe('composingEnter', () => {
+  it('catches only an Enter that ends a syllable', () => {
+    expect(composingEnter({ key: 'Enter', isComposing: true, keyCode: 13 })).toBe(true)
+    expect(composingEnter({ key: 'Enter', isComposing: false, keyCode: 229 })).toBe(true)
+    expect(composingEnter({ key: 'Enter', isComposing: false, keyCode: 13 })).toBe(false)
+    expect(composingEnter({ key: 'a', isComposing: true, keyCode: 229 })).toBe(false)
   })
 })

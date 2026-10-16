@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { moveInMenu } from '@/lib/menu'
 import {
   THEME_LABELS,
   THEMES,
@@ -35,9 +36,13 @@ export function ThemeSelect({ initial }: { initial: Theme }) {
   const close = useCallback(() => setOpen(false), [])
   useDismiss(open, root, button, close)
 
-  // An open menu takes focus on the theme in use.
+  // An open menu takes focus on the theme in use, and the page scrolls to show all of it.
   useEffect(() => {
-    if (open) root.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus()
+    if (!open) return
+    root.current
+      ?.querySelector<HTMLElement>('[aria-checked="true"]')
+      ?.focus({ preventScroll: true })
+    root.current?.querySelector('[role="menu"]')?.scrollIntoView({ block: 'nearest' })
   }, [open])
 
   function choose(next: Theme) {
@@ -62,8 +67,7 @@ export function ThemeSelect({ initial }: { initial: Theme }) {
         <Icon name="chevD" size={16} />
       </button>
       {open && (
-        // The row sits at the end of the page, so the menu opens upward.
-        <div className="menu up" role="menu" aria-labelledby="theme-label">
+        <div className="menu" role="menu" aria-labelledby="theme-label" onKeyDown={moveInMenu}>
           {THEMES.map((option) => (
             <button
               key={option}

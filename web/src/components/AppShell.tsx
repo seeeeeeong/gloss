@@ -92,9 +92,7 @@ export function AppShell({ me, books, children }: Props) {
       <nav id="sidebar" className="sb" aria-label="사이드바">
         <div className="sb-full">
           <div className="sb-head">
-            <Link className="wordmark" href="/" onClick={leave}>
-              Gloss
-            </Link>
+            <span className="wordmark">Gloss</span>
             <button
               type="button"
               className="ibtn tert"
@@ -157,13 +155,7 @@ export function AppShell({ me, books, children }: Props) {
           >
             <Icon name="sidebar" />
           </button>
-          <Link
-            className="ibtn"
-            href={NEW_BOOK}
-            aria-label="새 책"
-            data-tip="새 책"
-            aria-current={current(NEW_BOOK)}
-          >
+          <Link className="ibtn" href={NEW_BOOK} aria-label="새 책" data-tip="새 책">
             <Icon name="newbook" />
           </Link>
           <button
@@ -187,13 +179,7 @@ export function AppShell({ me, books, children }: Props) {
               <Icon name="shield" />
             </Link>
           )}
-          <Link
-            className="ibtn round"
-            href={ACCOUNT}
-            aria-label="마이페이지"
-            data-tip="마이페이지"
-            aria-current={current(ACCOUNT)}
-          >
+          <Link className="ibtn round" href={ACCOUNT} aria-label="마이페이지" data-tip="마이페이지">
             <Icon name="account" />
           </Link>
         </div>
@@ -220,12 +206,12 @@ export function AppShell({ me, books, children }: Props) {
               <Icon name="menu" />
             </button>
             <span ref={setPillSlot} className="top-slot" />
-            <Link className="name" href="/">
+            <Link className="name" href={NEW_BOOK}>
               Gloss
             </Link>
           </div>
           <span ref={setBarSlot} className="top-slot" />
-          <Link className="top-title" href="/">
+          <Link className="top-title" href={NEW_BOOK}>
             Gloss
           </Link>
           <Link className="ibtn round top-new" href={NEW_BOOK} aria-label="새 책">

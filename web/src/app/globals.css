@@ -3,9 +3,10 @@
 /* v4 prototype tokens (ChatGPT's measured values). A theme swaps values, never a name. */
 :root {
   --font:
-    var(--font-pretendard), Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
-    "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
-  --font-mono: var(--font-d2coding), "Sarasa Mono K", ui-monospace, monospace;
+    "-apple-system-body", ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica,
+    "Apple SD Gothic Neo", "Apple Color Emoji", Arial, sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Apple SD Gothic Neo", monospace;
   --page: #fcfcfc;
   --sidebar: #fcfcfc;
   --sb-border: rgba(0, 0, 0, 0.05);
@@ -994,6 +995,10 @@ svg {
   flex: 1;
   min-width: 0;
 }
+.inl.grow {
+  flex: 1;
+  min-width: 0;
+}
 .money {
   position: relative;
   flex: 1;
@@ -1009,6 +1014,9 @@ svg {
 }
 .money .field {
   padding-left: 24px;
+}
+.money .field.limit {
+  width: 96px;
 }
 .f-err {
   font: 400 13px / 18px var(--font);
@@ -1039,6 +1047,70 @@ svg {
 }
 .ubar .res {
   background: var(--tx3);
+}
+.sub-h {
+  margin: 28px 0 0;
+  font: 600 14px / 20px var(--font);
+}
+.cday-h {
+  margin: 16px 0 4px;
+  font: 400 12px / 16px var(--font);
+  color: var(--tx2);
+}
+.sub-h + .cday .cday-h {
+  margin-top: 8px;
+}
+.calls {
+  margin: 0 -8px;
+}
+.call {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 10px;
+  cursor: default;
+  transition: background-color 150ms var(--ease);
+}
+.call:hover {
+  background: var(--selected);
+}
+.call:focus-visible {
+  outline: none;
+  background: var(--hover);
+}
+.c-m {
+  flex: 1;
+  min-width: 0;
+}
+.c-i {
+  display: block;
+  font: 400 14px / 20px var(--font);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.c-k {
+  display: block;
+  margin-top: 2px;
+  font: 400 12px / 16px var(--font);
+  color: var(--tx2);
+}
+.c-t {
+  display: none;
+  margin-top: 2px;
+  font: 400 12px / 16px var(--font);
+  color: var(--tx3);
+}
+@media (pointer: coarse) {
+  .c-t {
+    display: block;
+  }
+}
+.c-c {
+  flex: none;
+  font: 400 14px / 20px var(--font);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Dropdown */
@@ -1197,6 +1269,10 @@ svg {
 .act .menu {
   right: 0;
   min-width: 200px;
+  background: var(--bg-primary);
+}
+.accounts .btn:disabled {
+  opacity: 0.3;
 }
 .tr.m.open {
   z-index: 2;
@@ -1259,6 +1335,31 @@ svg {
 }
 .dlg.plain h2 {
   padding-right: 0;
+}
+/* A confirmation: narrow, centred, its choices stacked full width */
+.dlg.confirm {
+  width: 384px;
+  padding: 24px;
+  text-align: center;
+}
+.dlg.confirm h2 {
+  padding: 4px 32px 0;
+  font: 500 20px / 28px var(--font);
+}
+.dlg.confirm .dlg-p {
+  margin-top: 12px;
+  font: 400 16px / 24px var(--font);
+}
+.dlg.confirm .x {
+  top: 16px;
+}
+.dlg-stack {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+.dlg-stack .btn {
+  height: 44px;
 }
 .dlg .x {
   position: absolute;
@@ -1929,6 +2030,13 @@ button.tcard:hover,
 
 /* Phone: the sidebar is a drawer behind the menu button */
 @media (max-width: 767px) {
+  /* The name field takes the row; half of 358 leaves it a few letters wide. */
+  .s-k.fit {
+    flex: none;
+  }
+  .dd .menu {
+    right: 0;
+  }
   .app,
   .app.rail {
     grid-template-columns: minmax(0, 1fr);
