@@ -19,7 +19,7 @@ describe('formatDateTime', () => {
     expect(formatDateTime('2026-10-04T15:30:59Z')).toBe('2026-10-05 00:30')
   })
 
-  it('shows a dash for never', () => {
-    expect(formatDateTime(null)).toBe('—')
+  it('says never in words', () => {
+    expect(formatDateTime(null)).toBe('없음')
   })
 })

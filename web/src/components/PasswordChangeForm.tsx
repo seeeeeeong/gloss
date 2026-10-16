@@ -3,12 +3,11 @@
 import { useRouter } from 'next/navigation'
 import { type FormEvent, useState } from 'react'
 import { send } from '@/lib/api'
+import { AuthError, AuthField } from './AuthField'
 
-/** forced: the first sign-in with a temporary password, which leads on to the app once done. */
-export function PasswordChangeForm({ forced = false }: { forced?: boolean }) {
-  const router = useRouter()
+/** Checks the two new passwords agree, then asks the server; `onChanged` runs once it took. */
+function usePasswordChange(onChanged: () => void) {
   const [error, setError] = useState<string | null>(null)
-  const [done, setDone] = useState(false)
   const [pending, setPending] = useState(false)
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -16,7 +15,6 @@ export function PasswordChangeForm({ forced = false }: { forced?: boolean }) {
     const target = event.currentTarget
     const form = new FormData(target)
     setError(null)
-    setDone(false)
     if (form.get('newPassword') !== form.get('confirm')) {
       setError('새 비밀번호가 서로 다릅니다')
       return
@@ -32,63 +30,144 @@ export function PasswordChangeForm({ forced = false }: { forced?: boolean }) {
       return
     }
     target.reset()
-    if (forced) {
-      router.replace('/')
-      router.refresh()
-    } else {
-      setDone(true)
-    }
+    onChanged()
   }
 
+  const clear = () => setError(null)
+  return { error, pending, submit, clear }
+}
+
+/** The first sign-in with a temporary password, which leads on to the app once done. */
+export function PasswordChangeForm() {
+  const router = useRouter()
+  const { error, pending, submit } = usePasswordChange(() => {
+    router.replace('/')
+    router.refresh()
+  })
   return (
-    <form className="form" onSubmit={submit}>
-      <label className="field">
-        <span className="field-label">{forced ? '임시 비밀번호' : '현재 비밀번호'}</span>
-        <input
-          className="input"
+    <form onSubmit={submit}>
+      <div className="fields">
+        <AuthField
           name="currentPassword"
+          label="임시 비밀번호"
           type="password"
           autoComplete="current-password"
           required
         />
-      </label>
-      <label className="field">
-        <span className="field-label">새 비밀번호</span>
-        <input
-          className="input"
+        <AuthField
           name="newPassword"
+          label="새 비밀번호"
           type="password"
           autoComplete="new-password"
           minLength={10}
           required
         />
-        <span className="field-hint">10자 이상, 흔한 비밀번호는 쓸 수 없습니다</span>
-      </label>
-      <label className="field">
-        <span className="field-label">새 비밀번호 확인</span>
-        <input
-          className="input"
+        <AuthField
           name="confirm"
+          label="새 비밀번호 확인"
           type="password"
           autoComplete="new-password"
           required
         />
-      </label>
-      {error && (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      )}
-      {done && (
-        <p className="form-done" role="status">
-          비밀번호를 바꿨습니다. 다른 기기의 로그인은 끊겼습니다.
-        </p>
-      )}
-      <div className="form-actions">
-        <button type="submit" className="btn btn-primary" disabled={pending}>
-          {pending ? '바꾸는 중…' : '비밀번호 바꾸기'}
-        </button>
+        {error && <AuthError message={error} />}
       </div>
+      <button type="submit" className="go" disabled={pending}>
+        바꾸고 계속
+      </button>
     </form>
+  )
+}
+
+/** My page's password row: 바꾸기 opens the form in place. */
+export function PasswordSetting() {
+  const [open, setOpen] = useState(false)
+  const [done, setDone] = useState(false)
+  const { error, pending, submit, clear } = usePasswordChange(() => {
+    setOpen(false)
+    setDone(true)
+  })
+
+  return (
+    <div className="srow">
+      <div className="s-line">
+        <span className="s-k">
+          비밀번호
+          {done && (
+            <span className="s-sub" role="status">
+              비밀번호를 바꿨습니다
+            </span>
+          )}
+        </span>
+        {!open && (
+          <button
+            type="button"
+            className="btn sec sm"
+            onClick={() => {
+              setDone(false)
+              clear()
+              setOpen(true)
+            }}
+          >
+            바꾸기
+          </button>
+        )}
+      </div>
+      {open && (
+        <form className="s-form" onSubmit={submit}>
+          <label className="f-l">
+            현재 비밀번호
+            <input
+              className="field"
+              name="currentPassword"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          </label>
+          <label className="f-l">
+            새 비밀번호
+            <input
+              className="field"
+              name="newPassword"
+              type="password"
+              autoComplete="new-password"
+              minLength={10}
+              required
+            />
+          </label>
+          <label className="f-l">
+            새 비밀번호 확인
+            <input
+              className="field"
+              name="confirm"
+              type="password"
+              autoComplete="new-password"
+              required
+            />
+          </label>
+          {error && (
+            <p className="f-err" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="actions">
+            <button type="submit" className="btn primary sm" disabled={pending}>
+              저장
+            </button>
+            <button
+              type="button"
+              className="btn sec sm"
+              disabled={pending}
+              onClick={() => {
+                clear()
+                setOpen(false)
+              }}
+            >
+              취소
+            </button>
+          </div>
+        </form>
+      )}
+    </div>
   )
 }

@@ -1,6 +1,9 @@
 import { cache } from 'react'
-import { type Book, isBookId, type Toc } from './books'
-import { serverFind } from './server-session'
+import { type Book, type BookSummary, isBookId, type Toc } from './books'
+import { serverFind, serverGet } from './server-session'
+
+/** Once a request: the sidebar and the shelf list the same books. */
+export const shelfOf = cache(() => serverGet<BookSummary[]>('/api/me/books'))
 
 /** Once a request: the title and the page ask for the same book. */
 export const bookOf = cache(async (bookId: string) =>

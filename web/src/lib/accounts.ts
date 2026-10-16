@@ -28,5 +28,5 @@ const SEOUL = new Intl.DateTimeFormat('sv-SE', {
 })
 
 export function formatDateTime(iso: string | null): string {
-  return iso ? SEOUL.format(new Date(iso)) : '—'
+  return iso ? SEOUL.format(new Date(iso)) : '없음'
 }
