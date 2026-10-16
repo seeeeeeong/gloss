@@ -12,3 +12,6 @@ gloss:
   book-source:
     # Tests share one instance and run in the same second; the pace is BookSourceThrottleTest's to check.
     per-second: 1000
+  setup:
+    # Tests read a turn's answer as soon as the message returns, in the test's own transaction.
+    async-turns: false

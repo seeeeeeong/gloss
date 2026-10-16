@@ -33,11 +33,11 @@ class SetupPolicyTest {
     }
 
     @Test
-    fun `a search holds the next message back until it is answered or its time has passed`() {
+    fun `a message holds the next one back until it is answered or a minute past the turn's deadline`() {
         val asked = Instant.parse("2026-10-17T00:00:00Z")
 
         assertThat(SetupPolicy.searching(null, asked)).isFalse()
-        assertThat(SetupPolicy.searching(asked, asked.plusSeconds(29))).isTrue()
-        assertThat(SetupPolicy.searching(asked, asked.plusSeconds(30))).isFalse()
+        assertThat(SetupPolicy.searching(asked, asked.plusSeconds(239))).isTrue()
+        assertThat(SetupPolicy.searching(asked, asked.plusSeconds(240))).isFalse()
     }
 }

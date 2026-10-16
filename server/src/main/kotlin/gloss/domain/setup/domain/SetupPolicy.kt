@@ -5,12 +5,12 @@ import java.time.Instant
 
 /** What a setup session moves to after each step a reader takes; the server decides, never a model. */
 object SetupPolicy {
-    // Past the source's slowest answer (eight seconds) with room to spare: a search still marked
-    // after this died before answering, as in a restart, and no longer holds the next one back.
-    private val SEARCH_TIMEOUT: Duration = Duration.ofSeconds(30)
+    // Past a model turn's own deadline with room for its last write: a turn still marked after this
+    // died before answering, as in a restart, and no longer holds the next message back.
+    private val SEARCH_TIMEOUT: Duration = SetupTurnPolicy.DEADLINE.plusMinutes(1)
 
     /**
-     * Whether a search asked [since] is still being answered: a message waits for it, so answers
+     * Whether a message sent [since] is still being answered: the next one waits for it, so answers
      * are kept in the order of the messages they answer.
      */
     fun searching(
@@ -27,7 +27,7 @@ object SetupPolicy {
     }
 
     enum class Step {
-        /** A message, which searches for books; after a pick it searches again and drops the pick. */
+        /** A message, which the model answers; after a pick it drops the pick. */
         SAY,
 
         /** An edition picked from what this session's searches found, its contents held for the reader. */

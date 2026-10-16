@@ -34,4 +34,5 @@ enum class Purpose(
     PLAN("plan"),
     POST("post"),
     CHECK("check"),
+    SETUP("setup"),
 }

@@ -71,8 +71,12 @@ class FakeBookSourceGateway : BookSourceGateway {
         }
     }
 
+    /** Run as each search reaches the source, as a test that moves the clock meanwhile. */
+    var whenAsked: () -> Unit = {}
+
     override fun search(query: String): List<SourcedBook> {
         asked += query
+        whenAsked()
         reach()
         failing?.let { throw BookSourceFailed(it) }
         return books.toList()
@@ -86,6 +90,7 @@ class FakeBookSourceGateway : BookSourceGateway {
     }
 
     fun reset() {
+        whenAsked = {}
         gate = null
         inTransaction.clear()
         books.clear()

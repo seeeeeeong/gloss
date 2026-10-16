@@ -8,6 +8,7 @@ import jakarta.persistence.Converter
 import jakarta.persistence.Entity
 import org.hibernate.annotations.DynamicUpdate
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.UUID
 
 /** A reader adding one book by talking it through. Its messages are kept apart, append-only. */
@@ -44,7 +45,7 @@ class SetupSession private constructor(
     var revision: Int = 0
         protected set
 
-    /** When the search for the reader's latest message was asked, until it is answered. */
+    /** When the reader's latest message was sent, until it is answered. */
     var searchingSince: Instant? = null
         protected set
 
@@ -68,10 +69,13 @@ class SetupSession private constructor(
 
     fun searching(now: Instant): Boolean = SetupPolicy.searching(searchingSince, now)
 
-    /** A message searches again, so a pick held until now is dropped; its answer is awaited. */
+    /**
+     * A message is answered anew, so a pick held until now is dropped; its answer is awaited. The time
+     * is kept as the database keeps it, so the turn answering it can tell it is still the latest.
+     */
     fun say(at: Instant) {
-        check(!searching(at)) { "A message waits for the search before it" }
-        searchingSince = at
+        check(!searching(at)) { "A message waits for the answer to the one before it" }
+        searchingSince = at.truncatedTo(ChronoUnit.MICROS)
         state = advance(SetupPolicy.Step.SAY)
         if (state == SetupPolicy.State.SEARCHING) hold(null)
         updatedAt = at

@@ -7,7 +7,7 @@ import java.util.UUID
 
 /**
  * [held] is there while a picked edition waits for the reader to start; [bookId] once they have.
- * [searching] while the latest message's search is still being answered. Every change bumps
+ * [searching] while the latest message is still being answered. Every change bumps
  * [revision], and every request that changes the session names the one it saw.
  */
 data class SetupSessionResponse(

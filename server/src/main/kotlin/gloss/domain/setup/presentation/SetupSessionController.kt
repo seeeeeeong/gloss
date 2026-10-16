@@ -10,6 +10,7 @@ import gloss.domain.setup.dto.request.SetupTypedRequest
 import gloss.domain.setup.dto.response.SetupEditionResponse
 import gloss.domain.setup.dto.response.SetupSessionResponse
 import gloss.domain.setup.service.SetupEditionsService
+import gloss.domain.setup.service.SetupMessageService
 import gloss.domain.setup.service.SetupSessionService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
@@ -27,6 +28,7 @@ import java.util.UUID
 @RequestMapping("/api/me/setup-sessions")
 class SetupSessionController(
     private val setupSessionService: SetupSessionService,
+    private val setupMessageService: SetupMessageService,
     private val setupEditionsService: SetupEditionsService,
 ) {
     @PostMapping
@@ -34,7 +36,7 @@ class SetupSessionController(
     fun start(
         @CurrentAccount account: SessionAccount,
         @Valid @RequestBody request: SetupMessageRequest,
-    ): SetupSessionResponse = setupSessionService.start(account.id, request)
+    ): SetupSessionResponse = setupMessageService.start(account.id, request)
 
     // A book of the reader's own may be the first thing they say.
     @PostMapping("/typed-contents")
@@ -62,7 +64,7 @@ class SetupSessionController(
         @CurrentAccount account: SessionAccount,
         @PathVariable sessionId: UUID,
         @Valid @RequestBody request: SetupMessageRequest,
-    ): SetupSessionResponse = setupSessionService.say(account.id, sessionId, request)
+    ): SetupSessionResponse = setupMessageService.say(account.id, sessionId, request)
 
     @PostMapping("/{sessionId}/pick")
     fun pick(

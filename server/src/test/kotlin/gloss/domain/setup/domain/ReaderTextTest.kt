@@ -15,10 +15,10 @@ class ReaderTextTest {
     }
 
     @Test
-    fun `a hundred characters fit, counted as a reader sees them`() {
-        assertThat(ReaderText.of("가".repeat(100))).isNotNull()
-        assertThat(ReaderText.of("😀".repeat(100))).isNotNull()
-        assertThat(ReaderText.of("가".repeat(101))).isNull()
+    fun `five hundred characters fit, counted as a reader sees them`() {
+        assertThat(ReaderText.of("가".repeat(500))).isNotNull()
+        assertThat(ReaderText.of("😀".repeat(500))).isNotNull()
+        assertThat(ReaderText.of("가".repeat(501))).isNull()
     }
 
     @Test

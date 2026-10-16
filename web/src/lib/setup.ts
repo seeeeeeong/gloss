@@ -25,13 +25,18 @@ type Message<R extends string, K extends string, P> = {
   createdAt: string
 }
 
+/** A page the model cited for a book it recommended: kept only so the reader can open it. */
+export type CitedPage = { url: string; title: string }
+
+export type RecommendedBook = { ref: string; reason: string; sources: CitedPage[] }
+
 /** One message of a setup session; its payload depends on its kind. */
 export type SetupMessage =
   | Message<'reader', 'text', { text: string }>
   | Message<'reader', 'pick', { ref: string; title: string }>
   | Message<'reader', 'typed', { title: string }>
   | Message<'reader', 'confirm', { tocId: string }>
-  | Message<'gloss', 'books', { query: string; books: FoundRef[] }>
+  | Message<'gloss', 'books', { query: string; books: FoundRef[]; callId?: string | null }>
   | Message<'gloss', 'search_failed', { code: string; message: string }>
   | Message<
       'gloss',
@@ -39,6 +44,16 @@ export type SetupMessage =
       { ref: string | null; title: string; items: number; typed: boolean }
     >
   | Message<'gloss', 'done', { bookId: string }>
+  | Message<
+      'gloss',
+      'tool_calls',
+      { text: string; calls: { id: string; name: string; arguments: string }[] }
+    >
+  | Message<'gloss', 'web_searched', { callId: string; query: string; results: number }>
+  | Message<'gloss', 'tool_refused', { callId: string; problem: string }>
+  | Message<'gloss', 'recommend', { callId: string; intro: string; books: RecommendedBook[] }>
+  | Message<'gloss', 'books_shown', { callId: string; booksCallId: string }>
+  | Message<'gloss', 'said', { text: string }>
 
 export type SetupState = 'searching' | 'book_chosen' | 'confirmed'
 
@@ -78,7 +93,7 @@ export type SetupSession = {
   /** Bumped by every change; each request that changes the session names the one the reader saw. */
   revision: number
   state: SetupState
-  /** The latest message's search is still being answered. */
+  /** The latest message is still being answered. */
   searching: boolean
   bookId: string | null
   held: HeldContents | null
@@ -121,12 +136,102 @@ export function cardItems(session: SetupSession, seq: number, brought: number): 
 }
 
 /**
- * The one search whose list is asked for as the thread opens: the latest. Earlier lists wait until the
- * reader opens them, so a long conversation does not ask the source for every list at once.
+ * The one list asked for as the thread opens: the latest search shown or recommendation. Earlier lists
+ * wait until the reader opens them, so a long conversation does not ask the source for every list at once.
  */
 export function latestBooks(session: SetupSession): number | null {
-  const last = session.messages.findLast((message) => message.kind === 'books')
-  return last?.seq ?? null
+  const lists = session.messages.flatMap((message) => {
+    const seq = listOf(session.messages, message)
+    return seq === null ? [] : [seq]
+  })
+  return lists.at(-1) ?? null
+}
+
+/**
+ * The message whose editions a Gloss message shows: a recommendation its own, a list shown the search
+ * the model ran in the same turn, a search from before models took part its own. Null for the rest.
+ */
+export function listOf(messages: SetupMessage[], message: SetupMessage): number | null {
+  switch (message.kind) {
+    case 'recommend':
+      return message.seq
+    case 'books':
+      return message.payload.callId ? null : message.seq
+    case 'books_shown': {
+      const { booksCallId } = message.payload
+      const found = messages.findLast(
+        (other) =>
+          other.seq < message.seq && other.kind === 'books' && other.payload.callId === booksCallId,
+      )
+      return found?.seq ?? null
+    }
+    default:
+      return null
+  }
+}
+
+/** The model's own steps are shown inside the answer they led to, never as turns of their own. */
+export function showsTurn(message: SetupMessage): boolean {
+  switch (message.kind) {
+    case 'tool_calls':
+    case 'web_searched':
+    case 'tool_refused':
+      return false
+    case 'books':
+      return !message.payload.callId
+    default:
+      return true
+  }
+}
+
+/** A search the model ran on the way to an answer; [seq] is the message that keeps it. */
+export type TurnStep = { seq: number; kind: 'search' | 'books'; query: string; found: number }
+
+/** What the model did between the reader's message and the answer at [seq], and how long it took. */
+export function turnOf(
+  messages: SetupMessage[],
+  seq: number,
+): { steps: TurnStep[]; seconds: number } | null {
+  const end = messages.findIndex((message) => message.seq === seq)
+  if (end < 0) return null
+  const start = messages.findLastIndex((message, i) => i < end && message.role === 'reader')
+  const between = messages.slice(start + 1, end)
+  const steps = between.flatMap((message): TurnStep[] => {
+    const { seq } = message
+    if (message.kind === 'web_searched')
+      return [{ seq, kind: 'search', query: message.payload.query, found: message.payload.results }]
+    if (message.kind === 'books' && message.payload.callId)
+      return [
+        { seq, kind: 'books', query: message.payload.query, found: message.payload.books.length },
+      ]
+    return []
+  })
+  const answer = messages[end]
+  const from = start < 0 ? answer : messages[start]
+  if (!answer || !from || !between.some((message) => message.kind === 'tool_calls')) return null
+  const seconds = Math.max(
+    1,
+    Math.round((Date.parse(answer.createdAt) - Date.parse(from.createdAt)) / 1000),
+  )
+  return { steps, seconds }
+}
+
+/** Where a reader fixes what stopped the model: their key, or their monthly limit. */
+export function failureLink(code: string): { href: string; label: string } | null {
+  if (code === 'llm.no_key' || code === 'llm.key_unreadable' || code === 'llm.key_rejected')
+    return { href: '/me#api-key-head', label: 'API 키 등록' }
+  if (code === 'budget.limit_not_set' || code === 'budget.limit_reached')
+    return { href: '/me#usage', label: '사용 한도' }
+  return null
+}
+
+/** The host a cited page is on, as its link's short name. */
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).host.replace(/^www\./, '')
+  } catch {
+    return url
+  }
 }
 
 /** The chat for one session: a new session, or another one from the address, starts it over. */

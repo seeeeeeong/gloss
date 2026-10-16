@@ -4,9 +4,12 @@ import {
   canPick,
   cardItems,
   chatKey,
+  failureLink,
   heldTree,
+  hostOf,
   keepsEditing,
   latestBooks,
+  listOf,
   liveContents,
   type OfferedBook,
   readerLine,
@@ -14,7 +17,9 @@ import {
   type SetupSession,
   type SetupState,
   sessionPath,
+  showsTurn,
   startMayHaveLanded,
+  turnOf,
 } from './setup'
 
 const book = (hasContents: boolean): OfferedBook => ({
@@ -232,5 +237,145 @@ describe('keepsEditing', () => {
   it('keeps the edit open after a refusal the reader can fix in place', () => {
     expect(keepsEditing({ ok: false, status: 400 })).toBe(true)
     expect(keepsEditing({ ok: false, status: 0 })).toBe(true)
+  })
+})
+
+// A model turn as the server keeps it: the reader's message, the model's calls with what each found,
+// then the answer.
+const question: SetupMessage = {
+  seq: 1,
+  createdAt: '2026-10-17T00:00:00Z',
+  role: 'reader',
+  kind: 'text',
+  payload: { text: '운영체제 책 추천' },
+}
+
+const searched: SetupMessage = {
+  seq: 5,
+  createdAt: '2026-10-17T00:00:06Z',
+  role: 'gloss',
+  kind: 'books',
+  payload: { query: '운영체제', callId: 'c2', books: [{ ref: '101', hasContents: true }] },
+}
+
+const recommended: SetupMessage = {
+  seq: 6,
+  createdAt: '2026-10-17T00:00:12Z',
+  role: 'gloss',
+  kind: 'recommend',
+  payload: {
+    callId: 'c3',
+    intro: '골랐어요.',
+    books: [{ ref: '101', reason: '좋아요.', sources: [] }],
+  },
+}
+
+const turn: SetupMessage[] = [
+  question,
+  {
+    seq: 2,
+    createdAt: '2026-10-17T00:00:03Z',
+    role: 'gloss',
+    kind: 'tool_calls',
+    payload: { text: '', calls: [{ id: 'c1', name: 'search_web', arguments: '{}' }] },
+  },
+  {
+    seq: 3,
+    createdAt: '2026-10-17T00:00:03Z',
+    role: 'gloss',
+    kind: 'web_searched',
+    payload: { callId: 'c1', query: '운영체제 교재', results: 5 },
+  },
+  {
+    seq: 4,
+    createdAt: '2026-10-17T00:00:06Z',
+    role: 'gloss',
+    kind: 'tool_calls',
+    payload: { text: '', calls: [{ id: 'c2', name: 'find_books', arguments: '{}' }] },
+  },
+  searched,
+  recommended,
+]
+
+describe('showsTurn', () => {
+  it("hides the model's steps and shows its answers and the reader's words", () => {
+    expect(turn.filter(showsTurn).map((message) => message.kind)).toEqual(['text', 'recommend'])
+  })
+
+  it('still shows a search answered before models took part', () => {
+    const old: SetupMessage = {
+      ...at,
+      role: 'gloss',
+      kind: 'books',
+      payload: { query: '오브젝트', books: [] },
+    }
+
+    expect(showsTurn(old)).toBe(true)
+  })
+})
+
+describe('turnOf', () => {
+  it("collects the searches since the reader's message and how long the answer took", () => {
+    expect(turnOf(turn, 6)).toEqual({
+      seconds: 12,
+      steps: [
+        { seq: 3, kind: 'search', query: '운영체제 교재', found: 5 },
+        { seq: 5, kind: 'books', query: '운영체제', found: 1 },
+      ],
+    })
+  })
+
+  it('has nothing for an answer the model gave without a tool', () => {
+    const said: SetupMessage[] = [
+      question,
+      { ...at, seq: 2, role: 'gloss', kind: 'said', payload: { text: '어떤 책을 찾으세요?' } },
+    ]
+
+    expect(turnOf(said, 2)).toBeNull()
+  })
+})
+
+describe('listOf', () => {
+  it('names the search a list shown ran in its turn, and a recommendation itself', () => {
+    const shown: SetupMessage = {
+      ...at,
+      seq: 7,
+      role: 'gloss',
+      kind: 'books_shown',
+      payload: { callId: 'c4', booksCallId: 'c2' },
+    }
+    const messages = [...turn, shown]
+
+    expect(listOf(messages, shown)).toBe(5)
+    expect(listOf(messages, recommended)).toBe(6)
+    expect(listOf(messages, searched)).toBeNull()
+    const opened: SetupSession = {
+      id: 's',
+      revision: 0,
+      state: 'searching',
+      searching: false,
+      bookId: null,
+      held: null,
+      messages,
+    }
+    expect(latestBooks(opened)).toBe(5)
+    expect(latestBooks({ ...opened, messages: turn })).toBe(6)
+  })
+})
+
+describe('failureLink', () => {
+  it('sends a reader without a usable key to their key, and one at their limit to their usage', () => {
+    expect(failureLink('llm.no_key')?.href).toBe('/me#api-key-head')
+    expect(failureLink('llm.key_rejected')?.href).toBe('/me#api-key-head')
+    expect(failureLink('budget.limit_not_set')?.href).toBe('/me#usage')
+    expect(failureLink('budget.limit_reached')?.href).toBe('/me#usage')
+    expect(failureLink('llm.provider_busy')).toBeNull()
+  })
+})
+
+describe('hostOf', () => {
+  it('names a cited page by its host', () => {
+    expect(hostOf('https://www.example.com/a/b')).toBe('example.com')
+    expect(hostOf('not a url')).toBe('not a url')
   })
 })
