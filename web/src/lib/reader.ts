@@ -1,6 +1,16 @@
 import { type TocItem, type TocNode, treeOf } from './books'
 import { type Generation, headingOf, type PostSummary } from './posts'
 
+// Where the page keys belong to what has focus: typing, the sidebar and contents, and the tutor's
+// own controls, its toggle, floating button and sheet included, all of which sit outside the book.
+const NOT_FOR_TURNING =
+  'input, textarea, select, [contenteditable="true"], .sb, .tocpop, dialog, .tutor, .ask, .tg, .t-fab, .t-phone'
+
+/** Whether a page key pressed with focus on [target] turns the page. */
+export function turnsPageFrom(target: { closest: (selectors: string) => unknown } | null): boolean {
+  return !target?.closest(NOT_FOR_TURNING)
+}
+
 /** Every line of a page is 28px, so a page's text height is a whole number of lines. */
 export const LINE = 28
 

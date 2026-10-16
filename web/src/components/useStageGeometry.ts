@@ -13,6 +13,7 @@ const same = (a: Geometry | null, b: Geometry) =>
 export function useStageGeometry(stage: RefObject<HTMLElement | null>) {
   const [geo, setGeo] = useState<Geometry | null>(null)
   const [phone, setPhone] = useState(false)
+  const [width, setWidth] = useState(0)
   const [, setFonts] = useState(0)
 
   useEffect(() => {
@@ -21,6 +22,7 @@ export function useStageGeometry(stage: RefObject<HTMLElement | null>) {
     const media = matchMedia(PHONE)
     const update = () => {
       setPhone(media.matches)
+      setWidth(el.clientWidth)
       const next = geometryOf(el.clientWidth, el.clientHeight, media.matches)
       setGeo((before) => (same(before, next) ? before : next))
     }
@@ -42,5 +44,5 @@ export function useStageGeometry(stage: RefObject<HTMLElement | null>) {
     return () => fonts.removeEventListener('loadingdone', reflow)
   }, [])
 
-  return { geo, phone }
+  return { geo, phone, width }
 }

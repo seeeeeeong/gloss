@@ -42,6 +42,21 @@ class Browser(
 
     fun delete(path: String) = send("DELETE", path, null)
 
+    /** A POST whose answer is read as it came, not as JSON: a stream of server-sent events. */
+    fun postForText(
+        path: String,
+        body: Any,
+    ): Text {
+        val response = client.send(request("POST", path, body), HttpResponse.BodyHandlers.ofString())
+        return Text(response.statusCode(), response.body(), response.headers().firstValue("content-type").orElse(null))
+    }
+
+    data class Text(
+        val status: Int,
+        val body: String,
+        val contentType: String?,
+    )
+
     fun fetchCsrf() = get("/api/auth/csrf")
 
     fun signIn(
@@ -63,18 +78,7 @@ class Browser(
         path: String,
         body: Any?,
     ): Response {
-        val request =
-            HttpRequest
-                .newBuilder(URI("http://127.0.0.1:$port$path"))
-                .header("content-type", "application/json")
-                .header("x-forwarded-for", ip)
-                .apply { if (method != "GET") csrfToken()?.let { header("X-XSRF-TOKEN", it) } }
-                .method(
-                    method,
-                    body?.let { HttpRequest.BodyPublishers.ofString(json.writeValueAsString(it)) }
-                        ?: HttpRequest.BodyPublishers.noBody(),
-                ).build()
-        val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+        val response = client.send(request(method, path, body), HttpResponse.BodyHandlers.ofString())
         return Response(
             status = response.statusCode(),
             body = response.body().takeIf { it.isNotBlank() }?.let { json.readTree(it) },
@@ -82,4 +86,20 @@ class Browser(
             headers = response.headers().map(),
         )
     }
+
+    private fun request(
+        method: String,
+        path: String,
+        body: Any?,
+    ): HttpRequest =
+        HttpRequest
+            .newBuilder(URI("http://127.0.0.1:$port$path"))
+            .header("content-type", "application/json")
+            .header("x-forwarded-for", ip)
+            .apply { if (method != "GET") csrfToken()?.let { header("X-XSRF-TOKEN", it) } }
+            .method(
+                method,
+                body?.let { HttpRequest.BodyPublishers.ofString(json.writeValueAsString(it)) }
+                    ?: HttpRequest.BodyPublishers.noBody(),
+            ).build()
 }

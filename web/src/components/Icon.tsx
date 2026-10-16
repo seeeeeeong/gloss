@@ -23,9 +23,16 @@ const SHAPES = {
       <path d="M5.6 15.1a5.2 5.2 0 0 1 8.8 0" />
     </>
   ),
+  panelR: (
+    <>
+      <rect x="2.75" y="3.75" width="14.5" height="12.5" rx="3" />
+      <path d="M12.25 3.75v12.5" />
+    </>
+  ),
   menu: <path d="M3.75 7.25h12.5M3.75 12.75h7.5" />,
   plus: <path d="M10 4.25v11.5M4.25 10h11.5" />,
   send: <path d="M10 15.5V4.75M5.25 9.5 10 4.75l4.75 4.75" strokeWidth="2" />,
+  stop: <rect x="6.5" y="6.5" width="7" height="7" rx="1.25" fill="currentColor" stroke="none" />,
   chevR: <path d="M8 5.5 12.5 10 8 14.5" />,
   upRight: <path d="M6.5 13.5l7-7M8 6.5h5.5V12" />,
   arrowR: <path d="M4.5 10h11M11 5.5l4.5 4.5-4.5 4.5" />,
@@ -51,6 +58,12 @@ const SHAPES = {
     </>
   ),
   check: <path d="m4.75 10.25 3.5 3.5 7-7.5" />,
+  quote: (
+    <path d="M8.5 6.25c-2 .6-3.5 2.2-3.5 4.6v2.9h3.5v-3.5H5.3M15.25 6.25c-2 .6-3.5 2.2-3.5 4.6v2.9h3.5v-3.5h-3.2" />
+  ),
+  chat: (
+    <path d="M4.25 9.75c0-3 2.6-5.25 5.75-5.25s5.75 2.25 5.75 5.25S13.15 15 10 15c-.8 0-1.55-.13-2.25-.38L4.75 15.5l.8-2.6a4.9 4.9 0 0 1-1.3-3.15z" />
+  ),
   more: (
     <>
       <circle cx="4.75" cy="10" r="1.15" fill="currentColor" stroke="none" />

@@ -6,7 +6,7 @@ export type ApiResult<T> =
 const CSRF_COOKIE = 'XSRF-TOKEN'
 const CSRF_HEADER = 'X-XSRF-TOKEN'
 const UNKNOWN = { code: 'common.unknown', message: '잠시 후 다시 시도해 주세요.' }
-const UNREACHED = {
+export const UNREACHED = {
   ok: false,
   status: 0,
   code: 'common.network',
@@ -46,20 +46,22 @@ export async function readResult<T>(response: Response): Promise<ApiResult<T>> {
  */
 export async function send<T>(method: string, path: string, body?: unknown): Promise<ApiResult<T>> {
   try {
-    if (!csrfToken(document.cookie)) await fetch('/api/auth/csrf')
-    const token = csrfToken(document.cookie)
     const response = await fetch(path, {
       method,
-      headers: {
-        'content-type': 'application/json',
-        ...(token ? { [CSRF_HEADER]: token } : {}),
-      },
+      headers: await changeHeaders(),
       body: body === undefined ? undefined : JSON.stringify(body),
     })
     return await readResult<T>(response)
   } catch {
     return UNREACHED
   }
+}
+
+/** The headers a change carries, asking for the CSRF cookie first when the browser has none. */
+export async function changeHeaders(): Promise<Record<string, string>> {
+  if (!csrfToken(document.cookie)) await fetch('/api/auth/csrf')
+  const token = csrfToken(document.cookie)
+  return { 'content-type': 'application/json', ...(token ? { [CSRF_HEADER]: token } : {}) }
 }
 
 /** A read the page makes after it has loaded, as a search does. */

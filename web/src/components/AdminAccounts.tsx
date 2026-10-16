@@ -11,6 +11,7 @@ import {
 } from '@/lib/accounts'
 import { send } from '@/lib/api'
 import { holdImeEnter } from '@/lib/composer'
+import { COPIED_FOR } from '@/lib/copied'
 import { moveInMenu } from '@/lib/menu'
 import { Dialog } from './Dialog'
 import { Icon } from './Icon'
@@ -363,9 +364,6 @@ function CreateDialog(props: { onClose: () => void; onCreated: (c: CreatedAccoun
     </Dialog>
   )
 }
-
-// Long enough to read 복사했습니다, short enough that 복사 is back before anyone copies again.
-const COPIED_FOR = 2000
 
 type Copy = 'idle' | 'copied' | 'failed'
 
