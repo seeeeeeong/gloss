@@ -7,6 +7,7 @@ const me = (overrides = {}) => ({
   displayName: 'Reader',
   role: 'member',
   mustChangePassword: false,
+  lastLoginAt: null,
   ...overrides,
 })
 
@@ -24,13 +25,13 @@ describe('destinationFor', () => {
     expect(destinationFor(me(), '/me')).toBeNull()
   })
 
-  it('sends a signed-in reader away from the sign-in and password pages', () => {
-    expect(destinationFor(me(), '/login')).toBe('/')
-    expect(destinationFor(me(), '/password')).toBe('/')
+  it('sends a signed-in reader away from the sign-in and password pages to a new book', () => {
+    expect(destinationFor(me(), '/login')).toBe('/books/new')
+    expect(destinationFor(me(), '/password')).toBe('/books/new')
   })
 
   it('keeps the operator pages to operators', () => {
-    expect(destinationFor(me(), '/admin/accounts')).toBe('/')
+    expect(destinationFor(me(), '/admin/accounts')).toBe('/books/new')
     expect(destinationFor(me({ role: 'operator' }), '/admin/accounts')).toBeNull()
   })
 })

@@ -6,6 +6,7 @@ import gloss.common.error.ErrorCode
 import gloss.common.error.GlossException
 import gloss.domain.account.Members
 import gloss.domain.budget.dto.request.LimitRequest
+import gloss.domain.budget.dto.response.UsageCallResponse
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -185,6 +186,29 @@ class BudgetServiceTest(
 
         assertThat(budgetService.usage(account).spentMicros).isZero()
         assertThat(reserve(account).amountMicros).isEqualTo(980)
+    }
+
+    @Test
+    fun `the month's calls that ended at a cost are listed newest first, with what each cost`() {
+        val account = account()
+        budgetService.settle(reserve(account), report)
+        clock.advance(Duration.ofMinutes(2))
+        budgetService.release(reserve(account), Outcome.ERROR)
+        reserve(account)
+        clock.advance(Duration.ofMinutes(2))
+        val later = report.copy(cacheHitTokens = 0, completionTokens = 1_000)
+        budgetService.settle(reserve(account), later)
+
+        val calls = budgetService.recentCalls(account)
+
+        assertThat(calls.map { it.costMicros }).containsExactly(280L + 420, 518L)
+        assertThat(calls.first())
+            .returns("chat", UsageCallResponse::purpose)
+            .returns(clock.instant(), UsageCallResponse::endedAt)
+            .returns(0L, UsageCallResponse::cacheHitTokens)
+            .returns(1_000L, UsageCallResponse::cacheMissTokens)
+            .returns(1_000L, UsageCallResponse::completionTokens)
+        assertThat(budgetService.recentCalls(account())).isEmpty()
     }
 
     @Test

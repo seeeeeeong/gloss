@@ -1,6 +1,7 @@
 package gloss.domain.account.dto.response
 
 import gloss.domain.account.domain.Account
+import java.time.Instant
 import java.util.UUID
 
 data class MyAccountResponse(
@@ -9,6 +10,7 @@ data class MyAccountResponse(
     val displayName: String,
     val role: String,
     val mustChangePassword: Boolean,
+    val lastLoginAt: Instant?,
 ) {
     companion object {
         fun from(account: Account) =
@@ -18,6 +20,7 @@ data class MyAccountResponse(
                 displayName = account.displayName,
                 role = account.role.code,
                 mustChangePassword = account.mustChangePassword,
+                lastLoginAt = account.lastLoginAt,
             )
     }
 }

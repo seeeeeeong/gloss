@@ -34,31 +34,44 @@ class JdbcLoginFailures(
             .update()
     }
 
-    fun countForLoginIdAndIp(
+    /** Newest first, at most [limit]: enough to tell whether, and until when, a limit is full. */
+    fun latestForLoginIdAndIp(
         loginIdKey: String,
         ip: String,
         since: Instant,
-    ): Int =
+        limit: Int,
+    ): List<Instant> =
         jdbcClient
             .sql(
                 """
-                select count(*) from login_failure
+                select attempted_at from login_failure
                 where login_id_key = :key and ip = cast(:ip as inet) and attempted_at > :since
+                order by attempted_at desc
+                limit :limit
                 """.trimIndent(),
             ).param("key", loginIdKey)
             .param("ip", ip)
             .param("since", Timestamp.from(since))
-            .query(Int::class.java)
-            .single()
+            .param("limit", limit)
+            .query { rs, _ -> rs.getTimestamp(1).toInstant() }
+            .list()
 
-    fun countForIp(
+    fun latestForIp(
         ip: String,
         since: Instant,
-    ): Int =
+        limit: Int,
+    ): List<Instant> =
         jdbcClient
-            .sql("select count(*) from login_failure where ip = cast(:ip as inet) and attempted_at > :since")
-            .param("ip", ip)
+            .sql(
+                """
+                select attempted_at from login_failure
+                where ip = cast(:ip as inet) and attempted_at > :since
+                order by attempted_at desc
+                limit :limit
+                """.trimIndent(),
+            ).param("ip", ip)
             .param("since", Timestamp.from(since))
-            .query(Int::class.java)
-            .single()
+            .param("limit", limit)
+            .query { rs, _ -> rs.getTimestamp(1).toInstant() }
+            .list()
 }

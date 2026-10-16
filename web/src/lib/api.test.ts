@@ -36,15 +36,24 @@ describe('readResult', () => {
 
   it('shows the message the server wrote for an error, and keeps its code', async () => {
     const result = await readResult(
-      json(401, { code: 'account.login_failed', message: '아이디 또는 비밀번호가 맞지 않습니다' }),
+      json(401, { code: 'account.login_failed', message: '아이디나 비밀번호가 맞지 않아요.' }),
     )
 
     expect(result).toEqual({
       ok: false,
       status: 401,
       code: 'account.login_failed',
-      message: '아이디 또는 비밀번호가 맞지 않습니다',
+      message: '아이디나 비밀번호가 맞지 않아요.',
     })
+  })
+
+  it('keeps how long the server said to wait', async () => {
+    const response = new Response(
+      JSON.stringify({ code: 'account.too_many_attempts', message: '잠시 후 다시 시도해 주세요.' }),
+      { status: 429, headers: { 'content-type': 'application/json', 'retry-after': '872' } },
+    )
+
+    expect(await readResult(response)).toMatchObject({ ok: false, retryAfter: 872 })
   })
 
   it('falls back to a plain message when an error carries no body we know', async () => {

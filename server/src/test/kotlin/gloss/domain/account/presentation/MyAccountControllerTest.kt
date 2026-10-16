@@ -39,6 +39,7 @@ class MyAccountControllerTest(
 
         assertThat(me.status).isEqualTo(200)
         assertThat(me.body!!["loginId"].asString()).isEqualTo(loginId)
+        assertThat(me.body["lastLoginAt"].isNull).isFalse()
         assertThat(me.body.has("csrf")).isFalse()
     }
 

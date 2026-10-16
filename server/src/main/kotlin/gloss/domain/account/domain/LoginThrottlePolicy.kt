@@ -1,6 +1,7 @@
 package gloss.domain.account.domain
 
 import java.time.Duration
+import java.time.Instant
 
 /**
  * Strict per login id and address, loose per address alone. No lock on a login id by itself:
@@ -11,24 +12,32 @@ object LoginThrottlePolicy {
     val WINDOW: Duration = Duration.ofMinutes(15)
 
     // Five guesses a quarter hour is ~480 a day: nothing against a 15-character password.
-    private const val PER_LOGIN_ID_AND_IP = 5
+    const val PER_LOGIN_ID_AND_IP = 5
 
     // One office or carrier NAT shares an address; fifty leaves room for its readers.
-    private const val PER_IP = 50
+    const val PER_IP = 50
 
+    /**
+     * Each list holds the failures inside the window, newest first, up to its limit. A block
+     * lifts when the failure that filled a limit leaves the window, the later of the two if both.
+     */
     fun decide(
-        failuresForLoginIdAndIp: Int,
-        failuresForIp: Int,
-    ): LoginThrottleDecision =
-        if (failuresForLoginIdAndIp >= PER_LOGIN_ID_AND_IP || failuresForIp >= PER_IP) {
-            LoginThrottleDecision.Blocked
-        } else {
-            LoginThrottleDecision.Allowed
-        }
+        failuresForLoginIdAndIp: List<Instant>,
+        failuresForIp: List<Instant>,
+    ): LoginThrottleDecision {
+        val until =
+            listOfNotNull(
+                failuresForLoginIdAndIp.getOrNull(PER_LOGIN_ID_AND_IP - 1),
+                failuresForIp.getOrNull(PER_IP - 1),
+            ).maxOrNull()
+        return if (until == null) LoginThrottleDecision.Allowed else LoginThrottleDecision.Blocked(until.plus(WINDOW))
+    }
 }
 
 sealed interface LoginThrottleDecision {
     data object Allowed : LoginThrottleDecision
 
-    data object Blocked : LoginThrottleDecision
+    data class Blocked(
+        val until: Instant,
+    ) : LoginThrottleDecision
 }

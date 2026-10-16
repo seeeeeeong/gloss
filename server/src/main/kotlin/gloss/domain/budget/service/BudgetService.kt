@@ -10,6 +10,7 @@ import gloss.domain.budget.domain.SpendPolicy
 import gloss.domain.budget.domain.SpendingLimit
 import gloss.domain.budget.domain.repository.SpendingLimitRepository
 import gloss.domain.budget.dto.request.LimitRequest
+import gloss.domain.budget.dto.response.UsageCallResponse
 import gloss.domain.budget.dto.response.UsageResponse
 import gloss.domain.budget.infrastructure.JdbcUsageLedger
 import org.springframework.beans.factory.annotation.Value
@@ -114,6 +115,12 @@ class BudgetService(
         )
     }
 
+    @Transactional(readOnly = true)
+    fun recentCalls(accountId: UUID): List<UsageCallResponse> {
+        val month = BillingMonthPolicy.monthOf(clock.instant())
+        return jdbcUsageLedger.recentCalls(accountId, month, RECENT_CALLS).map(UsageCallResponse::from)
+    }
+
     @Transactional
     fun setLimit(
         accountId: UUID,
@@ -154,5 +161,8 @@ class BudgetService(
 
         // $1,000: matches spending_limit's check; a larger number is far more likely a typo.
         const val MAX_LIMIT = 1_000_000_000L
+
+        // A page's worth: the month's total is above it, this only shows where it went lately.
+        const val RECENT_CALLS = 50
     }
 }

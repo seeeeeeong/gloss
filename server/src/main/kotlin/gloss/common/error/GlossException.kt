@@ -5,11 +5,16 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import tools.jackson.databind.ObjectMapper
+import java.time.Duration
 
-/** [cause] keeps what went wrong underneath for the log; the reader only sees [error]. */
+/**
+ * [cause] keeps what went wrong underneath for the log; the reader only sees [error]. [retryAfter]
+ * is sent as Retry-After when trying again later will work.
+ */
 open class GlossException(
     val error: ErrorCode,
     cause: Throwable? = null,
+    val retryAfter: Duration? = null,
 ) : RuntimeException(error.code, cause)
 
 /** Each module keeps its own enum of these, so no module edits another's list. */

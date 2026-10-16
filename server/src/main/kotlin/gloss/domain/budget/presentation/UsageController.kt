@@ -3,6 +3,7 @@ package gloss.domain.budget.presentation
 import gloss.common.security.CurrentAccount
 import gloss.common.security.SessionAccount
 import gloss.domain.budget.dto.request.LimitRequest
+import gloss.domain.budget.dto.response.UsageCallResponse
 import gloss.domain.budget.dto.response.UsageResponse
 import gloss.domain.budget.service.BudgetService
 import org.springframework.web.bind.annotation.GetMapping
@@ -20,6 +21,11 @@ class UsageController(
     fun usage(
         @CurrentAccount account: SessionAccount,
     ): UsageResponse = budgetService.usage(account.id)
+
+    @GetMapping("/calls")
+    fun recentCalls(
+        @CurrentAccount account: SessionAccount,
+    ): List<UsageCallResponse> = budgetService.recentCalls(account.id)
 
     @PutMapping("/limit")
     fun setLimit(

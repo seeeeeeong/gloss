@@ -2,6 +2,7 @@ package gloss.common.error
 
 import gloss.common.util.traceOf
 import org.slf4j.LoggerFactory
+import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.http.converter.HttpMessageNotReadableException
@@ -20,7 +21,13 @@ class GlobalExceptionHandler {
         // An answer the reader expects, but a cause underneath (a provider's failure) is the
         // operator's to see. Types and frames only, as below.
         exception.cause?.let { log.warn("{} caused by{}", exception.error.code, traceOf(it)) }
-        return exception.error.toResponseEntity()
+        val retryAfter = exception.retryAfter ?: return exception.error.toResponseEntity()
+        // Whole seconds, rounded up, so a page counting down never asks a moment too early.
+        val seconds = retryAfter.plusMillis(MILLIS_UNDER_A_SECOND).seconds.coerceAtLeast(1)
+        return ResponseEntity
+            .status(exception.error.status)
+            .header(HttpHeaders.RETRY_AFTER, seconds.toString())
+            .body(exception.error.toResponse())
     }
 
     @ExceptionHandler(MethodArgumentNotValidException::class, HttpMessageNotReadableException::class)
@@ -66,5 +73,7 @@ class GlobalExceptionHandler {
     private companion object {
         // Eight hex digits are enough to find one failure in a day's log.
         const val INCIDENT_LENGTH = 8
+
+        const val MILLIS_UNDER_A_SECOND = 999L
     }
 }

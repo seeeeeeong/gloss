@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { type FormEvent, useCallback, useRef, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   type AdminAccount,
   type CreatedAccount,
@@ -10,11 +10,13 @@ import {
   statusLabel,
 } from '@/lib/accounts'
 import { send } from '@/lib/api'
+import { holdImeEnter } from '@/lib/composer'
+import { moveInMenu } from '@/lib/menu'
 import { Dialog } from './Dialog'
 import { Icon } from './Icon'
 import { useDismiss } from './useDismiss'
 
-type Handed = { seq: number; loginId: string; temporaryPassword: string; reset: boolean }
+type Handed = { seq: number; temporaryPassword: string; reset: boolean }
 type Action = 'password-reset' | 'disable' | 'enable'
 type Asking = { action: 'password-reset' | 'disable'; account: AdminAccount }
 
@@ -36,9 +38,9 @@ export function AdminAccounts({ accounts, myId }: { accounts: AdminAccount[]; my
   // The password on screen is shown only once, so a second one waits until it is handed over.
   const issuing = pending || handed !== null
 
-  function hand(loginId: string, temporaryPassword: string, reset: boolean) {
+  function hand(temporaryPassword: string, reset: boolean) {
     issued.current += 1
-    setHanded({ seq: issued.current, loginId, temporaryPassword, reset })
+    setHanded({ seq: issued.current, temporaryPassword, reset })
   }
 
   async function act(account: AdminAccount, action: Action) {
@@ -55,13 +57,13 @@ export function AdminAccounts({ accounts, myId }: { accounts: AdminAccount[]; my
       return
     }
     if (action === 'password-reset' && result.data) {
-      hand(account.loginId, result.data.temporaryPassword, true)
+      hand(result.data.temporaryPassword, true)
     }
     router.refresh()
   }
 
   return (
-    <>
+    <div className="accounts">
       <div className="p-row">
         <h1 className="title">계정</h1>
         <button
@@ -110,19 +112,19 @@ export function AdminAccounts({ accounts, myId }: { accounts: AdminAccount[]; my
           onClose={() => setCreating(false)}
           onCreated={(created) => {
             setCreating(false)
-            hand(created.account.loginId, created.temporaryPassword, false)
+            hand(created.temporaryPassword, false)
             router.refresh()
           }}
         />
       )}
       {asking && (
-        <Dialog labelledBy="ask-title" onClose={() => setAsking(null)} alert plain>
+        <Dialog labelledBy="ask-title" onClose={() => setAsking(null)} alert look="plain">
           {asking.action === 'password-reset' ? (
             <h2 id="ask-title">{asking.account.displayName} 님의 비밀번호를 초기화할까요?</h2>
           ) : (
             <>
               <h2 id="ask-title">{asking.account.displayName} 님의 계정을 사용 중지할까요?</h2>
-              <p className="dlg-p">로그인한 기기에서도 바로 로그아웃됩니다.</p>
+              <p className="dlg-p">로그인한 기기에서도 바로 로그아웃돼요.</p>
             </>
           )}
           <div className="dlg-a">
@@ -132,6 +134,7 @@ export function AdminAccounts({ accounts, myId }: { accounts: AdminAccount[]; my
             <button
               type="button"
               className={asking.action === 'disable' ? 'btn danger' : 'btn primary'}
+              data-autofocus
               onClick={() => act(asking.account, asking.action)}
             >
               {asking.action === 'disable' ? '사용 중지' : '초기화'}
@@ -142,7 +145,7 @@ export function AdminAccounts({ accounts, myId }: { accounts: AdminAccount[]; my
       {handed && (
         <TemporaryPassword key={handed.seq} handed={handed} onDone={() => setHanded(null)} />
       )}
-    </>
+    </div>
   )
 }
 
@@ -155,15 +158,33 @@ type RowProps = {
 }
 
 function AccountRow({ account, mine, busy, issuing, onAct }: RowProps) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState<'mouse' | 'keyboard' | null>(null)
+  const [up, setUp] = useState(false)
   const root = useRef<HTMLDivElement>(null)
   const button = useRef<HTMLButtonElement>(null)
-  const close = useCallback(() => setOpen(false), [])
-  useDismiss(open, root, button, close)
+  const menu = useRef<HTMLDivElement>(null)
+  const close = useCallback(() => setOpen(null), [])
+  useDismiss(open !== null, root, button, close)
   const active = account.status === 'active'
 
+  // Under the button, or over it when the window ends first.
+  useLayoutEffect(() => {
+    const box = menu.current
+    const anchor = button.current
+    if (!open || !box || !anchor) return
+    setUp(anchor.getBoundingClientRect().bottom + 4 + box.offsetHeight > innerHeight - 8)
+  }, [open])
+
+  // Opened from the keyboard, the menu takes focus on its first item.
+  useEffect(() => {
+    if (open === 'keyboard')
+      menu.current?.querySelector<HTMLElement>('[role="menuitem"]:not(:disabled)')?.focus()
+  }, [open])
+
   function choose(action: Action) {
-    setOpen(false)
+    setOpen(null)
+    // Focus waits on the row's button, so a dialog that follows hands it back there.
+    button.current?.focus()
     onAct(action)
   }
 
@@ -196,15 +217,26 @@ function AccountRow({ account, mine, busy, issuing, onAct }: RowProps) {
                 type="button"
                 className="ibtn sm"
                 aria-haspopup="menu"
-                aria-expanded={open}
+                aria-expanded={open !== null}
                 aria-label={`${account.displayName} 계정 메뉴`}
                 disabled={busy}
-                onClick={() => setOpen(!open)}
+                onClick={(event) =>
+                  setOpen(open ? null : event.detail === 0 ? 'keyboard' : 'mouse')
+                }
               >
                 <Icon name="more" />
               </button>
               {open && (
-                <div className="menu" role="menu">
+                <div
+                  ref={menu}
+                  className={up ? 'menu up' : 'menu'}
+                  role="menu"
+                  aria-label={`${account.displayName} 계정 메뉴`}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Tab') close()
+                    else moveInMenu(event)
+                  }}
+                >
                   <button
                     type="button"
                     role="menuitem"
@@ -232,7 +264,7 @@ function AccountRow({ account, mine, busy, issuing, onAct }: RowProps) {
                       className="mi"
                       onClick={() => choose('enable')}
                     >
-                      <Icon name="check" size={18} />
+                      <Icon name="restore" size={18} />
                       다시 사용
                     </button>
                   )}
@@ -288,11 +320,11 @@ function CreateDialog(props: { onClose: () => void; onCreated: (c: CreatedAccoun
       >
         <Icon name="x" />
       </button>
-      <form autoComplete="off" onSubmit={create} onInput={check}>
+      <form autoComplete="off" onSubmit={create} onInput={check} onKeyDown={holdImeEnter}>
         <div className="dlg-f">
           <div className="fld">
             <label htmlFor="new-name">이름</label>
-            <input id="new-name" className="in" name="displayName" required />
+            <input id="new-name" className="in" name="displayName" required data-autofocus />
           </div>
           <div className="fld">
             <label htmlFor="new-id">아이디</label>
@@ -332,37 +364,64 @@ function CreateDialog(props: { onClose: () => void; onCreated: (c: CreatedAccoun
   )
 }
 
-function TemporaryPassword({ handed, onDone }: { handed: Handed; onDone: () => void }) {
-  const [copied, setCopied] = useState(false)
+// Long enough to read 복사했습니다, short enough that 복사 is back before anyone copies again.
+const COPIED_FOR = 2000
 
-  async function copy() {
-    await navigator.clipboard.writeText(handed.temporaryPassword)
-    setCopied(true)
+type Copy = 'idle' | 'copied' | 'failed'
+
+function TemporaryPassword({ handed, onDone }: { handed: Handed; onDone: () => void }) {
+  const [copy, setCopy] = useState<Copy>('idle')
+  const field = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (copy === 'idle') return
+    const timer = setTimeout(() => setCopy('idle'), COPIED_FOR)
+    return () => clearTimeout(timer)
+  }, [copy])
+
+  async function copyPassword() {
+    try {
+      await navigator.clipboard.writeText(handed.temporaryPassword)
+      setCopy('copied')
+    } catch {
+      // Selected, so it can still be copied by hand.
+      field.current?.focus()
+      field.current?.select()
+      setCopy('failed')
+    }
   }
 
   return (
-    <Dialog labelledBy="handed-title" onClose={onDone} dismissible={false} plain>
-      <h2 id="handed-title">
-        {handed.reset
-          ? `${handed.loginId}의 비밀번호를 초기화했습니다`
-          : `${handed.loginId} 계정을 만들었습니다`}
-      </h2>
+    <Dialog labelledBy="handed-title" onClose={onDone} dismissible={false} look="plain">
+      <h2 id="handed-title">{handed.reset ? '비밀번호를 초기화했어요' : '계정을 만들었어요'}</h2>
       <div className="fld pw">
         <label htmlFor="handed-password">임시 비밀번호</label>
         <div className="pw-box">
           <input
+            ref={field}
             id="handed-password"
             value={handed.temporaryPassword}
             readOnly
             spellCheck={false}
           />
-          <button type="button" className={copied ? 'cp done' : 'cp'} onClick={copy}>
-            <Icon name={copied ? 'check' : 'copy'} size={18} />
-            <span>{copied ? '복사했습니다' : '복사'}</span>
+          <button
+            type="button"
+            className={copy === 'copied' ? 'cp done' : 'cp'}
+            data-autofocus
+            onClick={copyPassword}
+          >
+            <Icon name={copy === 'copied' ? 'check' : 'copy'} size={18} />
+            <span aria-live="polite">
+              {copy === 'copied'
+                ? '복사했습니다'
+                : copy === 'failed'
+                  ? '복사하지 못했어요'
+                  : '복사'}
+            </span>
           </button>
         </div>
       </div>
-      <p className="pw-note">이 비밀번호는 다시 볼 수 없습니다.</p>
+      <p className="pw-note">이 비밀번호는 다시 볼 수 없어요.</p>
       <div className="dlg-a">
         <button type="button" className="btn primary" onClick={onDone}>
           확인

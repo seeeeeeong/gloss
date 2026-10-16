@@ -385,6 +385,30 @@ class AccountServiceTest(
     }
 
     @Test
+    fun `the sign-in answer carries this sign-in's time, not the one before`() {
+        operator()
+        clock.advance(Duration.ofHours(1))
+
+        val account = accountService.login(LoginRequest("root", password), IP).account
+
+        assertThat(account.lastLoginAt).isEqualTo(clock.instant())
+    }
+
+    @Test
+    fun `a block says how long is left of it`() {
+        operator()
+        repeat(5) { runCatching { accountService.login(LoginRequest("root", "wrong password here"), IP) } }
+
+        clock.advance(Duration.ofMinutes(5))
+
+        assertThatThrownBy { accountService.login(LoginRequest("root", password), IP) }
+            .isInstanceOfSatisfying(GlossException::class.java) {
+                assertThat(it.error).isEqualTo(AccountError.TOO_MANY_ATTEMPTS)
+                assertThat(it.retryAfter).isEqualTo(Duration.ofMinutes(10))
+            }
+    }
+
+    @Test
     fun `the block lifts after fifteen minutes`() {
         operator()
         repeat(5) { runCatching { accountService.login(LoginRequest("root", "wrong password here"), IP) } }

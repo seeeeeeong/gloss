@@ -3,6 +3,7 @@ package gloss.domain.budget.infrastructure
 import gloss.domain.budget.domain.CostPolicy
 import gloss.domain.budget.domain.LedgerKind
 import gloss.domain.budget.domain.LedgerRow
+import gloss.domain.budget.domain.UsageCall
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.stereotype.Repository
 import java.sql.ResultSet
@@ -139,6 +140,38 @@ class JdbcUsageLedger(
             .query(Int::class.java)
             .single()
 
+    /**
+     * The month's latest calls that ended at a cost, newest first. A release cost nothing and an
+     * open reservation is still in flight, so neither is one.
+     */
+    fun recentCalls(
+        accountId: UUID,
+        month: LocalDate,
+        limit: Int,
+    ): List<UsageCall> =
+        jdbcClient
+            .sql(
+                """
+                select e.occurred_at, e.purpose, e.amount_micros + r.amount_micros as cost,
+                       e.cache_hit_tokens, e.cache_miss_tokens, e.completion_tokens
+                from usage_ledger e
+                join usage_ledger r on r.reservation_id = e.reservation_id and r.kind = 'reserve'
+                where e.account_id = :id and e.billing_month = :month and e.kind in ('settle', 'expire')
+                order by e.occurred_at desc, e.id desc
+                limit :limit
+                """.trimIndent(),
+            ).param("id", accountId)
+            .param("month", month)
+            .param("limit", limit)
+            .query { rs, _ ->
+                UsageCall(
+                    endedAt = rs.getTimestamp("occurred_at").toInstant(),
+                    purpose = rs.getString("purpose"),
+                    costMicros = rs.getLong("cost"),
+                    tokens = tokensOf(rs),
+                )
+            }.list()
+
     internal companion object {
         internal fun rowOf(rs: ResultSet) =
             LedgerRow(
@@ -153,6 +186,16 @@ class JdbcUsageLedger(
                 model = rs.getString("model"),
                 rates = CostPolicy.Rates(rs.getLong("price_hit"), rs.getLong("price_miss"), rs.getLong("price_out")),
             )
+
+        private fun tokensOf(rs: ResultSet): CostPolicy.Tokens? {
+            val hit = rs.getLong("cache_hit_tokens")
+            if (rs.wasNull()) return null
+            return CostPolicy.Tokens(
+                hit = hit,
+                miss = rs.getLong("cache_miss_tokens"),
+                out = rs.getLong("completion_tokens"),
+            )
+        }
 
         const val SELECT = "select * from usage_ledger"
         const val NOT_ENDED =

@@ -4,21 +4,24 @@ import { ApiKeyForm } from '@/components/ApiKeyForm'
 import { Page } from '@/components/Page'
 import { PasswordSetting } from '@/components/PasswordChangeForm'
 import { ProfileForm } from '@/components/ProfileForm'
+import { RecentCalls } from '@/components/RecentCalls'
 import { SignOutButton } from '@/components/SignOutButton'
 import { ThemeSelect } from '@/components/ThemeSelect'
 import { UsageLimitForm } from '@/components/UsageLimitForm'
+import { formatDateTime } from '@/lib/accounts'
 import type { ApiKey } from '@/lib/apiKey'
 import { requireReader, serverFind, serverGet } from '@/lib/server-session'
 import { THEME_COOKIE, themeFrom } from '@/lib/theme'
-import type { Usage } from '@/lib/usage'
+import type { Usage, UsageCall } from '@/lib/usage'
 
 export const metadata: Metadata = { title: '마이페이지' }
 
 export default async function MePage() {
   const me = await requireReader('/me')
-  const [apiKey, usage, jar] = await Promise.all([
+  const [apiKey, usage, calls, jar] = await Promise.all([
     serverFind<ApiKey>('/api/me/api-key'),
     serverGet<Usage>('/api/me/usage'),
+    serverGet<UsageCall[]>('/api/me/usage/calls'),
     cookies(),
   ])
   const theme = themeFrom(jar.get(THEME_COOKIE)?.value)
@@ -36,6 +39,12 @@ export default async function MePage() {
           <div className="s-line">
             <span className="s-k">아이디</span>
             <span className="s-v">{me.loginId}</span>
+          </div>
+        </div>
+        <div className="srow">
+          <div className="s-line">
+            <span className="s-k">마지막 로그인</span>
+            <span className="s-v">{formatDateTime(me.lastLoginAt)}</span>
           </div>
         </div>
         <PasswordSetting />
@@ -57,6 +66,7 @@ export default async function MePage() {
           사용량
         </h2>
         <UsageLimitForm usage={usage} />
+        <RecentCalls calls={calls} now={new Date()} />
       </section>
       <section className="set" aria-labelledby="display">
         <h2 className="set-h" id="display">
