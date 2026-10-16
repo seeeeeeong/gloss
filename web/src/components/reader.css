@@ -1,0 +1,499 @@
+/* The reader (v4 reader.html): one multi-column flow, a column a page, turned a spread at a time */
+:root {
+  --code-block: #f3f3f3;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --code-block: #212121;
+  }
+}
+:root[data-theme="dark"] {
+  --code-block: #212121;
+}
+
+/* Header: "<book> · <item>" opens the contents */
+.top-conv {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: calc(100% - 96px);
+  height: 36px;
+  padding: 4px 8px 4px 10px;
+  border-radius: 8px;
+  font: 400 18px / 28px var(--font);
+  color: var(--tx);
+  transition: background-color 150ms var(--ease);
+}
+.top-conv:hover,
+.top-conv[aria-expanded="true"],
+.top-conv:focus-visible {
+  outline: none;
+  background: var(--hover);
+}
+.top-conv span,
+.top-slot .name span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.top-conv svg,
+.top-slot .name svg {
+  color: var(--tx3);
+}
+.top-slot .name {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tocpop {
+  position: absolute;
+  top: 52px;
+  left: 8px;
+  z-index: 30;
+  width: 360px;
+  max-height: min(560px, calc(100dvh - 76px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px;
+  border-radius: 16px;
+  background: var(--bg-primary);
+  box-shadow: var(--dialog-shadow);
+}
+.tp-ch {
+  display: block;
+  padding: 12px 10px 4px;
+  border-radius: 10px;
+  font: 400 14px / 20px var(--font);
+  color: var(--tx3);
+  transition: background-color 150ms var(--ease);
+}
+.tp-ch:first-child {
+  padding-top: 4px;
+}
+.tp-ch svg {
+  display: none;
+}
+.tp-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 10px;
+  font: 400 14px / 20px var(--font);
+  color: var(--tx);
+  transition: background-color 150ms var(--ease);
+}
+.tp-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.tp-row.todo {
+  color: var(--tx3);
+}
+.tp-row:hover,
+.tp-ch:hover,
+.tp-row:focus-visible,
+.tp-ch:focus-visible {
+  outline: none;
+  background: var(--hover);
+}
+.tp-row[aria-current="page"],
+.tp-ch[aria-current="page"] {
+  background: var(--selected);
+}
+.tp-row .meta,
+.tp-row svg {
+  margin-left: auto;
+}
+.tp-row .meta {
+  padding-left: 8px;
+  font: 400 12px / 16px var(--font);
+  color: var(--tx3);
+  white-space: nowrap;
+}
+
+/* The stage below the header; the book centred in it, the pager under it */
+.reader {
+  position: absolute;
+  inset: 0;
+}
+.reader .stage {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 52px;
+  bottom: 0;
+}
+.reader .book {
+  position: absolute;
+  overflow: clip;
+  touch-action: pan-y;
+}
+.reader .track {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  transition: transform 200ms var(--ease);
+}
+.reader .track.still {
+  transition: none;
+}
+.reader .flow {
+  position: absolute;
+  column-fill: auto;
+  font: 400 16px / 28px var(--font);
+  orphans: 2;
+  widows: 2;
+}
+.reader .gutter {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--divider);
+  pointer-events: none;
+}
+.reader .pgc {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  pointer-events: none;
+}
+.reader .rh {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: 400 12px / 16px var(--font);
+  color: var(--tx2);
+  white-space: nowrap;
+}
+.reader .rh.r {
+  justify-content: flex-end;
+}
+.reader .rh .t {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.reader .rh .spin {
+  width: 12px;
+  height: 12px;
+}
+.reader .pn {
+  position: absolute;
+  font: 400 12px / 16px var(--font);
+  color: var(--tx2);
+  font-variant-numeric: tabular-nums;
+}
+.reader .edge {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: var(--tx3);
+}
+.reader .edge svg {
+  opacity: 0;
+  transition: opacity 150ms var(--ease);
+}
+@media (hover: hover) {
+  .reader .edge:hover:not(:disabled) svg {
+    opacity: 1;
+  }
+}
+.reader .pager {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 48px;
+  font: 400 12px / 16px var(--font);
+  color: var(--tx3);
+  font-variant-numeric: tabular-nums;
+}
+.reader .pager .ibtn {
+  color: var(--tx3);
+}
+.reader .pager .ibtn:disabled {
+  opacity: 0.3;
+  background: none;
+}
+.reader .pg-t {
+  display: flex;
+  justify-content: center;
+  min-width: 48px;
+  white-space: pre;
+}
+.reader .spin {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--b-heavy);
+  border-top-color: var(--tx2);
+  animation: spin 800ms linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.reader .cur {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-left: 4px;
+  border-radius: 50%;
+  background: var(--tx);
+  vertical-align: -1px;
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* Pages: the cover */
+.reader .cover {
+  height: var(--th);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  break-after: column;
+}
+.reader .cv-t {
+  font: 600 24px / 32px var(--font);
+}
+.reader .cv-f {
+  margin-top: 8px;
+  font: 400 14px / 22px var(--font);
+  color: var(--tx2);
+}
+.reader .cv-f span {
+  display: block;
+}
+.reader .cv-f a {
+  text-decoration: underline dotted var(--tx3);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 5px;
+  transition: text-decoration-color 150ms var(--ease);
+}
+.reader .cv-f a:hover {
+  text-decoration-color: var(--tx);
+}
+
+/* Pages: the 차례 */
+.reader .toc-pg {
+  break-before: column;
+  isolation: isolate;
+}
+.reader .toc-t {
+  font: 600 24px / 32px var(--font);
+  margin-bottom: 12px;
+}
+.reader .tc-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font: 400 14px / 24px var(--font);
+  color: var(--tx);
+  break-inside: avoid;
+}
+.reader .tc-part {
+  margin-top: 16px;
+  padding-bottom: 4px;
+  font: 400 14px / 20px var(--font);
+  color: var(--tx3);
+  break-after: avoid;
+}
+.reader .toc-t + .tc-part {
+  margin-top: 0;
+}
+.reader .tc-chapter {
+  font-weight: 600;
+  break-after: avoid;
+}
+.reader .tc-section + .tc-chapter,
+.reader .tc-section + .tc-part {
+  margin-top: 8px;
+}
+.reader .tc-section {
+  padding-left: 14px;
+}
+.reader .tc-row.todo {
+  color: var(--tx2);
+}
+.reader .tc-part.todo {
+  color: var(--tx3);
+}
+.reader .tc-row .tl {
+  min-width: 0;
+  flex: 1;
+}
+.reader .tc-row .spin {
+  margin-top: 5px;
+}
+.reader .tc-row .rd {
+  flex: none;
+  margin-top: 4px;
+  color: var(--tx3);
+}
+.reader .tc-row::before {
+  content: "";
+  position: absolute;
+  inset: 0 -8px;
+  border-radius: 8px;
+  z-index: -1;
+  transition: background-color 100ms var(--ease);
+}
+.reader .tc-row:focus-visible {
+  outline: none;
+}
+.reader .tc-row:focus-visible::before {
+  background: var(--selected);
+  outline: 1.5px solid var(--tx);
+}
+@media (hover: hover) {
+  .reader .tc-row:hover::before {
+    background: var(--selected);
+  }
+}
+
+/* Pages: an item, its Markdown on the 28px line */
+.reader .item {
+  break-before: column;
+}
+.reader .item > * {
+  margin: 0;
+}
+.reader .item > h1 {
+  font: 600 24px / 32px var(--font);
+  break-after: avoid;
+}
+.reader .item > h1 + * {
+  margin-top: 20px;
+}
+.reader .item > .stale + h1 {
+  margin-top: 12px;
+}
+.reader .stale {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 6px;
+  font: 400 16px / 26px var(--font);
+  color: var(--tx3);
+}
+.reader .stale .tbtn {
+  margin-left: -2px;
+}
+.reader .fail,
+.reader .quiet {
+  font: 400 16px / 28px var(--font);
+}
+.reader .quiet {
+  color: var(--tx3);
+}
+.reader .item .actions {
+  margin-top: 12px;
+}
+.reader .prose {
+  font: inherit;
+}
+.reader .prose h2 {
+  break-after: avoid;
+}
+.reader .prose hr {
+  border-top: 0;
+  margin-top: 0;
+}
+.reader .prose > hr + * {
+  margin-top: 36px;
+}
+.reader .prose li {
+  break-inside: avoid;
+}
+.reader .prose blockquote {
+  font: 400 16px / 26px var(--font);
+  break-inside: avoid;
+}
+.reader .prose code {
+  font:
+    500 14px / 1 ui-monospace,
+    SFMono-Regular,
+    "SF Mono",
+    Menlo,
+    Consolas,
+    "Apple SD Gothic Neo",
+    monospace;
+}
+.reader .prose pre {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: var(--code-block);
+  overflow-x: auto;
+  break-inside: avoid;
+  font:
+    400 13px / 20px ui-monospace,
+    SFMono-Regular,
+    "SF Mono",
+    Menlo,
+    Consolas,
+    "Apple SD Gothic Neo",
+    monospace;
+  white-space: pre;
+}
+.reader .prose pre code {
+  padding: 0;
+  background: none;
+  font: inherit;
+}
+.reader .prose > .keep {
+  margin-top: 24px;
+  break-inside: avoid;
+}
+.reader .keep > * {
+  margin: 0;
+}
+.reader .keep > ul {
+  margin-top: 8px;
+}
+
+@media (max-width: 767px) {
+  .top-pill:has(.top-slot > *) {
+    min-width: 0;
+    max-width: calc(100% - 52px);
+  }
+  .top-conv {
+    display: none;
+  }
+  .tocpop {
+    top: 56px;
+    left: 10px;
+    right: 10px;
+    width: auto;
+    max-height: min(560px, calc(100dvh - 140px));
+  }
+  .reader .stage {
+    top: 56px;
+  }
+  .reader .edge {
+    display: none;
+  }
+  .reader .pager {
+    padding: 0 76px;
+  }
+}

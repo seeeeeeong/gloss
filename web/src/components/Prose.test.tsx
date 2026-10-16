@@ -34,4 +34,20 @@ describe('Prose', () => {
   it("shows no image, so no host of the model's choosing is called", () => {
     expect(html('![그림](https://example.com/a.png)')).not.toContain('<img')
   })
+
+  it('keeps the key terms in one block, so a page turn does not split them', () => {
+    const out = html('## 요약\n\n- 하나\n\n## 핵심 용어\n\n- **커널**: 중심 프로그램')
+    expect(out).toContain('<h2>요약</h2>')
+    expect(out).toMatch(/<section class="keep"><h2>핵심 용어<\/h2>\s*<ul>/)
+    expect(html('## 요약\n\n- 하나')).not.toContain('keep')
+  })
+
+  it('takes a fenced "## 핵심 용어" for code, never the start of the key terms', () => {
+    const md =
+      '## 1. 절\n\n```md\n## 핵심 용어\n- 예시\n```\n\n본문\n\n## 핵심 용어\n\n- **커널**: 중심'
+    const out = html(md)
+    expect(out).toContain('<pre><code class="language-md">## 핵심 용어\n- 예시\n</code></pre>')
+    expect(out).toMatch(/<p>본문<\/p>\s*<section class="keep"><h2>핵심 용어<\/h2>/)
+    expect(out.match(/<section/g)).toHaveLength(1)
+  })
 })
