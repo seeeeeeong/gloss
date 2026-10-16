@@ -1,38 +1,40 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { Icon } from '@/components/Icon'
-import { type BookSummary, bylineOf, creditOf } from '@/lib/books'
-import { serverGet } from '@/lib/server-session'
+import { Page } from '@/components/Page'
+import { bylineOf, creditOf } from '@/lib/books'
+import { shelfOf } from '@/lib/server-books'
 
-export const metadata: Metadata = { title: '내 책장' }
+export const metadata: Metadata = { title: '책장' }
 
 export default async function ShelfPage() {
-  const books = await serverGet<BookSummary[]>('/api/me/books')
+  const books = await shelfOf()
   return (
-    <div className="page">
-      <div className="page-head">
-        <h1 className="page-title">내 책장</h1>
-        <Link className="btn btn-primary" href="/books/new">
-          <Icon name="plus" size={16} />책 추가
+    <Page>
+      <div className="p-row">
+        <h1 className="title">책장</h1>
+        <Link className="btn primary" href="/books/new">
+          새 책
         </Link>
       </div>
       {books.length === 0 ? (
-        <div className="empty">아직 책이 없습니다.</div>
+        <p className="empty-l">아직 책이 없습니다.</p>
       ) : (
-        <ul className="shelf">
+        <ul className="list">
           {books.map((book) => (
             <li key={book.id}>
-              <Link className="shelf-item" href={`/books/${book.id}`}>
-                <span className="shelf-title">{book.title}</span>
-                <span className="shelf-meta">
-                  {[bylineOf(book), creditOf(book.source) ?? ''].filter(Boolean).join(' · ')}
-                  {!book.confirmed && <span className="tag">목차 확정 전</span>}
+              <Link className="li-row" href={`/books/${book.id}`}>
+                <span className="li-main">
+                  <span className="nm">{book.title}</span>
+                  <span className="lid">
+                    {[bylineOf(book), creditOf(book.source)].filter(Boolean).join(' · ')}
+                  </span>
                 </span>
+                {!book.confirmed && <span className="spill">목차 확정 전</span>}
               </Link>
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </Page>
   )
 }

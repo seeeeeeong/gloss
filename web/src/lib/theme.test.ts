@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextTheme, themeAttribute, themeColors, themeCookie, themeFrom } from './theme'
+import { themeAttribute, themeColors, themeCookie, themeFrom } from './theme'
 
 describe('themeFrom', () => {
   it('takes a stored theme', () => {
@@ -19,14 +19,6 @@ describe('themeFrom', () => {
   })
 })
 
-describe('nextTheme', () => {
-  it('steps through system, light and dark, then back', () => {
-    expect(nextTheme('system')).toBe('light')
-    expect(nextTheme('light')).toBe('dark')
-    expect(nextTheme('dark')).toBe('system')
-  })
-})
-
 describe('themeAttribute', () => {
   it('marks the root only when the reader overrides the device', () => {
     expect(themeAttribute('system')).toBeUndefined()
@@ -36,11 +28,11 @@ describe('themeAttribute', () => {
 
 describe('themeColors', () => {
   it('follows each device scheme when the reader has not chosen', () => {
-    expect(themeColors('system').map((entry) => entry.color)).toEqual(['#ffffff', '#111111'])
+    expect(themeColors('system').map((entry) => entry.color)).toEqual(['#fcfcfc', '#000000'])
   })
 
   it('paints both schemes in the chosen theme', () => {
-    expect(themeColors('light').map((entry) => entry.color)).toEqual(['#ffffff', '#ffffff'])
-    expect(themeColors('dark').map((entry) => entry.color)).toEqual(['#111111', '#111111'])
+    expect(themeColors('light').map((entry) => entry.color)).toEqual(['#fcfcfc', '#fcfcfc'])
+    expect(themeColors('dark').map((entry) => entry.color)).toEqual(['#000000', '#000000'])
   })
 })

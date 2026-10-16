@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { Icon } from '@/components/Icon'
+import { Page } from '@/components/Page'
 import { PostGeneration } from '@/components/PostGeneration'
 import { Prose } from '@/components/Prose'
 import { SourceCredit } from '@/components/SourceCredit'
@@ -35,44 +37,50 @@ export default async function PostPage(props: Props) {
   const { book, item, previous, next } = section
   const post = await serverFind<Post>(postPath(book.id, item.itemKey))
   return (
-    <article className="page">
-      <p className="post-origin">
-        <Link href={`/books/${book.id}`}>{book.title}</Link>
-        {book.sourceUrl && ' · '}
-        <SourceCredit book={book} />
-      </p>
-      <h1 className="page-title">{headingOf(item)}</h1>
-      {post ? (
-        <>
-          <p className="post-meta">
-            <span className="tag">AI 학습 콘텐츠 · 책 본문 요약 아님</span>
-            <span>{formatDateTime(post.generatedAt)} 생성</span>
-            {post.stale && <span className="tag">이전 목차 기준</span>}
-          </p>
-          {post.stale && (
-            <PostGeneration key={post.versionId} bookId={book.id} itemKey={item.itemKey} rewrite />
-          )}
-          <Prose markdown={post.contentMd} />
-        </>
-      ) : (
-        <PostGeneration key={item.itemKey} bookId={book.id} itemKey={item.itemKey} />
-      )}
-      <nav className="post-nav" aria-label="앞뒤 항목">
-        {previous ? (
-          <Link className="post-step" href={postHref(book.id, previous.itemKey)}>
-            <span className="field-hint">이전</span>
-            {headingOf(previous)}
-          </Link>
+    <Page>
+      <article>
+        <p className="post-origin">
+          <Link href={`/books/${book.id}`}>{book.title}</Link>
+          {book.sourceUrl && ' · '}
+          <SourceCredit book={book} />
+        </p>
+        <h1 className="title">{headingOf(item)}</h1>
+        {post ? (
+          <>
+            <p className="post-meta">
+              <span className="spill">AI 학습 콘텐츠 · 책 본문 요약 아님</span>
+              <span>{formatDateTime(post.generatedAt)} 생성</span>
+            </p>
+            {post.stale && (
+              <PostGeneration
+                key={post.versionId}
+                bookId={book.id}
+                itemKey={item.itemKey}
+                rewrite
+              />
+            )}
+            <Prose markdown={post.contentMd} />
+          </>
         ) : (
-          <span />
+          <div className="post-body">
+            <PostGeneration key={item.itemKey} bookId={book.id} itemKey={item.itemKey} />
+          </div>
         )}
-        {next && (
-          <Link className="post-step post-step-next" href={postHref(book.id, next.itemKey)}>
-            <span className="field-hint">다음</span>
-            {headingOf(next)}
-          </Link>
-        )}
-      </nav>
-    </article>
+        <nav className="post-nav" aria-label="앞뒤 항목">
+          {previous && (
+            <Link className="navl prev" href={postHref(book.id, previous.itemKey)}>
+              <Icon name="chevL" size={16} />
+              <span>이전: {headingOf(previous)}</span>
+            </Link>
+          )}
+          {next && (
+            <Link className="navl next" href={postHref(book.id, next.itemKey)}>
+              <span>다음: {headingOf(next)}</span>
+              <Icon name="chevR" size={16} />
+            </Link>
+          )}
+        </nav>
+      </article>
+    </Page>
   )
 }

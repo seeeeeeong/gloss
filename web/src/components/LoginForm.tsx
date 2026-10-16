@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { type FormEvent, useState } from 'react'
 import { send } from '@/lib/api'
 import type { Me } from '@/lib/session'
+import { AuthError, AuthField } from './AuthField'
 
 export function LoginForm() {
   const router = useRouter()
@@ -28,29 +29,31 @@ export function LoginForm() {
     router.refresh()
   }
 
+  const invalid = error !== null
   return (
-    <form className="form" onSubmit={submit}>
-      <label className="field">
-        <span className="field-label">아이디</span>
-        <input className="input" name="loginId" autoComplete="username" required />
-      </label>
-      <label className="field">
-        <span className="field-label">비밀번호</span>
-        <input
-          className="input"
-          name="password"
-          type="password"
-          autoComplete="current-password"
+    <form onSubmit={submit}>
+      <div className="fields">
+        <AuthField
+          name="loginId"
+          label="아이디"
+          autoComplete="username"
+          autoCapitalize="off"
+          spellCheck={false}
+          invalid={invalid}
           required
         />
-      </label>
-      {error && (
-        <p className="form-error" role="alert">
-          {error}
-        </p>
-      )}
-      <button type="submit" className="btn btn-primary" disabled={pending}>
-        {pending ? '로그인 중…' : '로그인'}
+        <AuthField
+          name="password"
+          label="비밀번호"
+          type="password"
+          autoComplete="current-password"
+          invalid={invalid}
+          required
+        />
+        {error && <AuthError message={error} />}
+      </div>
+      <button type="submit" className="go" disabled={pending}>
+        계속
       </button>
     </form>
   )

@@ -62,12 +62,12 @@ export function TocReview({ bookId, toc, children }: Props) {
   const messages = (
     <>
       {error && (
-        <p className="form-error" role="alert">
+        <p className="f-err toc-msg" role="alert">
           {error}
         </p>
       )}
       {done && (
-        <p className="form-done" role="status">
+        <p className="f-ok toc-msg" role="status">
           {done}
         </p>
       )}
@@ -76,30 +76,28 @@ export function TocReview({ bookId, toc, children }: Props) {
 
   if (editing) {
     return (
-      <form className="form" onSubmit={save}>
-        <label className="field">
-          <span className="field-label">목차 고치기</span>
-          <textarea
-            className="input textarea"
-            spellCheck={false}
-            disabled={pending}
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            required
-          />
-        </label>
+      <form className="s-form toc" onSubmit={save}>
+        <textarea
+          className="raw"
+          aria-label="목차 고치기"
+          spellCheck={false}
+          disabled={pending}
+          value={value}
+          onChange={(event) => setValue(event.target.value)}
+          required
+        />
         {messages}
-        <div className="form-actions">
+        <div className="actions">
+          <button type="submit" className="btn primary" disabled={pending}>
+            {pending ? '저장 중' : '저장'}
+          </button>
           <button
             type="button"
-            className="btn btn-ghost"
+            className="btn sec"
             disabled={pending}
             onClick={() => setEditing(false)}
           >
             취소
-          </button>
-          <button type="submit" className="btn btn-primary" disabled={pending}>
-            {pending ? '저장 중…' : '저장'}
           </button>
         </div>
       </form>
@@ -107,19 +105,19 @@ export function TocReview({ bookId, toc, children }: Props) {
   }
 
   return (
-    <div className="form">
-      {messages}
-      <div className="form-actions">
-        <button type="button" className="btn btn-ghost" disabled={pending} onClick={edit}>
-          고치기
-        </button>
+    <>
+      <div className="actions toc-acts">
         {draft && (
-          <button type="button" className="btn btn-primary" disabled={pending} onClick={confirm}>
-            {pending ? '확정 중…' : '확정'}
+          <button type="button" className="btn primary sm" disabled={pending} onClick={confirm}>
+            {pending ? '확정 중' : '확정'}
           </button>
         )}
+        <button type="button" className="btn sec sm" disabled={pending} onClick={edit}>
+          고치기
+        </button>
       </div>
+      {messages}
       <div className="toc">{children}</div>
-    </div>
+    </>
   )
 }

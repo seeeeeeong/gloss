@@ -52,33 +52,33 @@ export function PostGeneration({ bookId, itemKey, rewrite = false }: Props) {
     }
   }, [bookId, itemKey, rewrite, tries, router])
 
-  const shell = rewrite ? 'generation' : 'empty generation'
   const again = () => setTries(tries + 1)
   if (tries === 0) {
     return (
-      <div className={shell}>
-        <button type="button" className="btn btn-ghost" onClick={again}>
+      <p className="stale">
+        <span className="gen">이전 목차로 쓴 글입니다.</span>
+        <button type="button" className="tbtn" onClick={again}>
           다시 쓰기
         </button>
-      </div>
+      </p>
     )
   }
   const failure = error ?? (generation?.state === 'failed' ? generation.message : null)
   if (failure) {
     return (
-      <div className={shell}>
-        <p className="form-error" role="alert">
+      <div className={rewrite ? 'gen-fail stale' : 'gen-fail'}>
+        <p className="f-err" role="alert">
           {failure}
         </p>
-        <button type="button" className="btn btn-primary" onClick={again}>
+        <button type="button" className="btn sec sm" onClick={again}>
           다시 시도
         </button>
       </div>
     )
   }
   return (
-    <div className={rewrite ? 'generation' : 'empty'} role="status">
+    <p className={rewrite ? 'gen pulse stale' : 'gen pulse'} role="status">
       {(generation && generationLabel(generation.state)) ?? '글 작성 중'}
-    </div>
+    </p>
   )
 }

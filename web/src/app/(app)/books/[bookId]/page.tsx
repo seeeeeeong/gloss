@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
+import { Page } from '@/components/Page'
 import { SourceCredit } from '@/components/SourceCredit'
 import { TocReview } from '@/components/TocReview'
 import { TocTree } from '@/components/TocTree'
@@ -26,9 +27,9 @@ export default async function BookPage({ params }: PageProps<'/books/[bookId]'>)
   const reading = { bookId: book.id, written: new Set(posts.map((post) => post.itemKey)) }
   const byline = bylineOf(book)
   return (
-    <div className="page">
-      <h1 className="page-title">{book.title}</h1>
-      <p className="page-lead">
+    <Page>
+      <h1 className="title">{book.title}</h1>
+      <p className="meta">
         {byline}
         {byline && book.isbn13 && ' · '}
         {book.isbn13 && `ISBN ${book.isbn13}`}
@@ -61,21 +62,21 @@ export default async function BookPage({ params }: PageProps<'/books/[bookId]'>)
           </TocReview>
         </TocSection>
       )}
-    </div>
+    </Page>
   )
 }
 
 function TocSection(props: { id: string; title: string; toc: Toc; children: ReactNode }) {
   const { id, title, toc, children } = props
   return (
-    <section className="section" aria-labelledby={id}>
-      <h2 className="section-title" id={id}>
+    <section className="toc-sec" aria-labelledby={id}>
+      <h2 className="sub-h" id={id}>
         {title}
-        <span className="tag">
+        <span className="spill">
           버전 {toc.versionNo} · {tocStatusLabel(toc.status)}
         </span>
       </h2>
-      <p className="field-hint toc-facts">
+      <p className="toc-facts">
         항목 {toc.items.length}개{toc.confirmedAt && ` · 확정 ${formatDateTime(toc.confirmedAt)}`}
       </p>
       {children}

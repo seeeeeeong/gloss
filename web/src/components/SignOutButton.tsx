@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { send } from '@/lib/api'
 
-export function SignOutButton() {
+export function SignOutButton({ className = 'btn sec sm' }: { className?: string }) {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
 
@@ -23,11 +23,11 @@ export function SignOutButton() {
   return (
     <>
       {error && (
-        <span className="form-error sign-out-error" role="alert">
+        <span className="f-err" role="alert">
           {error}
         </span>
       )}
-      <button type="button" className="btn btn-ghost" onClick={signOut}>
+      <button type="button" className={className} onClick={signOut}>
         로그아웃
       </button>
     </>

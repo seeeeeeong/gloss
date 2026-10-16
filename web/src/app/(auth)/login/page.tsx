@@ -8,7 +8,7 @@ export default async function LoginPage() {
   await guard('/login')
   return (
     <>
-      <h1 className="page-title">로그인</h1>
+      <h1>로그인</h1>
       <LoginForm />
     </>
   )

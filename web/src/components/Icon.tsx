@@ -1,33 +1,86 @@
-const PATHS = {
-  sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
-  moon: 'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z',
-  monitor: 'M3 4h18v12H3V4ZM8 20h8M12 16v4',
-  menu: 'M4 6h16M4 12h16M4 18h16',
-  close: 'M6 6l12 12M18 6 6 18',
-  book: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5ZM4 19a2 2 0 0 1 2-2h13',
-  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 20a8 8 0 0 1 16 0',
-  users:
-    'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM2 21a7 7 0 0 1 14 0M16 3.5a4 4 0 0 1 0 7.5M18 14a7 7 0 0 1 4 7',
-  copy: 'M9 9h11v11H9V9ZM5 15H4V4h11v1',
-  plus: 'M12 5v14M5 12h14',
-}
+import type { ReactNode } from 'react'
 
-export function Icon({ name, size = 18 }: { name: keyof typeof PATHS; size?: number }) {
+// The v4 set: a 20px grid at ChatGPT's 1.6 stroke.
+const SHAPES = {
+  sidebar: (
+    <>
+      <rect x="2.75" y="3.75" width="14.5" height="12.5" rx="3" />
+      <path d="M7.75 3.75v12.5" />
+    </>
+  ),
+  newbook: (
+    <>
+      <path d="M9.25 3.75H6.5a2.75 2.75 0 0 0-2.75 2.75v7A2.75 2.75 0 0 0 6.5 16.25h7a2.75 2.75 0 0 0 2.75-2.75v-2.75" />
+      <path d="M14.4 3.1a1.55 1.55 0 0 1 2.2 2.2l-6.1 6.1-2.9.7.7-2.9z" />
+    </>
+  ),
+  book: <path d="M4.25 15.5V5a2 2 0 0 1 2-2h9.5v11H6.25a2 2 0 0 0-2 2v0a2 2 0 0 0 2 2h9.5" />,
+  shield: <path d="M10 2.75 4.25 5v4.6c0 3.5 2.35 6.15 5.75 7.65 3.4-1.5 5.75-4.15 5.75-7.65V5z" />,
+  account: (
+    <>
+      <circle cx="10" cy="10" r="7.25" />
+      <circle cx="10" cy="8.25" r="2.5" />
+      <path d="M5.6 15.1a5.2 5.2 0 0 1 8.8 0" />
+    </>
+  ),
+  menu: <path d="M3.75 7.25h12.5M3.75 12.75h7.5" />,
+  plus: <path d="M10 4.25v11.5M4.25 10h11.5" />,
+  send: <path d="M10 15.5V4.75M5.25 9.5 10 4.75l4.75 4.75" strokeWidth="2" />,
+  chevR: <path d="M8 5.5 12.5 10 8 14.5" />,
+  chevL: <path d="M12 5.5 7.5 10 12 14.5" />,
+  chevD: <path d="M5.5 8 10 12.5 14.5 8" />,
+  x: <path d="m5.5 5.5 9 9M14.5 5.5l-9 9" />,
+  copy: (
+    <>
+      <rect x="7.25" y="7.25" width="9" height="9" rx="2.25" />
+      <path d="M12.75 7.25V5.75a2 2 0 0 0-2-2h-5a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h1.5" />
+    </>
+  ),
+  check: <path d="m4.75 10.25 3.5 3.5 7-7.5" />,
+  more: (
+    <>
+      <circle cx="4.75" cy="10" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="10" cy="10" r="1.15" fill="currentColor" stroke="none" />
+      <circle cx="15.25" cy="10" r="1.15" fill="currentColor" stroke="none" />
+    </>
+  ),
+  key: (
+    <>
+      <circle cx="7.25" cy="12.75" r="3.5" />
+      <path d="m9.75 10.25 6-6M13.5 6.5l2 2M11.75 8.25l1.5 1.5" />
+    </>
+  ),
+  ban: (
+    <>
+      <circle cx="10" cy="10" r="6.75" />
+      <path d="m5.25 14.75 9.5-9.5" />
+    </>
+  ),
+  alert: (
+    <>
+      <circle cx="10" cy="10" r="7.25" />
+      <path d="M10 6.5v4.25M10 13.6h.01" />
+    </>
+  ),
+} satisfies Record<string, ReactNode>
+
+export type IconName = keyof typeof SHAPES
+
+export function Icon({ name, size = 20 }: { name: IconName; size?: number }) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 24 24"
+      viewBox="0 0 20 20"
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.7"
+      strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
       focusable="false"
-      style={{ flexShrink: 0 }}
     >
-      <path d={PATHS[name]} />
+      {SHAPES[name]}
     </svg>
   )
 }
