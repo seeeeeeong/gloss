@@ -79,4 +79,17 @@ class BookSourceThrottleTest {
         assertThat(throttle.ask(reader)).isEqualTo(Verdict.READER_TOO_OFTEN)
         assertThat(throttle.ask(UUID.randomUUID())).isEqualTo(Verdict.KEY_SPENT)
     }
+
+    @Test
+    fun `a search answered by another's ask counts toward the reader's pace, not the key's`() {
+        val throttle = throttle(perMinute = 2, perSecond = 1)
+        val reader = UUID.randomUUID()
+
+        assertThat(throttle.reader(reader)).isEqualTo(BookSourceThrottle.Verdict.ALLOWED)
+        assertThat(throttle.reader(reader)).isEqualTo(BookSourceThrottle.Verdict.ALLOWED)
+        assertThat(throttle.reader(reader)).isEqualTo(BookSourceThrottle.Verdict.READER_TOO_OFTEN)
+        assertThat(throttle.source()).isEqualTo(BookSourceThrottle.Verdict.ALLOWED)
+        assertThat(throttle.source()).isEqualTo(BookSourceThrottle.Verdict.KEY_SPENT)
+        assertThat(throttle.reader(UUID.randomUUID())).isEqualTo(BookSourceThrottle.Verdict.ALLOWED)
+    }
 }

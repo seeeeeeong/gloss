@@ -9,4 +9,9 @@ interface TocItemRepository : JpaRepository<TocItem, UUID> {
         tocId: UUID,
         accountId: UUID,
     ): List<TocItem>
+
+    fun countByTocIdAndAccountId(
+        tocId: UUID,
+        accountId: UUID,
+    ): Long
 }

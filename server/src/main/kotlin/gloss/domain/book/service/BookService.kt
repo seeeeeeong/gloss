@@ -1,7 +1,6 @@
 package gloss.domain.book.service
 
 import gloss.common.error.GlossException
-import gloss.common.util.UuidV7
 import gloss.domain.book.domain.Book
 import gloss.domain.book.domain.BookDraft
 import gloss.domain.book.domain.BookTitle
@@ -11,7 +10,6 @@ import gloss.domain.book.domain.Toc
 import gloss.domain.book.domain.TocItem
 import gloss.domain.book.domain.TocParser
 import gloss.domain.book.domain.TocText
-import gloss.domain.book.domain.event.TocConfirmed
 import gloss.domain.book.domain.repository.BookRepository
 import gloss.domain.book.domain.repository.TocItemRepository
 import gloss.domain.book.domain.repository.TocRepository
@@ -20,7 +18,6 @@ import gloss.domain.book.dto.request.TocReviseRequest
 import gloss.domain.book.dto.response.BookResponse
 import gloss.domain.book.dto.response.BookSummaryResponse
 import gloss.domain.book.dto.response.TocResponse
-import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
@@ -34,7 +31,7 @@ class BookService(
     private val bookRepository: BookRepository,
     private val tocRepository: TocRepository,
     private val tocItemRepository: TocItemRepository,
-    private val applicationEventPublisher: ApplicationEventPublisher,
+    private val tocService: TocService,
     private val clock: Clock,
 ) {
     /** A book typed in by the reader, with its contents as a first draft. */
@@ -130,32 +127,21 @@ class BookService(
         bookId: UUID,
         tocId: UUID,
     ): BookResponse {
-        val book = bookRepository.findForUpdate(bookId, accountId) ?: throw GlossException(BookError.BOOK_NOT_FOUND)
-        val latest = checkNotNull(tocRepository.findTopByBookIdAndAccountIdOrderByVersionNoDesc(book.id, accountId))
-        if (latest.id != tocId) {
-            val known = tocRepository.existsByIdAndBookIdAndAccountId(tocId, book.id, accountId)
-            throw GlossException(if (known) BookError.TOC_OUTDATED else BookError.TOC_NOT_FOUND)
-        }
-        val now = clock.instant()
-        val confirmed = latest.confirm(now)
-        book.use(latest)
-        // Once: confirming again changes nothing, and nothing is to be written from it again.
-        if (confirmed) {
-            applicationEventPublisher.publishEvent(
-                TocConfirmed(
-                    eventId = UuidV7.at(now),
-                    occurredAt = now,
-                    accountId = accountId,
-                    bookId = book.id,
-                    tocId = latest.id,
-                ),
-            )
-        }
-        return BookResponse.from(
-            book,
-            latest,
-            tocItemRepository.findAllByTocIdAndAccountIdOrderByOrd(latest.id, accountId),
-        )
+        val confirmed = tocService.confirmContents(accountId, bookId, tocId)
+        return get(accountId, confirmed.bookId)
+    }
+
+    /**
+     * A book typed in, for a module that held it until the reader started with it: made with its
+     * contents as the first version, and those confirmed at once.
+     */
+    @Transactional
+    fun createConfirmed(
+        accountId: UUID,
+        typed: TypedBook,
+    ): ContentsVersion {
+        val book = create(accountId, BookCreateRequest(title = typed.title, authors = typed.authors, toc = typed.toc))
+        return tocService.confirmContents(accountId, book.id, book.toc.id)
     }
 
     private fun keep(

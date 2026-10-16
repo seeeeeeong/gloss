@@ -7,6 +7,12 @@ import java.time.LocalDate
  * key, so every reader's searches spend the same allowance.
  */
 interface BookSourceGateway {
+    /** Which source this is, as a book found in it names it. */
+    val source: BookSource
+
+    /** The source's page for the book [ref] names, linked wherever its details are shown. */
+    fun page(ref: String): String
+
     /** The books a title or a few words find, best match first. */
     fun search(query: String): List<SourcedBook>
 
@@ -16,8 +22,8 @@ interface BookSourceGateway {
 
 /**
  * A book as a source describes it, each part cut to fit a book's columns. It has an ISBN: what a
- * shop sells without one is a set, a record or goods. [contents] is one item a line with the source's
- * markup taken off, null when the source has none.
+ * shop sells without one is a set, a record or goods. [cover] is the source's image of it, null when it
+ * has none; [contents] is one item a line with the source's markup taken off, null when it has none.
  */
 data class SourcedBook(
     val source: BookSource,
@@ -29,6 +35,7 @@ data class SourcedBook(
     val isbn13: Isbn13,
     val publishedOn: LocalDate?,
     val kind: String?,
+    val cover: String?,
     val contents: String?,
 )
 

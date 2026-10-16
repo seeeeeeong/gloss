@@ -1,9 +1,11 @@
 package gloss.domain.book.service
 
 import gloss.TestcontainersConfiguration
+import gloss.common.error.GlossException
 import gloss.domain.book.dto.request.BookCreateRequest
 import gloss.domain.book.dto.request.TocReviseRequest
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired

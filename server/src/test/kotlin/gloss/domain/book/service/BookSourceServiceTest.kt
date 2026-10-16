@@ -14,11 +14,15 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.context.ApplicationContext
 import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 @SpringBootTest
 @Import(TestcontainersConfiguration::class, FakeBookSourceGateway.Config::class)
@@ -29,11 +33,13 @@ class BookSourceServiceTest(
     @Autowired private val fakeBookSourceGateway: FakeBookSourceGateway,
     @Autowired private val jdbc: JdbcClient,
     @Autowired private val entityManager: EntityManager,
-    @Autowired private val clock: Clock,
+    // The few beans only the hand-made service below needs.
+    @Autowired private val applicationContext: ApplicationContext,
 ) {
     @BeforeEach
     fun reset() {
         fakeBookSourceGateway.reset()
+        applicationContext.getBean(EditionCache::class.java).clear()
     }
 
     // Rolled back with the test; no one signs in, so the hash is never read.
@@ -159,6 +165,81 @@ class BookSourceServiceTest(
     }
 
     @Test
+    fun `the same search gives editions to another module, with their covers`() {
+        fakeBookSourceGateway.holds("101")
+        fakeBookSourceGateway.holds("102", isbn13 = "9788998139766", contents = null)
+
+        val found = bookSourceService.editions(accountId(), " 오브젝트 ")
+
+        assertThat(fakeBookSourceGateway.asked).containsExactly("오브젝트")
+        assertThat(found.map { it.ref to it.hasContents }).containsExactly("101" to true, "102" to false)
+        assertThat(found.first().cover).isEqualTo("https://image.yes24.com/goods/101/L")
+        assertThat(found.first().isbn13).isEqualTo("9788966262472")
+    }
+
+    @Test
+    fun `the same words asked again soon are answered from memory, without asking the source`() {
+        fakeBookSourceGateway.holds("101")
+        val account = accountId()
+
+        val first = bookSourceService.editions(account, "오브젝트")
+        val again = bookSourceService.editions(account, " 오브젝트 ")
+
+        assertThat(again).isEqualTo(first)
+        assertThat(fakeBookSourceGateway.asked).containsExactly("오브젝트")
+    }
+
+    @Test
+    fun `an edition is read first and kept later, its source's contents the first version and confirmed`() {
+        fakeBookSourceGateway.holds("101")
+        fakeBookSourceGateway.holds("102", contents = null)
+        val account = accountId()
+
+        val edition = bookSourceService.fetch(account, "101")
+        val kept = bookSourceService.keep(account, edition, checkNotNull(edition.contents))
+
+        val book = bookService.get(account, kept.bookId)
+        assertThat(edition.ref).isEqualTo("101")
+        assertThat(kept.tocId).isEqualTo(book.toc.id)
+        assertThat(book.currentTocId).isEqualTo(book.toc.id)
+        assertThat(kept.versionNo).isEqualTo(1)
+        assertThat(kept.items).isEqualTo(3)
+        assertThat(book.toc.origin).isEqualTo("api")
+        assertThat(book.sourceUrl).isEqualTo("https://www.yes24.com/product/goods/101")
+        assertFails(BookError.SOURCE_BOOK_NOT_FOUND) { bookSourceService.fetch(account, "999") }
+        assertThat(bookSourceService.fetch(account, "102").contents).isNull()
+    }
+
+    @Test
+    fun `contents the reader changed before keeping are a second version after the source's`() {
+        fakeBookSourceGateway.holds("101")
+        val account = accountId()
+        val edition = bookSourceService.fetch(account, "101")
+
+        val kept = bookSourceService.keep(account, edition, "1장 객체\n2장 설계")
+
+        val book = bookService.get(account, kept.bookId)
+        assertThat(kept.versionNo).isEqualTo(2)
+        assertThat(kept.items).isEqualTo(2)
+        assertThat(book.toc.origin).isEqualTo("manual")
+        assertThat(book.source).isEqualTo("yes24")
+    }
+
+    @Test
+    fun `an edition the source has no contents for is kept with the reader's as the first version`() {
+        fakeBookSourceGateway.holds("102", contents = null)
+        val account = accountId()
+
+        val kept = bookSourceService.keep(account, bookSourceService.fetch(account, "102"), "1장 객체\n2장 설계")
+
+        val book = bookService.get(account, kept.bookId)
+        assertThat(kept.versionNo).isEqualTo(1)
+        assertThat(book.toc.origin).isEqualTo("manual")
+        assertThat(book.source).isEqualTo("yes24")
+        assertThat(book.currentTocId).isEqualTo(kept.tocId)
+    }
+
+    @Test
     fun `a book the source does not have, or has no usable contents for, is not added`() {
         fakeBookSourceGateway.holds("102", contents = null)
         val account = accountId()
@@ -171,6 +252,61 @@ class BookSourceServiceTest(
             bookSourceService.add(account, BookSourceAddRequest(ref = "102", toc = "  "))
         }
         assertThat(bookService.list(account)).isEmpty()
+    }
+
+    @Test
+    fun `a reader over their pace is refused alone, while another reader's ask of the same words goes on`() {
+        fakeBookSourceGateway.holds("101")
+        val busy = accountId()
+        val other = accountId()
+        repeat(20) { bookSourceService.search(busy, "오브젝트") }
+        fakeBookSourceGateway.asked.clear()
+        val gate = CountDownLatch(1)
+        fakeBookSourceGateway.holdCalls(gate)
+        val pool = Executors.newSingleThreadExecutor()
+        val leading = pool.submit<List<Edition>> { bookSourceService.editions(other, "객체지향") }
+        fakeBookSourceGateway.calling.await(5, TimeUnit.SECONDS)
+
+        assertFails(BookError.SEARCH_TOO_OFTEN) { bookSourceService.editions(busy, "객체지향") }
+        gate.countDown()
+
+        assertThat(leading.get(5, TimeUnit.SECONDS).map { it.ref }).containsExactly("101")
+        assertThat(fakeBookSourceGateway.asked).containsExactly("객체지향")
+        pool.shutdown()
+    }
+
+    @Test
+    fun `nine searches of the same words at once spend the key's pace once, so none is told the source is busy`() {
+        fakeBookSourceGateway.holds("101")
+        val clock = applicationContext.getBean(Clock::class.java)
+        val service =
+            BookSourceService(
+                bookSourceGateway = fakeBookSourceGateway,
+                bookSourceThrottle = BookSourceThrottle(perMinute = 20, perSecond = 1, perDay = 100, clock = clock),
+                bookService = bookService,
+                tocService = applicationContext.getBean(TocService::class.java),
+                editionCache = EditionCache(clock),
+            )
+        val gate = CountDownLatch(1)
+        val arrived = CountDownLatch(9)
+        fakeBookSourceGateway.holdCalls(gate)
+        val pool = Executors.newFixedThreadPool(9)
+        val answers =
+            List(9) {
+                pool.submit<String> {
+                    arrived.countDown()
+                    runCatching { service.editions(UUID.randomUUID(), "객체지향") }
+                        .fold({ found -> found.joinToString { it.ref } }, { (it as GlossException).error.code })
+                }
+            }
+        fakeBookSourceGateway.calling.await(5, TimeUnit.SECONDS)
+        // A search that arrives after the answer finds it remembered and spends nothing either.
+        arrived.await(5, TimeUnit.SECONDS)
+        gate.countDown()
+
+        assertThat(answers.map { it.get(10, TimeUnit.SECONDS) }).containsOnly("101")
+        assertThat(fakeBookSourceGateway.asked).containsExactly("객체지향")
+        pool.shutdown()
     }
 
     @Test
@@ -207,8 +343,16 @@ class BookSourceServiceTest(
 
     @Test
     fun `when every reader together has spent the key's pace, the next is told the source is busy`() {
+        val clock = applicationContext.getBean(Clock::class.java)
         val paced = BookSourceThrottle(perMinute = 20, perSecond = 1, perDay = 100, clock = clock)
-        val service = BookSourceService(fakeBookSourceGateway, paced, bookService)
+        val service =
+            BookSourceService(
+                bookSourceGateway = fakeBookSourceGateway,
+                bookSourceThrottle = paced,
+                bookService = bookService,
+                tocService = applicationContext.getBean(TocService::class.java),
+                editionCache = EditionCache(clock),
+            )
         service.search(accountId(), "오브젝트")
 
         assertFails(BookError.SOURCE_BUSY) { service.search(accountId(), "오브젝트") }

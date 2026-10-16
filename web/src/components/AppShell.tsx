@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import type { Me } from '@/lib/session'
 import { Icon } from './Icon'
+import { ShellPanelContext } from './ShellPanel'
 import { Tooltip } from './Tooltip'
 
 export type ShelfBook = { id: string; title: string }
@@ -22,6 +23,9 @@ export function AppShell({ me, books, children }: Props) {
   const path = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [drawer, setDrawer] = useState(false)
+  const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null)
+  const [panelOpen, setPanelOpen] = useState(false)
+  const panel = useMemo(() => ({ slot: panelSlot, setOpen: setPanelOpen }), [panelSlot])
   const opener = useRef<HTMLButtonElement>(null)
   const firstRow = useRef<HTMLAnchorElement>(null)
   // Escape and the scrim hand focus back to the menu button; following a link leaves it on the new page.
@@ -71,7 +75,14 @@ export function AppShell({ me, books, children }: Props) {
   }
 
   const leave = () => setDrawer(false)
-  const frame = ['app', collapsed && 'rail', drawer && 'drawer'].filter(Boolean).join(' ')
+  const frame = [
+    'app',
+    (collapsed || panelOpen) && 'rail',
+    panelOpen && 'panel-open',
+    drawer && 'drawer',
+  ]
+    .filter(Boolean)
+    .join(' ')
   return (
     <div className={frame}>
       <nav id="sidebar" className="sb" aria-label="사이드바">
@@ -215,8 +226,9 @@ export function AppShell({ me, books, children }: Props) {
             <Icon name="newbook" />
           </Link>
         </div>
-        {children}
+        <ShellPanelContext value={panel}>{children}</ShellPanelContext>
       </main>
+      <aside ref={setPanelSlot} className="panel" hidden={!panelOpen} />
       <Tooltip />
     </div>
   )

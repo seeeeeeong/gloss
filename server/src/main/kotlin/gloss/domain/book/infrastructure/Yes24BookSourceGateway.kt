@@ -50,6 +50,10 @@ class Yes24BookSourceGateway(
         items("/goods/itemList?query={query}&category=ALL&sort=RELATION&pageSize={size}&detail=Y", query, PAGE_SIZE)
             .mapNotNull(::bookOf)
 
+    override val source = BookSource.YES24
+
+    override fun page(ref: String): String = "$PRODUCT_PAGE$ref"
+
     override fun find(ref: String): SourcedBook? {
         val id = ref.takeIf(ITEM_ID::matches)?.toIntOrNull()?.takeIf { it > 0 } ?: return null
         return items("/goods/itemDetail?searchType=ItemId&query={id}&detail=Y", id).firstNotNullOfOrNull(::bookOf)
@@ -132,7 +136,7 @@ class Yes24BookSourceGateway(
         return SourcedBook(
             source = BookSource.YES24,
             ref = id.toString(),
-            url = "$PRODUCT_PAGE$id",
+            url = page(id.toString()),
             title = title,
             // One line with roles, as "A,B 공저/C 역": cut at the role groups only, since a comma also
             // sits inside "Kurose, James".
@@ -147,6 +151,8 @@ class Yes24BookSourceGateway(
             isbn13 = isbn13,
             publishedOn = item.text("publishDate")?.let(::dateOf),
             kind = item.text("goodsType")?.let { clip(it, MAX_KIND) },
+            // Shown on a page served over HTTPS, so an address of another scheme is no cover.
+            cover = item.text("cover")?.takeIf { it.startsWith("https://") && it.length <= MAX_URL },
             contents = item.path("contentDetail").text("tableOfContents")?.let(Yes24Contents::clean),
         )
     }
@@ -204,6 +210,9 @@ class Yes24BookSourceGateway(
         const val MAX_NAME = 100
         const val MAX_AUTHORS = 20
         const val MAX_KIND = 20
+
+        // As book.source_url's check (V12): a cover's address is held to the bound its page's is.
+        const val MAX_URL = 500
         const val OK = 200
         const val UNAUTHORIZED = 401
         const val FORBIDDEN = 403
