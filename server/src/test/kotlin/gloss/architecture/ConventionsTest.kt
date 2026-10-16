@@ -89,12 +89,12 @@ internal object Conventions {
 
     /**
      * Closely related types share a file, the one it is named after first: `Password.kt` opens
-     * with `Password`, then `PasswordDecision`. A `dto` package groups a controller's requests
-     * and responses as `XxxDto.kt`.
+     * with `Password`, then `PasswordDecision`. In a `dto` package each request or response
+     * has a file of its own.
      */
     fun filesNamedAfterFirstType(scope: KoScope) {
         scope.files.assertTrue(
-            additionalMessage = "Name the file after its first type, or XxxDto in a dto package.",
+            additionalMessage = "Name the file after its first type; in a dto package, give each type its own file.",
         ) { file ->
             val types =
                 file
@@ -105,8 +105,8 @@ internal object Conventions {
                             it is KoObjectDeclaration ||
                             it is KoTypeAliasDeclaration
                     }.map { (it as KoNameProvider).name }
-            val dto = file.name.endsWith("Dto") && file.packagee?.name?.endsWith(".dto") == true
-            types.isEmpty() || types.first() == file.name || dto
+            val dto = ".dto." in ".${file.packagee?.name}."
+            types.isEmpty() || (types.first() == file.name && (!dto || types.size == 1))
         }
     }
 

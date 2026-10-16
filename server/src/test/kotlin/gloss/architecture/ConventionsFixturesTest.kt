@@ -54,10 +54,20 @@ class ConventionsFixturesTest {
     }
 
     @Test
-    fun `a dto file passes only in a dto package`() {
-        assertThatCode { Conventions.filesNamedAfterFirstType(scope("onetype/dto/good")) }.doesNotThrowAnyException()
-        assertThatThrownBy { Conventions.filesNamedAfterFirstType(scope("onetype/dto/bad")) }
+    fun `a request or response in a file of its own passes`() {
+        assertThatCode { Conventions.filesNamedAfterFirstType(scope("onetype/dto/split")) }.doesNotThrowAnyException()
+    }
+
+    @Test
+    fun `a dto file grouping a controller's requests and responses is caught`() {
+        assertThatThrownBy { Conventions.filesNamedAfterFirstType(scope("onetype/dto/grouped")) }
             .hasMessageContaining("BudgetDto")
+    }
+
+    @Test
+    fun `a second type in a dto file named after the first is caught`() {
+        assertThatThrownBy { Conventions.filesNamedAfterFirstType(scope("onetype/dto/paired")) }
+            .hasMessageContaining("UsageResponse")
     }
 
     @Test

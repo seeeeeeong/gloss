@@ -45,10 +45,17 @@ class ModularityFixturesTest {
     }
 
     @Test
-    fun `a package that declared no module is found`() {
+    fun `a module in the domain container is found`() {
+        val modules = modulesOf(DeclaredApplication::class.java)
+
+        assertThat(modules.map { it.identifier.toString() }).contains("f")
+    }
+
+    @Test
+    fun `a package that declared no module is found, beside the modules or in the domain container`() {
         val modules = modulesOf(DeclaredApplication::class.java)
 
         assertThat(Modularity.undeclaredModulePackages(DeclaredApplication::class.java, modules, ImportOption { true }))
-            .containsExactly("fixtures.modulith.declared.d")
+            .containsExactlyInAnyOrder("fixtures.modulith.declared.d", "fixtures.modulith.declared.domain.e")
     }
 }

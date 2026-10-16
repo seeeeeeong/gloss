@@ -78,7 +78,8 @@ internal object Rules {
         }
 
     private const val PRESENTATION = "presentation"
-    private const val APPLICATION = "application"
+    private const val SERVICE = "service"
+    private const val DTO = "dto"
     private const val DOMAIN = "domain"
     private const val INFRASTRUCTURE = "infrastructure"
 
@@ -95,36 +96,45 @@ internal object Rules {
     private fun isPure(type: JavaClass) =
         resideInAnyPackage(*PURE).test(type) && !resideInAnyPackage(*IMPURE).test(type) && type.name !in IMPURE_TYPES
 
+    private fun modules(root: String) = "$root.$DOMAIN.*"
+
     // Of our own code, only other models and the shared base entity and ids; not common's
     // security or error handling, which speak HTTP and sessions.
     private fun domainProjectPackages(root: String) =
-        arrayOf("$root.*.$DOMAIN..", "$root.common.entity..", "$root.common.util..")
+        arrayOf("${modules(root)}.$DOMAIN..", "$root.common.entity..", "$root.common.util..")
 
-    /** presentation → application → domain ← infrastructure, in every module under [root]. */
+    /**
+     * presentation → service → domain ← infrastructure in every module under [root]'s domain
+     * package, with dto between presentation and service and reading only the domain.
+     */
     fun layers(root: String): ArchRule =
         layeredArchitecture()
             .consideringOnlyDependenciesInLayers()
             .layer(PRESENTATION)
-            .definedBy("$root.*.$PRESENTATION..")
-            .layer(APPLICATION)
-            .definedBy("$root.*.$APPLICATION..")
+            .definedBy("${modules(root)}.$PRESENTATION..")
+            .layer(SERVICE)
+            .definedBy("${modules(root)}.$SERVICE..")
+            .layer(DTO)
+            .definedBy("${modules(root)}.$DTO..")
             .layer(DOMAIN)
-            .definedBy("$root.*.$DOMAIN..")
+            .definedBy("${modules(root)}.$DOMAIN..")
             .layer(INFRASTRUCTURE)
-            .definedBy("$root.*.$INFRASTRUCTURE..")
+            .definedBy("${modules(root)}.$INFRASTRUCTURE..")
             .whereLayer(PRESENTATION)
             .mayNotBeAccessedByAnyLayer()
-            .whereLayer(APPLICATION)
+            .whereLayer(SERVICE)
             .mayOnlyBeAccessedByLayers(PRESENTATION)
+            .whereLayer(DTO)
+            .mayOnlyBeAccessedByLayers(PRESENTATION, SERVICE)
             .whereLayer(INFRASTRUCTURE)
-            .mayOnlyBeAccessedByLayers(APPLICATION)
+            .mayOnlyBeAccessedByLayers(SERVICE)
             .whereLayer(DOMAIN)
-            .mayOnlyBeAccessedByLayers(PRESENTATION, APPLICATION, INFRASTRUCTURE)
+            .mayOnlyBeAccessedByLayers(PRESENTATION, SERVICE, DTO, INFRASTRUCTURE)
 
     fun domainFrameworks(root: String): ArchRule =
         classes()
             .that()
-            .resideInAPackage("$root.*.$DOMAIN..")
+            .resideInAPackage("${modules(root)}.$DOMAIN..")
             .should()
             .onlyDependOnClassesThat(
                 DescribedPredicate.describe(

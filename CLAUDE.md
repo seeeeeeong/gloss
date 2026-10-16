@@ -46,27 +46,30 @@ from memory.
 ## Architecture
 
 - **Layout**: `gloss/common/` (config, entity, error, security, util) and one package per
-  bounded context directly under `gloss/` (`gloss/account`, `gloss/audit`), each in four layers:
+  bounded context under `gloss/domain/` (`gloss/domain/account`, `gloss/domain/audit`), each in
+  these layers:
 
   | Layer | Holds |
   |---|---|
   | `presentation/` | controllers, and the web's `security/` (filters, session) |
-  | `application/` | services (the transaction boundary), `dto/`, the module's `XxxError`, listeners |
-  | `domain/` | entities, value objects, rules, the Spring Data repository, `event/` |
+  | `service/` | services (the transaction boundary), the module's `XxxError`, listeners, types other modules get |
+  | `dto/request/`, `dto/response/` | `XxxRequest`, `XxxResponse` |
+  | `domain/` | entities, value objects, rules, `repository/` (Spring Data), `event/` |
   | `infrastructure/` | `JdbcXxx` on JdbcClient, files, external clients |
 
-  `presentation → application → domain ← infrastructure`, and `application → infrastructure`
-  for what has no interface. `domain/` uses only the JDK, Kotlin, JPA, Spring Data, other models
-  and `common`'s entity and util.
-  `ArchitectureTest` checks both.
-- **Modules**: each `gloss/<context>` is a Spring Modulith module, declared in its
+  `presentation → service → domain ← infrastructure`, and `service → infrastructure` for what
+  has no interface. `dto/` is used by presentation and service and reads only the domain.
+  `domain/` uses only the JDK, Kotlin, JPA, Spring Data, other models and `common`'s entity and
+  util. `ArchitectureTest` checks both.
+- **Modules**: each `gloss/domain/<context>` is a Spring Modulith module, declared in its
   `ModuleMetadata.kt` (`@ApplicationModule(id = "<context>", allowedDependencies = ...)`;
-  detection is `explicitly-annotated`). Its layers are hidden; `application/` and
-  `domain/event/` are opened as the named interfaces `<context> :: application` and
+  detection is `explicitly-annotated`). Its layers are hidden; `service/` and
+  `domain/event/` are opened as the named interfaces `<context> :: service` and
   `<context> :: event`; a module may open a package of value types its callers need, as
   `llm :: chat` (`domain/chat/`: messages, roles, thinking, finish reasons), rather than copy
-  them into `application/`. `common` is an open module. `ModularityTest` verifies the boundaries
-  and that no package under `gloss/` forgot to declare itself.
+  them into `service/`. `common` is an open module; `gloss/domain/` is a plain package, not a
+  module. `ModularityTest` verifies the boundaries and that no package under `gloss/` or
+  `gloss/domain/` forgot to declare itself.
 - **No ports**: no use-case interfaces; an interface only for an external system
   (`LlmGateway`, `BookSourceGateway`).
 - **Events** are for side effects another module owns (audit, key revocation). A past-tense
@@ -74,7 +77,9 @@ from memory.
   secret. The listener is `@ApplicationModuleListener(id = "<module>.<source>")`: it runs after
   commit on its own thread, and `event_publication` redelivers it, so it must be idempotent.
   The id and the event's class name and fields are stored, so changing them strands waiting
-  events.
+  events; a move needs a migration rewriting `event_publication.event_type`.
+- **Sessions**: Spring Session stores `gloss.common.security.SessionAccount` by class name;
+  moving or renaming it signs every reader out.
 - **Rules** (`XxxPolicy`, `XxxDecision`, `XxxParser`, `XxxPrompt`, `XxxCheck`, `XxxCipher`) sit
   in `domain/` and depend only on Kotlin, the JDK's pure packages and other rule classes;
   `ArchitectureTest` checks it with an allow list.
@@ -85,15 +90,15 @@ from memory.
 - **Persistence**: JPA for accounts, keys, books, TOCs, plans, posts and chat sessions.
   JdbcClient for append-only ledgers, the job queue and chat messages. Append-only tables are
   guarded by triggers and, in JPA, `@Immutable`.
-- **DTOs**: `XxxRequest` / `XxxResponse` data classes in `application/dto/`. The service
-  takes requests and returns responses (`MyAccountResponse.from(account)`); a method another
-  module calls returns a type of its own from `application/`, since `dto/` is hidden. Entities never
+- **DTOs**: `XxxRequest` / `XxxResponse` data classes in `dto/request/` and `dto/response/`, one
+  per file. The service takes requests and returns responses (`MyAccountResponse.from(account)`);
+  a method another module calls returns a type of its own from `service/`, since `dto/` is hidden. Entities never
   leave through a controller. Validation annotations name their target (`@field:NotBlank`).
 - **Controllers** are thin: one service call, its result returned as is. They return the response
   type, never a `ResponseEntity`; a status other than 200 is `@ResponseStatus`. Sign-in and
   password change also call `SignedInSession`, since session work is not the service's.
   One step per line with a named value, rather than calls nested inside calls.
-- **Errors**: each module has an `application/XxxError` enum implementing `ErrorCode` (status,
+- **Errors**: each module has a `service/XxxError` enum implementing `ErrorCode` (status,
   `module.snake_case` code, Korean message shown as is). The service throws
   `GlossException(XxxError.Y)`; `GlobalExceptionHandler` and the security filters answer
   `{code, message}`. A sealed result only where the caller really branches on it.
@@ -123,11 +128,10 @@ from memory.
 
 - Time comes from an injected `java.time.Clock`; detekt forbids `now()` and
   `currentTimeMillis`. Tests move a clock; they never sleep.
-- IDs are UUIDv7 made by the application (`gloss.common.UuidV7`).
+- IDs are UUIDv7 made by the application (`gloss.common.util.UuidV7`).
 - Closely related types share a file named after the first of them: `Password.kt` opens
-  with `Password`, then `PasswordDecision`; a module's events share `XxxEvent.kt`; a
-  controller's requests and responses share `dto/XxxDto.kt`. A rule or value object with its
-  own test keeps its own file. Events stay top-level, never nested: their class name is stored.
+  with `Password`, then `PasswordDecision`; a module's events share `XxxEvent.kt`. A request or
+  response has a file of its own. A rule or value object with its own test keeps its own file. Events stay top-level, never nested: their class name is stored.
 - Tests mirror production files: `PostService.kt` → `PostServiceTest.kt`, same package.
   Each migration `V<n>__<name>.sql` has a `<Name>SchemaTest` against real PostgreSQL.
 - Every architecture rule has a fixture that breaks it.

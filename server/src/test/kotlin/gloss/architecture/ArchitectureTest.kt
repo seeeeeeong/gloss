@@ -16,7 +16,7 @@ class ArchitectureTest {
     }
 
     @Test
-    fun `layers depend inward, presentation to application to domain, infrastructure to domain`() {
+    fun `layers depend inward, presentation to service to domain, infrastructure to domain`() {
         Rules.layers("gloss").check(production)
     }
 
