@@ -32,8 +32,8 @@ class RulesTest {
             )
     }
 
-    // "Field <fixtures.layers.shop.domain.Invoice.shopService> has type ..." names the offender first.
-    private val layerOffender = Regex("^\\w+ <fixtures\\.layers\\.shop\\.(\\w+\\.\\w+)")
+    // "Field <fixtures.layers.domain.shop.domain.Invoice.shopService> has type ..." names the offender first.
+    private val layerOffender = Regex("^\\w+ <fixtures\\.layers\\.domain\\.shop\\.([a-z.]+\\.[A-Z]\\w*)")
 
     private fun offendersOf(report: List<String>) =
         report
@@ -46,7 +46,12 @@ class RulesTest {
         val result = Rules.layers("fixtures.layers").evaluate(fixtures("fixtures.layers"))
 
         assertThat(offendersOf(result.failureReport.details))
-            .containsExactlyInAnyOrder("domain.Invoice", "application.Report", "presentation.OrderView")
+            .containsExactlyInAnyOrder(
+                "domain.Invoice",
+                "service.Report",
+                "presentation.OrderView",
+                "dto.request.RefundRequest",
+            )
     }
 
     @Test

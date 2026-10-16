@@ -1,7 +1,7 @@
 package gloss.schema
 
 import gloss.TestcontainersConfiguration
-import gloss.account.Members
+import gloss.domain.account.Members
 import org.assertj.core.api.Assertions.assertThatCode
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
