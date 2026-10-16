@@ -4,9 +4,11 @@ import gloss.common.error.GlossException
 import gloss.domain.account.service.AccountService
 import gloss.domain.generation.domain.job.JobStatus
 import gloss.domain.generation.domain.job.NewJob
+import gloss.domain.generation.infrastructure.JdbcJobLeases
 import gloss.domain.generation.infrastructure.JdbcJobQueue
 import gloss.domain.generation.infrastructure.JdbcJobStatuses
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Propagation
 import org.springframework.transaction.annotation.Transactional
 import org.springframework.transaction.support.TransactionSynchronization
 import org.springframework.transaction.support.TransactionSynchronizationManager
@@ -17,10 +19,18 @@ import java.util.UUID
 class GenerationService(
     private val accountService: AccountService,
     private val jdbcJobQueue: JdbcJobQueue,
+    private val jdbcJobLeases: JdbcJobLeases,
     private val jdbcJobStatuses: JdbcJobStatuses,
     private val jobWorker: JobWorker,
     private val clock: Clock,
 ) {
+    /**
+     * Whether [job]'s attempt still holds it. The hold lasts until the caller's transaction ends, so
+     * no other attempt takes the job before what the caller writes under it commits.
+     */
+    @Transactional(propagation = Propagation.MANDATORY)
+    fun holdLease(job: RunningJob): Boolean = jdbcJobLeases.hold(job.claimed.lease)
+
     /**
      * Joins the caller's transaction, so the job exists only if the caller's work commits. The
      * worker is woken after the commit: woken before, it would find nothing to claim.

@@ -216,6 +216,34 @@ class JobCallServiceTest(
     }
 
     @Test
+    fun `an answer that ended for a reason of its own comes back to a caller that judges it, recorded`() {
+        val account = readers.create()
+        val job = job(account)
+        fakeLlmGateway.answer = { _, _ -> ChatResult("{\"items\": [", FinishReason.LENGTH, usage) }
+
+        val reply = jobCallService.answer(job, call(account), "plan-1")
+
+        assertThat(reply.finishReason).isEqualTo(FinishReason.LENGTH)
+        assertThat(reply.text).isEqualTo("{\"items\": [")
+        assertThat(rows(job).single().finishReason).isEqualTo("length")
+        assertThat(rows(job).single().reservationId).isEqualTo(reply.reservationId)
+    }
+
+    @Test
+    fun `an answer cut for the provider's own load, or a job cancelled, is not handed to a judge`() {
+        val account = readers.create()
+        fakeLlmGateway.answer = { _, _ -> ChatResult("{", FinishReason.INSUFFICIENT_SYSTEM_RESOURCE, usage) }
+
+        val busy = failure { jobCallService.answer(job(account), call(account), "plan-1") }
+
+        assertThat(busy.errorKind).isEqualTo("finish.insufficient_system_resource")
+        assertThat(busy.retryable).isTrue()
+        val cancelled = job(account).also { it.requestCancel() }
+        assertThat(failure { jobCallService.answer(cancelled, call(account), "plan-1") }.errorKind)
+            .isEqualTo("cancelled")
+    }
+
+    @Test
     fun `an answer the provider cut for its own load may be asked for again`() {
         val account = readers.create()
         fakeLlmGateway.answer = { _, _ -> ChatResult("{", FinishReason.INSUFFICIENT_SYSTEM_RESOURCE, usage) }

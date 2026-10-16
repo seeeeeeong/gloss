@@ -25,6 +25,8 @@ class RunningJob(
 
     val jobId: UUID get() = claimed.lease.jobId
 
+    val attempt: Int get() = claimed.lease.attempt
+
     val accountId: UUID get() = claimed.accountId
 
     val payload: Map<String, String> get() = claimed.payload
