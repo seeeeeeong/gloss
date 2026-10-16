@@ -1,22 +1,25 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { send } from '@/lib/api'
-import { authorsOf, type Book, type BookCandidate, editionOf } from '@/lib/books'
+import type { ApiResult } from '@/lib/api'
+import { authorsOf, editionOf } from '@/lib/books'
+import type { OfferedBook, TypedContents } from '@/lib/setup'
 
 // Shows the shape the server reads: one item a line, depth from numbering or indent.
 const TOC_EXAMPLE = '1장 시작하기\n  1.1 설치\n  1.2 첫 프로그램\n2장 자료형'
 
-const optional = (value: FormDataEntryValue | null) => String(value ?? '').trim() || null
+type Props = {
+  /** An edition this session found without contents; null for a book typed in whole. */
+  found: OfferedBook | null
+  onSubmit: (typed: TypedContents) => Promise<ApiResult<unknown> | null>
+  onCancel: () => void
+}
 
 /**
- * A book typed in whole, or only the contents of `found`: an edition the source knows but has no
- * contents for. Its details stay the source's, so the book still names where they came from.
+ * Contents the reader types in, held in the session as a pick's are: for `found`, or for a book of
+ * their own. No book is made here; the panel opens with them.
  */
-export function BookCreateForm(props: { found: BookCandidate | null; onCancel: () => void }) {
-  const { found, onCancel } = props
-  const router = useRouter()
+export function TypedContentsForm({ found, onSubmit, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const first = useRef<HTMLInputElement>(null)
@@ -27,35 +30,27 @@ export function BookCreateForm(props: { found: BookCandidate | null; onCancel: (
     else first.current?.focus()
   }, [found])
 
-  async function create(event: FormEvent<HTMLFormElement>) {
+  async function hold(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
+    const toc = String(form.get('toc') ?? '')
     setPending(true)
     setError(null)
-    const result = found
-      ? await send<Book>('POST', '/api/me/books/from-source', {
-          ref: found.ref,
-          toc: form.get('toc'),
-        })
-      : await send<Book>('POST', '/api/me/books', {
-          title: form.get('title'),
-          authors: authorsOf(String(form.get('authors') ?? '')),
-          publisher: optional(form.get('publisher')),
-          isbn13: optional(form.get('isbn13')),
-          toc: form.get('toc'),
-        })
-    if (!result.ok) {
-      setPending(false)
-      setError(result.message)
-      return
-    }
-    // Stays pending: the book exists, and its page is on its way; the sidebar lists it too.
-    router.push(`/books/${result.data.id}`)
-    router.refresh()
+    const result = await onSubmit(
+      found
+        ? { ref: found.ref, toc }
+        : {
+            title: String(form.get('title') ?? ''),
+            authors: authorsOf(String(form.get('authors') ?? '')),
+            toc,
+          },
+    )
+    setPending(false)
+    if (result && !result.ok) setError(result.message)
   }
 
   return (
-    <form className="s-form" onSubmit={create}>
+    <form className="s-form" onSubmit={hold}>
       {found ? (
         <div>
           <p className="bk-title">{found.title}</p>
@@ -84,21 +79,6 @@ export function BookCreateForm(props: { found: BookCandidate | null; onCancel: (
               disabled={pending}
             />
           </label>
-          <label className="f-l">
-            출판사
-            <input className="field" name="publisher" autoComplete="off" disabled={pending} />
-          </label>
-          <label className="f-l">
-            ISBN
-            <input
-              className="field"
-              name="isbn13"
-              inputMode="numeric"
-              autoComplete="off"
-              spellCheck={false}
-              disabled={pending}
-            />
-          </label>
         </>
       )}
       <label className="f-l">
@@ -120,7 +100,7 @@ export function BookCreateForm(props: { found: BookCandidate | null; onCancel: (
       )}
       <div className="actions">
         <button type="submit" className="btn primary" disabled={pending}>
-          {pending ? '추가 중' : '추가하고 목차 확인'}
+          {pending ? '보내는 중' : '목차 보기'}
         </button>
         <button type="button" className="btn sec" disabled={pending} onClick={onCancel}>
           취소

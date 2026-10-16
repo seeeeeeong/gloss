@@ -44,10 +44,11 @@ class Yes24BookSourceGatewayTest {
         isbn13: String = "9788966262472",
         toc: String? = "1장 객체<br>1.1 티켓",
         published: String = "20190617",
+        cover: String = "https://image.yes24.com/goods/$id/L",
     ) = """
         {"itemId": $id, "title": " 오브젝트  ", "author": "조영호 저/홍길동,김철수 공역", "goodsType": "도서",
          "publisher": "위키북스", "isbn13": "$isbn13", "publishDate": "$published",
-         "link": "https://www.yes24.com/product/goods/$id",
+         "link": "https://www.yes24.com/product/goods/$id", "cover": "$cover",
          "contentDetail": {"bookIntroduction": null, "tableOfContents": ${toc?.let { "\"$it\"" } ?: "null"}}}
         """.trimIndent()
 
@@ -89,7 +90,19 @@ class Yes24BookSourceGatewayTest {
         assertThat(book.isbn13.value).isEqualTo("9788966262472")
         assertThat(book.publishedOn).isEqualTo(LocalDate.of(2019, 6, 17))
         assertThat(book.kind).isEqualTo("도서")
+        assertThat(book.cover).isEqualTo("https://image.yes24.com/goods/101/L")
         assertThat(book.contents).isEqualTo("1장 객체\n1.1 티켓")
+    }
+
+    @Test
+    fun `a cover is kept only at an https address`() {
+        val books =
+            answering(
+                200,
+                found(item(id = 1, cover = "http://image.yes24.com/goods/1/L"), item(id = 2, cover = "")),
+            ).search("책")
+
+        assertThat(books.map { it.cover }).containsOnlyNulls()
     }
 
     @Test

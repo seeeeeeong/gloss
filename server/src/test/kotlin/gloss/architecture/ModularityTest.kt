@@ -34,6 +34,7 @@ class ModularityTest {
             "llm",
             "plan",
             "post",
+            "setup",
         )
     }
 

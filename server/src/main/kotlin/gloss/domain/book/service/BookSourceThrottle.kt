@@ -38,28 +38,70 @@ class BookSourceThrottle(
     private var day: LocalDate? = null
     private var askedToday = 0
 
-    /** An allowed ask is counted; a refused one is not. */
+    /**
+     * A reader's own ask that reaches the source: their pace and the key's together. An allowed ask
+     * is counted; a refused one is not.
+     */
     fun ask(accountId: UUID): Verdict =
         synchronized(lock) {
             val now = clock.instant()
             forget(now)
-            when {
-                (byReader[accountId]?.size ?: 0) >= perMinute -> {
-                    Verdict.READER_TOO_OFTEN
-                }
-
-                lastSecond.size >= perSecond || askedToday >= perDay -> {
-                    Verdict.KEY_SPENT
-                }
-
-                else -> {
-                    byReader.getOrPut(accountId, ::ArrayDeque).addLast(now)
-                    lastSecond.addLast(now)
-                    askedToday++
-                    Verdict.ALLOWED
-                }
+            val verdict = verdictOf(readerFull(accountId), keyFull())
+            if (verdict == Verdict.ALLOWED) {
+                countReader(accountId, now)
+                countKey(now)
             }
+            verdict
         }
+
+    /**
+     * A reader's search that may be answered by another's ask of the same words: it counts toward
+     * their own pace, but not the key's, which only the ask that reaches the source spends.
+     */
+    fun reader(accountId: UUID): Verdict =
+        synchronized(lock) {
+            val now = clock.instant()
+            forget(now)
+            val verdict = verdictOf(readerFull(accountId), keyFull = false)
+            if (verdict == Verdict.ALLOWED) countReader(accountId, now)
+            verdict
+        }
+
+    /** The one ask that reaches the source for searches waiting on it: the key's pace only. */
+    fun source(): Verdict =
+        synchronized(lock) {
+            val now = clock.instant()
+            forget(now)
+            val verdict = verdictOf(readerFull = false, keyFull = keyFull())
+            if (verdict == Verdict.ALLOWED) countKey(now)
+            verdict
+        }
+
+    private fun readerFull(accountId: UUID) = (byReader[accountId]?.size ?: 0) >= perMinute
+
+    private fun keyFull() = lastSecond.size >= perSecond || askedToday >= perDay
+
+    private fun verdictOf(
+        readerFull: Boolean,
+        keyFull: Boolean,
+    ): Verdict =
+        when {
+            readerFull -> Verdict.READER_TOO_OFTEN
+            keyFull -> Verdict.KEY_SPENT
+            else -> Verdict.ALLOWED
+        }
+
+    private fun countReader(
+        accountId: UUID,
+        now: Instant,
+    ) {
+        byReader.getOrPut(accountId, ::ArrayDeque).addLast(now)
+    }
+
+    private fun countKey(now: Instant) {
+        lastSecond.addLast(now)
+        askedToday++
+    }
 
     // Every reader's old asks go at each ask, so the map holds only readers who asked in the last minute.
     private fun forget(now: Instant) {

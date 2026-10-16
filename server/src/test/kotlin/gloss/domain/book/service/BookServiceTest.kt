@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit
 @RecordApplicationEvents
 class BookServiceTest(
     @Autowired private val bookService: BookService,
+    @Autowired private val tocService: TocService,
     @Autowired private val jdbc: JdbcClient,
     @Autowired private val entityManager: EntityManager,
 ) {
@@ -150,6 +151,49 @@ class BookServiceTest(
         assertThat(again.toc.confirmedAt).isEqualTo(confirmed.toc.confirmedAt)
         val said = events.stream(TocConfirmed::class.java).toList().single()
         assertThat(listOf(said.accountId, said.bookId, said.tocId)).containsExactly(account, created.id, created.toc.id)
+    }
+
+    @Test
+    fun `another module confirms the same way, and learns which version it confirmed`(
+        @Autowired events: ApplicationEvents,
+    ) {
+        val account = accountId()
+        val created = bookService.create(account, request())
+
+        val confirmed = tocService.confirmContents(account, created.id, created.toc.id)
+
+        assertThat(
+            confirmed,
+        ).isEqualTo(ContentsVersion(bookId = created.id, tocId = created.toc.id, versionNo = 1, items = 4))
+        assertThat(bookService.get(account, created.id).currentTocId).isEqualTo(created.toc.id)
+        assertThat(events.stream(TocConfirmed::class.java).toList()).hasSize(1)
+        assertFails(BookError.TOC_NOT_FOUND) { tocService.confirmContents(account, created.id, UUID.randomUUID()) }
+    }
+
+    @Test
+    fun `a book typed in elsewhere is made with its contents as the first version, confirmed at once`(
+        @Autowired events: ApplicationEvents,
+    ) {
+        val account = accountId()
+
+        val confirmed =
+            bookService.createConfirmed(
+                account,
+                TypedBook.of(title = " 오브젝트 ", authors = listOf(" 조영호 ", ""), toc = contents),
+            )
+
+        val book = bookService.get(account, confirmed.bookId)
+        assertThat(book.title).isEqualTo("오브젝트")
+        assertThat(book.authors).containsExactly("조영호")
+        assertThat(book.source).isEqualTo("manual")
+        assertThat(book.toc.versionNo).isEqualTo(1)
+        assertThat(book.currentTocId).isEqualTo(confirmed.tocId)
+        assertThat(events.stream(TocConfirmed::class.java).toList()).hasSize(1)
+        assertFails(BookError.INVALID_TITLE) { TypedBook.of(title = " ", authors = emptyList(), toc = contents) }
+        assertFails(
+            BookError.INVALID_AUTHORS,
+        ) { TypedBook.of(title = "책", authors = List(21) { "저자" }, toc = contents) }
+        assertFails(BookError.INVALID_TOC) { TypedBook.of(title = "책", authors = emptyList(), toc = "\n \n") }
     }
 
     @Test
