@@ -49,7 +49,7 @@ export function SetupChat({ initial }: { initial: SetupSession | null }) {
   const composer = (docked: boolean) => (
     <Composer
       label="메시지"
-      placeholder="Gloss에게 물어보세요"
+      placeholder={docked ? undefined : 'Gloss에게 물어보세요'}
       maxLength={MAX_TEXT}
       busy={pending !== null || session?.state === 'confirmed' || session?.searching === true}
       autoFocus={docked}
