@@ -13,6 +13,7 @@ import {
   repliedTo,
   shownOf,
   showsThread,
+  startsDocked,
   type TutorAction,
   type TutorState,
   turnIn,
@@ -292,5 +293,13 @@ describe('repliedTo', () => {
     expect(repliedTo(thread, 1)).toBe(false)
     expect(repliedTo(thread, 2)).toBe(true)
     expect(turnIn(thread, 'turn-1')).toBe('kept')
+  })
+})
+
+describe('startsDocked', () => {
+  it('opens a book with the tutor closed unless the reader docked it', () => {
+    expect(startsDocked(null)).toBe(false)
+    expect(startsDocked('false')).toBe(false)
+    expect(startsDocked('true')).toBe(true)
   })
 })
