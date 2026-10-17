@@ -2,6 +2,7 @@ package gloss.domain.book.domain
 
 import gloss.common.entity.BaseEntity
 import gloss.common.util.UuidV7
+import gloss.domain.book.domain.style.WritingStyle
 import jakarta.persistence.AttributeConverter
 import jakarta.persistence.Convert
 import jakarta.persistence.Converter
@@ -41,10 +42,20 @@ class Book private constructor(
         protected set
     var currentTocId: UUID? = null
         protected set
+
+    @Convert(converter = LevelColumn::class)
+    var level: WritingStyle.Level = draft.style.level
+        protected set
+
+    @Convert(converter = VoiceColumn::class)
+    var voice: WritingStyle.Voice = draft.style.voice
+        protected set
     var createdAt: Instant = now
         protected set
     var deletedAt: Instant? = null
         protected set
+
+    val style: WritingStyle get() = WritingStyle(level, voice)
 
     /** The version the reader confirmed is the one plans and posts are made from. */
     fun use(toc: Toc) {
@@ -73,12 +84,13 @@ class Book private constructor(
     }
 }
 
-/** What a reader gave for a book, each part already checked. */
+/** What a reader gave for a book, each part already checked, and how its posts are to be written. */
 data class BookDraft(
     val title: BookTitle,
     val authors: List<String>,
     val publisher: String?,
     val isbn13: Isbn13?,
+    val style: WritingStyle,
 ) {
     companion object {
         // An edited volume's contributors fit; a longer list is more likely a paste gone wrong.
@@ -105,4 +117,18 @@ enum class BookSource(
 
         override fun convertToEntityAttribute(code: String): BookSource = entries.first { it.code == code }
     }
+}
+
+@Converter
+class LevelColumn : AttributeConverter<WritingStyle.Level, String> {
+    override fun convertToDatabaseColumn(level: WritingStyle.Level): String = level.code
+
+    override fun convertToEntityAttribute(code: String): WritingStyle.Level = checkNotNull(WritingStyle.Level.of(code))
+}
+
+@Converter
+class VoiceColumn : AttributeConverter<WritingStyle.Voice, String> {
+    override fun convertToDatabaseColumn(voice: WritingStyle.Voice): String = voice.code
+
+    override fun convertToEntityAttribute(code: String): WritingStyle.Voice = checkNotNull(WritingStyle.Voice.of(code))
 }

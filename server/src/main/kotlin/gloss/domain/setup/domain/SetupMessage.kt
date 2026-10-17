@@ -32,9 +32,14 @@ data class ReaderTyped(
     val title: String,
 ) : SetupContent
 
-/** The reader started with the held contents; [tocId] is the confirmed version of the book made from them. */
+/**
+ * The reader started with the held contents; [tocId] is the confirmed version of the book made from
+ * them, and [level] and [voice] the codes of how its posts are written, none before the choice.
+ */
 data class ReaderConfirmed(
     val tocId: UUID,
+    val level: String? = null,
+    val voice: String? = null,
 ) : SetupContent
 
 /**
@@ -113,9 +118,10 @@ data class ContentsBrought(
     val typed: Boolean,
 ) : SetupContent
 
-/** The book is made and its contents confirmed: it is ready to read. */
+/** The book is made and its contents confirmed, [items] of them, none counted before the plan was shown. */
 data class SetupDone(
     val bookId: UUID,
+    val items: Int? = null,
 ) : SetupContent
 
 /** A model call that ended asking for tools: what it said with them, and the [calls] as it wrote them. */

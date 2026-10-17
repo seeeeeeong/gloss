@@ -13,6 +13,7 @@ import gloss.domain.book.domain.TocText
 import gloss.domain.book.domain.repository.BookRepository
 import gloss.domain.book.domain.repository.TocItemRepository
 import gloss.domain.book.domain.repository.TocRepository
+import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookCreateRequest
 import gloss.domain.book.dto.request.TocReviseRequest
 import gloss.domain.book.dto.response.BookResponse
@@ -39,7 +40,13 @@ class BookService(
     fun create(
         accountId: UUID,
         request: BookCreateRequest,
-    ): BookResponse = add(accountId = accountId, draft = draftOf(request), typed = request.toc, sourced = null)
+    ): BookResponse =
+        add(
+            accountId = accountId,
+            draft = draftOf(request, WritingStyle.DEFAULT),
+            typed = request.toc,
+            sourced = null,
+        )
 
     /**
      * A book and its contents as a first draft. [sourced] is the source its details came from, kept
@@ -133,14 +140,16 @@ class BookService(
 
     /**
      * A book typed in, for a module that held it until the reader started with it: made with its
-     * contents as the first version, and those confirmed at once.
+     * contents as the first version, written in [style], and those contents confirmed at once.
      */
     @Transactional
     fun createConfirmed(
         accountId: UUID,
         typed: TypedBook,
+        style: WritingStyle,
     ): ContentsVersion {
-        val book = create(accountId, BookCreateRequest(title = typed.title, authors = typed.authors, toc = typed.toc))
+        val request = BookCreateRequest(title = typed.title, authors = typed.authors, toc = typed.toc)
+        val book = add(accountId = accountId, draft = draftOf(request, style), typed = typed.toc, sourced = null)
         return tocService.confirmContents(accountId, book.id, book.toc.id)
     }
 
@@ -155,7 +164,10 @@ class BookService(
         return BookResponse.from(book, toc, kept)
     }
 
-    private fun draftOf(request: BookCreateRequest): BookDraft {
+    private fun draftOf(
+        request: BookCreateRequest,
+        style: WritingStyle,
+    ): BookDraft {
         val title = BookTitle.of(request.title) ?: throw GlossException(BookError.INVALID_TITLE)
         val typedIsbn = request.isbn13?.takeIf { it.isNotBlank() }
         val isbn13 = typedIsbn?.let(Isbn13::of)
@@ -163,10 +175,27 @@ class BookService(
         val publisher = request.publisher?.trim()?.takeIf(String::isNotEmpty)
         val error =
             when {
-                typedIsbn != null && isbn13 == null -> BookError.INVALID_ISBN
-                authors.size > BookDraft.MAX_AUTHORS || !authors.all { BookDraft.fits(it) } -> BookError.INVALID_AUTHORS
-                publisher != null && !BookDraft.fits(publisher) -> BookError.INVALID_PUBLISHER
-                else -> return BookDraft(title = title, authors = authors, publisher = publisher, isbn13 = isbn13)
+                typedIsbn != null && isbn13 == null -> {
+                    BookError.INVALID_ISBN
+                }
+
+                authors.size > BookDraft.MAX_AUTHORS || !authors.all { BookDraft.fits(it) } -> {
+                    BookError.INVALID_AUTHORS
+                }
+
+                publisher != null && !BookDraft.fits(publisher) -> {
+                    BookError.INVALID_PUBLISHER
+                }
+
+                else -> {
+                    return BookDraft(
+                        title = title,
+                        authors = authors,
+                        publisher = publisher,
+                        isbn13 = isbn13,
+                        style = style,
+                    )
+                }
             }
         throw GlossException(error)
     }

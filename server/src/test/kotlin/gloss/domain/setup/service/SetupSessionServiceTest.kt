@@ -108,7 +108,7 @@ class SetupSessionServiceTest(
     private fun seen(
         account: UUID,
         sessionId: UUID,
-    ) = SetupConfirmRequest(revision = rev(account, sessionId))
+    ) = SetupConfirmRequest(revision = rev(account, sessionId), level = "work", voice = "explain")
 
     private fun say(
         account: UUID,
@@ -355,19 +355,43 @@ class SetupSessionServiceTest(
         assertThat(session.state).isEqualTo("confirmed")
         assertThat(session.held).isNull()
         assertThat(kinds(session)).containsExactly("text", "books", "pick", "contents", "confirm", "done")
-        assertThat(payloadOf(session, "confirm")).isEqualTo(ReaderConfirmed(book.toc.id))
-        assertThat(payloadOf(session, "done")).isEqualTo(SetupDone(bookId))
+        assertThat(payloadOf(session, "confirm"))
+            .isEqualTo(ReaderConfirmed(tocId = book.toc.id, level = "work", voice = "explain"))
+        assertThat(payloadOf(session, "done")).isEqualTo(SetupDone(bookId = bookId, items = book.toc.items.size))
         assertThat(books(account)).isEqualTo(1)
         assertThat(book.source).isEqualTo("yes24")
+        assertThat(book.level to book.voice).isEqualTo("work" to "explain")
         assertThat(book.toc.versionNo).isEqualTo(1)
         assertThat(book.toc.origin).isEqualTo("api")
         assertThat(book.currentTocId).isEqualTo(book.toc.id)
         assertThat(events.stream(TocConfirmed::class.java).map { it.bookId to it.tocId })
             .containsExactly(bookId to book.toc.id)
         assertFails(SetupError.ALREADY_CONFIRMED) {
-            setupSessionService.confirm(account, chosen.id, SetupConfirmRequest(revision = 0))
+            setupSessionService.confirm(
+                account,
+                chosen.id,
+                SetupConfirmRequest(revision = 0, level = "work", voice = "explain"),
+            )
         }
         assertFails(SetupError.ALREADY_CONFIRMED) { say(account, chosen.id, "객체지향") }
+    }
+
+    @Test
+    fun `a start without a level and voice offered makes nothing`() {
+        val account = accountId()
+        val chosen = picked(account)
+        val revision = seen(account, chosen.id).revision
+
+        assertFails(SetupError.INVALID_STYLE) {
+            val request = SetupConfirmRequest(revision = revision, level = "expert", voice = "explain")
+            setupSessionService.confirm(account, chosen.id, request)
+        }
+        assertFails(SetupError.INVALID_STYLE) {
+            val request = SetupConfirmRequest(revision = revision, level = "course", voice = "")
+            setupSessionService.confirm(account, chosen.id, request)
+        }
+        assertThat(setupSessionService.get(account, chosen.id).state).isEqualTo("book_chosen")
+        assertThat(books(account)).isZero()
     }
 
     @Test
@@ -384,7 +408,11 @@ class SetupSessionServiceTest(
         assertThat(again.messages).hasSameSizeAs(first.messages)
         assertThat(books(account)).isEqualTo(1)
         assertFails(SetupError.ALREADY_CONFIRMED) {
-            setupSessionService.confirm(account, chosen.id, SetupConfirmRequest(revision = request.revision + 1))
+            setupSessionService.confirm(
+                account,
+                chosen.id,
+                SetupConfirmRequest(revision = request.revision + 1, level = "work", voice = "explain"),
+            )
         }
     }
 
@@ -454,7 +482,11 @@ class SetupSessionServiceTest(
         val session = setupMessageService.start(account, said("오브젝트"))
 
         assertFails(SetupError.NO_BOOK_YET) {
-            setupSessionService.confirm(account, session.id, SetupConfirmRequest(revision = 1))
+            setupSessionService.confirm(
+                account,
+                session.id,
+                SetupConfirmRequest(revision = 1, level = "work", voice = "explain"),
+            )
         }
         assertFails(SetupError.NO_BOOK_YET) {
             setupSessionService.edit(account, session.id, SetupContentsRequest("1장 객체", revision = 1))
@@ -523,7 +555,11 @@ class SetupSessionServiceTest(
         assertThat(held.held?.book).isNull()
         assertThat(books(account)).isZero()
         assertFails(SetupError.SESSION_CHANGED) {
-            setupSessionService.confirm(account, held.id, SetupConfirmRequest(revision = 0))
+            setupSessionService.confirm(
+                account,
+                held.id,
+                SetupConfirmRequest(revision = 0, level = "work", voice = "explain"),
+            )
         }
 
         val started = setupSessionService.confirm(account, held.id, seen(account, held.id))
@@ -613,7 +649,11 @@ class SetupSessionServiceTest(
             setupSessionService.edit(account, chosen.id, SetupContentsRequest("1장 객체", revision = old))
         }
         assertFails(SetupError.SESSION_CHANGED) {
-            setupSessionService.confirm(account, chosen.id, SetupConfirmRequest(revision = old))
+            setupSessionService.confirm(
+                account,
+                chosen.id,
+                SetupConfirmRequest(revision = old, level = "work", voice = "explain"),
+            )
         }
         val after = setupSessionService.get(account, chosen.id)
         assertThat(after.revision).isEqualTo(chosen.revision)

@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { load } from '../lib/api'
 import { creditOf, editionOf } from '../lib/books'
@@ -29,6 +28,7 @@ import {
 import { Icon } from './Icon'
 import { ListFailed } from './ListFailed'
 import { Cover, SetupContents, type ShownContents } from './SetupContents'
+import { SetupPlan } from './SetupPlan'
 import { useDismiss } from './useDismiss'
 
 type TurnProps = {
@@ -41,12 +41,9 @@ type TurnProps = {
   onType: (book: OfferedBook) => void
 }
 
-/** The 책으로 이동 button, which takes focus once the reader has started. */
-export const BOOK_READY = 'book-ready'
-
 /**
  * What Gloss says: the model's answer (recommended books, the editions of a book named, or words) after
- * the steps it took, what stopped it, the contents brought, or done.
+ * the steps it took, what stopped it, the contents brought, or how the started book's plan comes along.
  */
 export function GlossTurn({ message, session, busy, contents, onPick, onType }: TurnProps) {
   const turn = turnOf(session.messages, message.seq)
@@ -121,36 +118,15 @@ export function GlossTurn({ message, session, busy, contents, onPick, onType }: 
       )
     case 'done':
       return (
-        <>
-          <p>준비됐어요. 항목을 열면 그 글을 바로 써 드릴게요.</p>
-          <BookReady bookId={message.payload.bookId} />
-        </>
+        <SetupPlan
+          bookId={message.payload.bookId}
+          items={message.payload.items}
+          since={message.createdAt}
+        />
       )
     default:
       return null
   }
-}
-
-/** To the book made, refreshing the sidebar on the way so it lists the book. */
-function BookReady({ bookId }: { bookId: string }) {
-  const router = useRouter()
-  const href = `/books/${bookId}`
-  return (
-    <a
-      id={BOOK_READY}
-      className="submit"
-      href={href}
-      onClick={(event) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
-        event.preventDefault()
-        router.push(href)
-        router.refresh()
-      }}
-    >
-      책으로 이동
-      <Icon name="arrowR" size={16} />
-    </a>
-  )
 }
 
 // What the model wrote, as plain paragraphs: never markup.

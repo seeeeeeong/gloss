@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { type ApiResult, load, send } from '@/lib/api'
 import {
+  type ChosenStyle,
   type OfferedBook,
   SESSION_PARAM,
   SETUP_PATH,
@@ -97,11 +98,15 @@ export function useSetupSession(initial: SetupSession | null) {
     return result
   }
 
-  /** Makes the book from the held contents, as the reader saw them at the session's revision. */
-  async function start() {
+  /**
+   * Makes the book from the held contents, as the reader saw them at the session's revision, its
+   * posts to be written in the style chosen.
+   */
+  async function start(style: ChosenStyle) {
     if (!session) return null
     const sent = await send<SetupSession>('POST', sessionPath(session.id, 'confirm'), {
       revision: session.revision,
+      ...style,
     })
     const result = startMayHaveLanded(sent)
       ? await load<SetupSession>(sessionPath(session.id))

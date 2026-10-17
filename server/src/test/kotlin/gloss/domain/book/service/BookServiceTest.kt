@@ -4,6 +4,7 @@ import gloss.TestcontainersConfiguration
 import gloss.common.error.ErrorCode
 import gloss.common.error.GlossException
 import gloss.domain.book.domain.event.TocConfirmed
+import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookCreateRequest
 import gloss.domain.book.dto.request.TocReviseRequest
 import jakarta.persistence.EntityManager
@@ -74,6 +75,7 @@ class BookServiceTest(
 
         assertThat(book.authors).containsExactly("조영호")
         assertThat(book.isbn13).isEqualTo("9788966262472")
+        assertThat(book.level to book.voice).isEqualTo("course" to "textbook")
         assertThat(book.currentTocId).isNull()
         assertThat(book.toc.versionNo).isEqualTo(1)
         assertThat(book.toc.status).isEqualTo("draft")
@@ -180,6 +182,7 @@ class BookServiceTest(
             bookService.createConfirmed(
                 account,
                 TypedBook.of(title = " 오브젝트 ", authors = listOf(" 조영호 ", ""), toc = contents),
+                WritingStyle(WritingStyle.Level.WORK, WritingStyle.Voice.NOTE),
             )
 
         val book = bookService.get(account, confirmed.bookId)
@@ -188,6 +191,7 @@ class BookServiceTest(
         assertThat(book.source).isEqualTo("manual")
         assertThat(book.toc.versionNo).isEqualTo(1)
         assertThat(book.currentTocId).isEqualTo(confirmed.tocId)
+        assertThat(book.level to book.voice).isEqualTo("work" to "note")
         assertThat(events.stream(TocConfirmed::class.java).toList()).hasSize(1)
         assertFails(BookError.INVALID_TITLE) { TypedBook.of(title = " ", authors = emptyList(), toc = contents) }
         assertFails(

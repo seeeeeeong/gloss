@@ -31,6 +31,9 @@ class SetupSessionControllerTest(
 
     private fun signedIn() = Browser(port).also { it.signIn(members.create(), members.password) }
 
+    // How the reader chose the book's posts be written, sent with each start.
+    private val chosen = mapOf("level" to "intro", "voice" to "note")
+
     @BeforeEach
     fun reset() {
         fakeBookSourceGateway.reset()
@@ -63,7 +66,7 @@ class SetupSessionControllerTest(
             edited.body
                 ?.get("revision")
                 ?.asInt()
-        val confirmed = browser.post("/api/me/setup-sessions/$sessionId/confirm", mapOf("revision" to revision))
+        val confirmed = browser.post("/api/me/setup-sessions/$sessionId/confirm", chosen + ("revision" to revision))
         val bookId = confirmed.body?.get("bookId")?.asString()
         val book = browser.get("/api/me/books/$bookId")
         val again = browser.get("/api/me/setup-sessions/$sessionId")
@@ -118,9 +121,16 @@ class SetupSessionControllerTest(
             browser
                 .post(
                     "/api/me/setup-sessions/$sessionId/confirm",
-                    mapOf("revision" to 1),
+                    mapOf("revision" to 1, "level" to "course", "voice" to "textbook"),
                 ).code,
         ).isEqualTo("setup.no_book_yet")
+        assertThat(
+            browser
+                .post(
+                    "/api/me/setup-sessions/$sessionId/confirm",
+                    mapOf("revision" to 1, "level" to "expert", "voice" to "textbook"),
+                ).code,
+        ).isEqualTo("setup.invalid_style")
         assertThat(browser.post("/api/me/setup-sessions/$sessionId/pick", mapOf("ref" to "999", "revision" to 1)).code)
             .isEqualTo("setup.book_not_offered")
     }
@@ -139,7 +149,7 @@ class SetupSessionControllerTest(
             held.body
                 ?.get("revision")
                 ?.asInt()
-        val started = browser.post("/api/me/setup-sessions/$sessionId/confirm", mapOf("revision" to revision))
+        val started = browser.post("/api/me/setup-sessions/$sessionId/confirm", chosen + ("revision" to revision))
         val book = browser.get("/api/me/books/${started.body?.get("bookId")?.asString()}")
 
         assertThat(held.status).isEqualTo(201)
@@ -152,6 +162,8 @@ class SetupSessionControllerTest(
         assertThat(started.body?.get("state")?.asString()).isEqualTo("confirmed")
         assertThat(book.body?.get("title")?.asString()).isEqualTo("나의 노트")
         assertThat(book.body?.get("currentTocId")?.asString()).isNotNull()
+        assertThat(book.body?.get("level")?.asString()).isEqualTo("intro")
+        assertThat(book.body?.get("voice")?.asString()).isEqualTo("note")
     }
 
     @Test

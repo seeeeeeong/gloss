@@ -6,7 +6,7 @@ package gloss.domain.plan.domain
  */
 object PlanPrompt {
     /** Kept with every plan and call: a change to the rules, their bounds or the reply's shape is a new version. */
-    const val VERSION = "plan-1"
+    const val VERSION = "plan-2"
 
     // What the rules ask a reply to keep to, so the plan stays a small part of each post's prompt:
     // a few noun phrases for an item, and the terms of a book's subject rather than of its every page.
@@ -19,8 +19,52 @@ object PlanPrompt {
     data class Subject(
         val title: String,
         val authors: List<String>,
+        val level: Level,
+        val voice: Voice,
         val lines: List<Line>,
     )
+
+    /**
+     * Who a book's posts are written for, as the reader chose. Its [rule] goes into the plan, so
+     * every post of the book reads the same words; changing one is a new version.
+     */
+    enum class Level(
+        val label: String,
+        val rule: String,
+    ) {
+        INTRO(
+            "입문",
+            "이 분야를 처음 배우는 독자입니다. 용어는 처음 나올 때 풀어 쓰고, 익숙한 예로 시작해 개념으로 넘어갑니다. " +
+                "세부 구현과 수식은 꼭 필요한 만큼만 다룹니다.",
+        ),
+        COURSE(
+            "전공",
+            "전공 수업에서 이 과목을 배우는 독자입니다. 개념의 정의와 동작 원리, 그렇게 설계된 까닭을 순서대로 설명합니다.",
+        ),
+        WORK(
+            "실무",
+            "이 분야로 일하는 개발자입니다. 기초 정의는 짧게 두고, 실제 시스템에서의 동작, 설정, 트레이드오프와 흔한 실수에 무게를 둡니다.",
+        ),
+    }
+
+    /** How a post's sentences read, as the reader chose; as [Level], its [rule] goes into the plan. */
+    enum class Voice(
+        val label: String,
+        val rule: String,
+    ) {
+        TEXTBOOK(
+            "교과서체",
+            "문장은 `-다` 체의 평서문으로 씁니다. 정의를 먼저 두고 근거와 결과를 잇습니다. 독자에게 말을 걸지 않습니다.",
+        ),
+        EXPLAIN(
+            "설명체",
+            "문장은 `-ㅂ니다` 체로, 독자에게 차근차근 설명하듯 씁니다. 새 개념마다 쉬운 비유나 예를 하나 듭니다.",
+        ),
+        NOTE(
+            "노트체",
+            "본문은 문장 대신 짧은 항목으로 씁니다. 항목은 `용어: 설명` 꼴이나 명사형으로 끝내고, 비교는 `A < B` 처럼 기호로 줄입니다.",
+        ),
+    }
 
     /** [ord] is the line's place in the contents, from 0, and [parent] the ord of the line it sits under. */
     data class Line(
@@ -38,7 +82,7 @@ object PlanPrompt {
 
         독자는 목차의 항목마다 글 하나를 읽습니다. 글은 책 본문을 요약한 것이 아니라, 그 항목의 주제를 새로 설명하는 학습 글입니다. 책 본문은 주어지지 않습니다. 본문 내용이나 책에 실린 예제를 아는 것처럼 쓰지 않고, 목차의 제목과 순서, 그 주제에 대한 일반 지식으로 각 글의 범위를 정합니다.
 
-        입력은 책 정보와 목차입니다. 목차는 한 줄에 한 항목이고, 탭으로 나눈 다섯 칸입니다: 항목 번호 i, 상위 항목의 i(없으면 -), 깊이, 책의 번호 표기(없으면 -), 제목.
+        입력은 책 정보, 독자가 고른 수준과 문체, 목차입니다. 목차는 한 줄에 한 항목이고, 탭으로 나눈 다섯 칸입니다: 항목 번호 i, 상위 항목의 i(없으면 -), 깊이, 책의 번호 표기(없으면 -), 제목.
 
         JSON 객체 하나만 출력합니다. 앞뒤에 설명이나 코드 블록 표시를 붙이지 않습니다. 모양은 다음과 같습니다.
 
@@ -50,7 +94,8 @@ object PlanPrompt {
         - covers 는 그 글이 다루는 것 2~${COVERS}개입니다. 각각 ${PHRASE}자 이내의 명사구로 씁니다. none 이면 빈 배열입니다.
         - excludes 는 제목만 보면 여기서 다룰 법하지만 다른 항목의 글이 맡는 것입니다. 0~${EXCLUDES}개이고, what 은 ${PHRASE}자 이내, see 는 그것을 맡는 항목의 i 입니다. 이웃한 글끼리 내용이 겹치지 않게 하는 데 씁니다.
         - example 은 그 글이 예시로 쓸 소재 하나를 ${EXAMPLE}자 이내로 적습니다. 책의 예제가 아니라 새로 고른 소재이고, 이웃한 글과 겹치지 않게 합니다. 예시가 필요 없으면 빈 문자열입니다.
-        - audience 는 이 책의 독자를 한 문장으로 적습니다.
+        - audience 는 이 책의 독자를 한 문장으로 적습니다. 독자가 고른 수준에 맞추고, covers 와 example 도 그 수준에 맞게 고릅니다.
+        - 문체는 글을 쓸 때 따르는 것입니다. plan 의 값은 문체와 상관없이 위의 형식대로 씁니다.
         - glossary 는 여러 글에 걸쳐 쓰이는 핵심 용어이고, 많아도 ${TERMS}개입니다. term 은 글에서 쓸 한국어 표기, en 은 영어 원어(없으면 빈 문자열), means 는 한 문장 정의, at 은 그 용어를 처음 정의할 항목의 i 입니다. 한 개념에는 표기를 하나만 정합니다.
         - 모든 값은 한국어로 씁니다. en 과 고유 명사, 코드 식별자만 원어로 둡니다.
         """.trimIndent()
@@ -61,6 +106,12 @@ object PlanPrompt {
             if (subject.authors.isNotEmpty()) {
                 append("저자: ").append(subject.authors.joinToString(", ", transform = ::oneLine)).append('\n')
             }
+            append("수준: ")
+                .append(subject.level.label)
+                .append(". ")
+                .append(subject.level.rule)
+                .append('\n')
+            append("문체: ").append(subject.voice.label).append('\n')
             append("\n목차\n")
             subject.lines.forEach {
                 append(it.ord).append('\t')

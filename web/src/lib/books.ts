@@ -40,6 +40,9 @@ export type Book = {
   source: string
   sourceUrl: string | null
   currentTocId: string | null
+  /** How the book's posts are written: the codes of lib/styles. */
+  level: string
+  voice: string
   toc: Toc
 }
 

@@ -6,6 +6,13 @@ import org.springframework.modulith.PackageInfo
 @PackageInfo
 @ApplicationModule(
     id = "setup",
-    allowedDependencies = ["common", "book :: service", "budget :: service", "llm :: service", "llm :: chat"],
+    allowedDependencies = [
+        "common",
+        "book :: service",
+        "book :: style",
+        "budget :: service",
+        "llm :: service",
+        "llm :: chat",
+    ],
 )
 class ModuleMetadata

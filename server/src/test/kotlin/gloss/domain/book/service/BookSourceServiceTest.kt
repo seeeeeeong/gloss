@@ -5,6 +5,7 @@ import gloss.common.error.ErrorCode
 import gloss.common.error.GlossException
 import gloss.domain.book.FakeBookSourceGateway
 import gloss.domain.book.domain.BookSourceFailed
+import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookSourceAddRequest
 import gloss.domain.book.dto.request.TocReviseRequest
 import jakarta.persistence.EntityManager
@@ -196,7 +197,13 @@ class BookSourceServiceTest(
         val account = accountId()
 
         val edition = bookSourceService.fetch(account, "101")
-        val kept = bookSourceService.keep(account, edition, checkNotNull(edition.contents))
+        val kept =
+            bookSourceService.keep(
+                accountId = account,
+                edition = edition,
+                contents = checkNotNull(edition.contents),
+                style = WritingStyle(WritingStyle.Level.INTRO, WritingStyle.Voice.EXPLAIN),
+            )
 
         val book = bookService.get(account, kept.bookId)
         assertThat(edition.ref).isEqualTo("101")
@@ -206,6 +213,7 @@ class BookSourceServiceTest(
         assertThat(kept.items).isEqualTo(3)
         assertThat(book.toc.origin).isEqualTo("api")
         assertThat(book.sourceUrl).isEqualTo("https://www.yes24.com/product/goods/101")
+        assertThat(book.level to book.voice).isEqualTo("intro" to "explain")
         assertFails(BookError.SOURCE_BOOK_NOT_FOUND) { bookSourceService.fetch(account, "999") }
         assertThat(bookSourceService.fetch(account, "102").contents).isNull()
     }
@@ -216,7 +224,13 @@ class BookSourceServiceTest(
         val account = accountId()
         val edition = bookSourceService.fetch(account, "101")
 
-        val kept = bookSourceService.keep(account, edition, "1장 객체\n2장 설계")
+        val kept =
+            bookSourceService.keep(
+                accountId = account,
+                edition = edition,
+                contents = "1장 객체\n2장 설계",
+                style = WritingStyle.DEFAULT,
+            )
 
         val book = bookService.get(account, kept.bookId)
         assertThat(kept.versionNo).isEqualTo(2)
@@ -230,7 +244,14 @@ class BookSourceServiceTest(
         fakeBookSourceGateway.holds("102", contents = null)
         val account = accountId()
 
-        val kept = bookSourceService.keep(account, bookSourceService.fetch(account, "102"), "1장 객체\n2장 설계")
+        val edition = bookSourceService.fetch(account, "102")
+        val kept =
+            bookSourceService.keep(
+                accountId = account,
+                edition = edition,
+                contents = "1장 객체\n2장 설계",
+                style = WritingStyle.DEFAULT,
+            )
 
         val book = bookService.get(account, kept.bookId)
         assertThat(kept.versionNo).isEqualTo(1)

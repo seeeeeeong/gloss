@@ -9,6 +9,7 @@ import org.springframework.modulith.PackageInfo
     allowedDependencies = [
         "common",
         "book :: service",
+        "book :: style",
         "book :: event",
         "budget :: service",
         "generation :: service",

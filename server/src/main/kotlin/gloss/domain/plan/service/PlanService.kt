@@ -1,6 +1,8 @@
 package gloss.domain.plan.service
 
+import gloss.common.error.GlossException
 import gloss.common.util.UuidV7
+import gloss.domain.book.service.ContentsInUse
 import gloss.domain.book.service.TocService
 import gloss.domain.generation.domain.job.JobStatus
 import gloss.domain.generation.service.GenerationService
@@ -8,11 +10,13 @@ import gloss.domain.plan.domain.BookPlan
 import gloss.domain.plan.domain.BookPlanDraft
 import gloss.domain.plan.domain.event.PlanKept
 import gloss.domain.plan.domain.repository.BookPlanRepository
+import gloss.domain.plan.dto.response.PlanStatusResponse
 import gloss.domain.plan.infrastructure.PlanJson
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
+import java.time.Duration
 import java.util.UUID
 
 /** A book's plans: asked for once its contents are confirmed, and kept as written. */
@@ -75,6 +79,50 @@ class PlanService(
         )
     }
 
+    /**
+     * How far the plan of the book's contents in use has come, for a reader waiting on it. Confirming
+     * the contents asks for it, so for a while after that no job is still planning; past [NOT_STARTED]
+     * the ask was lost, as when its listener failed, and it is failed, for the reader to ask again. A
+     * job that ended without a plan, failed or cancelled, is failed too.
+     */
+    @Transactional(readOnly = true)
+    fun status(
+        accountId: UUID,
+        bookId: UUID,
+    ): PlanStatusResponse {
+        val contents = inUse(accountId, bookId)
+        if (bookPlanRepository.existsByTocIdAndAccountId(contents.tocId, accountId)) return PlanStatusResponse.READY
+        val job = progress(accountId, contents.tocId)
+        if (job == null) {
+            val lost = contents.confirmedAt.plus(NOT_STARTED).isBefore(clock.instant())
+            return if (lost) PlanStatusResponse.failed(NOT_STARTED_CODE) else PlanStatusResponse.PLANNING
+        }
+        if (job.state.live) return PlanStatusResponse.PLANNING
+        return PlanStatusResponse.failed(job.errorKind ?: "plan.${job.state.code}")
+    }
+
+    /**
+     * The reader asks again for a plan that ended without one, or was never asked for; a plan kept,
+     * or one still to come, is left as it is, so asking twice writes, and bills, one plan.
+     */
+    @Transactional
+    fun retry(
+        accountId: UUID,
+        bookId: UUID,
+    ): PlanStatusResponse {
+        val tocId = inUse(accountId, bookId).tocId
+        if (bookPlanRepository.existsByTocIdAndAccountId(tocId, accountId)) return PlanStatusResponse.READY
+        if (progress(accountId, tocId)?.state?.live != true) {
+            request(accountId = accountId, bookId = bookId, tocId = tocId)
+        }
+        return PlanStatusResponse.PLANNING
+    }
+
+    private fun inUse(
+        accountId: UUID,
+        bookId: UUID,
+    ): ContentsInUse = tocService.inUse(accountId, bookId) ?: throw GlossException(PlanError.BOOK_NOT_FOUND)
+
     /** How the job writing these contents' plan stands; null when none was ever asked for. */
     fun progress(
         accountId: UUID,
@@ -102,5 +150,11 @@ class PlanService(
             ),
         )
         return plan.id
+    }
+
+    private companion object {
+        // The listener asks within moments of the commit; a minute with no job means its ask was lost.
+        val NOT_STARTED: Duration = Duration.ofMinutes(1)
+        const val NOT_STARTED_CODE = "plan.not_started"
     }
 }

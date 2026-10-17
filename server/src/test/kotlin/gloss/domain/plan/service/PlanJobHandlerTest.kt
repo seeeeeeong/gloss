@@ -2,9 +2,11 @@ package gloss.domain.plan.service
 
 import gloss.TestcontainersConfiguration
 import gloss.domain.apikey.FakeKeyCheckGateway
+import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookCreateRequest
 import gloss.domain.book.dto.request.TocReviseRequest
 import gloss.domain.book.service.BookService
+import gloss.domain.book.service.TypedBook
 import gloss.domain.generation.infrastructure.JdbcJobQueue
 import gloss.domain.generation.service.JobRunner
 import gloss.domain.generation.service.RunningJob
@@ -138,9 +140,15 @@ class PlanJobHandlerTest(
         assertThat(sent.format).isEqualTo(ReplyFormat.JSON)
         assertThat(sent.messages.map { it.role }).containsExactly(Role.SYSTEM, Role.USER)
         assertThat(sent.messages[0].content).isEqualTo(PlanPrompt.SYSTEM)
-        assertThat(sent.messages[1].content).startsWith("책: 오브젝트\n저자: 조영호\n\n목차\n0\t-\t1\t1장\t객체, 설계\n1\t0\t2\t1.1\t")
+        assertThat(sent.messages[1].content).startsWith(
+            "책: 오브젝트\n저자: 조영호\n수준: 전공. ${PlanPrompt.Level.COURSE.rule}\n문체: 교과서체\n\n" +
+                "목차\n0\t-\t1\t1장\t객체, 설계\n1\t0\t2\t1.1\t",
+        )
         assertThat(plans(book.tocId)).containsExactly(
-            """{"book":{"title":"오브젝트","authors":["조영호"]},"audience":"객체지향을 처음 배우는 개발자","glossary":[],""" +
+            """{"book":{"title":"오브젝트","authors":["조영호"]},""" +
+                """"style":{"level":{"name":"전공","rule":"${PlanPrompt.Level.COURSE.rule}"},""" +
+                """"voice":{"name":"교과서체","rule":"${PlanPrompt.Voice.TEXTBOOK.rule}"}},""" +
+                """"audience":"객체지향을 처음 배우는 개발자","glossary":[],""" +
                 """"items":[{"i":0,"parent":null,"number":"1장","title":"객체, 설계","kind":"overview",""" +
                 """"covers":["다루는 것 0"],"excludes":[],"example":null},""" +
                 """{"i":1,"parent":0,"number":"1.1","title":"티켓 판매 애플리케이션","kind":"lesson",""" +
@@ -160,14 +168,35 @@ class PlanJobHandlerTest(
                 ).param("account", book.account)
                 .query()
                 .singleRow()
-        assertThat(call.values).containsExactly("plan", "plan-1", "stop", 900L, 300L)
+        assertThat(call.values).containsExactly("plan", "plan-2", "stop", 900L, 300L)
         val kept =
             jdbc
                 .sql("select model, prompt_version, version_no from book_plan where toc_id = :toc")
                 .param("toc", book.tocId)
                 .query()
                 .singleRow()
-        assertThat(kept.values).containsExactly("deepseek-flash", "plan-1", 1)
+        assertThat(kept.values).containsExactly("deepseek-flash", "plan-2", 1)
+    }
+
+    @Test
+    fun `a book started in the level and voice the reader chose is planned for them, and its plan carries both`() {
+        val account = readers.create()
+        val typed = TypedBook.of(title = "오브젝트", authors = emptyList(), toc = contents)
+        val style = WritingStyle(WritingStyle.Level.INTRO, WritingStyle.Voice.EXPLAIN)
+        val book = bookService.createConfirmed(account, typed, style)
+        awaitJobs(account, 1)
+        fakeLlmGateway.answer = { _, _ ->
+            ChatResult(reply(entry(0, "overview"), entry(1), entry(2), entry(3)), FinishReason.STOP, usage)
+        }
+
+        runNext()
+
+        val sent = fakeLlmGateway.requests.single()
+        assertThat(sent.messages[1].content)
+            .contains("수준: 입문. ${PlanPrompt.Level.INTRO.rule}\n문체: 설명체\n")
+        assertThat(plans(book.tocId).single())
+            .contains(""""style":{"level":{"name":"입문",""")
+            .contains(""""voice":{"name":"설명체","rule":"${PlanPrompt.Voice.EXPLAIN.rule}"}""")
     }
 
     @Test

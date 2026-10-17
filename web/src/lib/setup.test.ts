@@ -10,6 +10,7 @@ import {
   failureLink,
   type HeldContents,
   type HeldItem,
+  type HoldStep,
   heldTree,
   hostOf,
   keepsEditing,
@@ -18,6 +19,11 @@ import {
   listOf,
   liveContents,
   type OfferedBook,
+  planPath,
+  planProgress,
+  planRetryPath,
+  planRunning,
+  planWaits,
   readerLine,
   type SetupMessage,
   type SetupSession,
@@ -59,7 +65,7 @@ describe('sessionPath', () => {
 })
 
 describe('readerLine', () => {
-  it('shows what the reader said, the title they picked, and their start', () => {
+  it('shows what the reader said, the title they picked, and the style they started in', () => {
     const said: SetupMessage = {
       ...at,
       role: 'reader',
@@ -82,6 +88,12 @@ describe('readerLine', () => {
     expect(readerLine(said)).toBe('오브젝트')
     expect(readerLine(picked)).toBe('오브젝트')
     expect(readerLine(confirmed)).toBe('이 목차로 시작할게요')
+    expect(
+      readerLine({ ...confirmed, payload: { tocId: 't', level: 'course', voice: 'explain' } }),
+    ).toBe('전공 · 설명체')
+    expect(readerLine({ ...confirmed, payload: { tocId: 't', level: 'x', voice: 'note' } })).toBe(
+      '이 목차로 시작할게요',
+    )
     expect(
       readerLine({ ...at, role: 'reader', kind: 'typed', payload: { title: '나의 노트' } }),
     ).toBe('목차를 직접 입력했어요')
@@ -536,15 +548,40 @@ describe('shownHold', () => {
 })
 
 describe('stepOn', () => {
-  const step = { seq: 2, editing: true, starting: true, notice: '시작하지 못했어요.' }
+  const step: HoldStep = { seq: 2, editing: true, starting: 'note', notice: '시작하지 못했어요.' }
 
   it('keeps the step taken on the contents still held', () => {
     expect(stepOn(step, 2)).toBe(step)
   })
 
-  it('drops the editor, a start and a notice once another book is picked or the hold is let go', () => {
-    const none = { editing: false, starting: false, notice: null }
+  it('drops the editor, a start with its voice and a notice once another book is picked or the hold is let go', () => {
+    const none = { editing: false, starting: null, notice: null }
     expect(stepOn(step, 4)).toEqual({ seq: 4, ...none })
     expect(stepOn(step, null)).toEqual({ seq: null, ...none })
+  })
+})
+
+describe('the plan line', () => {
+  it('asks the book for its plan, and says how many items it is written for when known', () => {
+    expect(planPath('b1')).toBe('/api/me/books/b1/plan')
+    expect(planRetryPath('b1')).toBe('/api/me/books/b1/plan/retry')
+    expect(planRunning(206)).toBe('206개 항목의 글 순서를 정리하고 있어요.')
+    expect(planRunning(null)).toBe('글 순서를 정리하고 있어요.')
+  })
+
+  it('looks again until the plan ends, and stops while a look failed until asked again', () => {
+    expect(planWaits(null, null)).toBe(true)
+    expect(planWaits({ state: 'planning', code: null }, null)).toBe(true)
+    expect(planWaits(null, '서버에 연결할 수 없어요.')).toBe(false)
+    expect(planWaits({ state: 'failed', code: 'plan.not_started' }, null)).toBe(false)
+    expect(planWaits({ state: 'ready', code: null }, null)).toBe(false)
+  })
+
+  it('fills from nothing, more slowly for more items, and waits short of the end', () => {
+    expect(planProgress(0, 10)).toBe(0)
+    expect(planProgress(-5000, 10)).toBe(0)
+    expect(planProgress(30_000, 10)).toBeGreaterThan(planProgress(30_000, 200))
+    expect(planProgress(30_000, 10)).toBeGreaterThan(planProgress(10_000, 10))
+    expect(planProgress(3_600_000, 10)).toBe(95)
   })
 })

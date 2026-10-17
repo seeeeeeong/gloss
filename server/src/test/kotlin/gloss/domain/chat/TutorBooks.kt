@@ -1,5 +1,6 @@
 package gloss.domain.chat
 
+import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.service.BookService
 import gloss.domain.book.service.TocService
 import gloss.domain.book.service.TypedBook
@@ -33,7 +34,7 @@ class TutorBooks(
         planned: Boolean = true,
     ): Shelved {
         val typed = TypedBook.of(title = "오브젝트", authors = listOf("조영호"), toc = "1장 객체\n1.1 티켓 판매\n2장 설계")
-        val confirmed = bookService.createConfirmed(account, typed)
+        val confirmed = bookService.createConfirmed(account, typed, WritingStyle.DEFAULT)
         val outline = checkNotNull(tocService.outline(account, confirmed.bookId))
         val planId = if (planned) plan(Planned(account, confirmed.bookId, confirmed.tocId)) else null
         return Shelved(

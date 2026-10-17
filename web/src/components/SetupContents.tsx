@@ -2,9 +2,11 @@
 
 import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/Icon'
+import { SetupStyle } from '@/components/SetupStyle'
 import type { ApiResult } from '@/lib/api'
 import { creditOf } from '@/lib/books'
 import {
+  type ChosenStyle,
   contentsHeading,
   contentsIntro,
   type DocItem,
@@ -14,6 +16,7 @@ import {
   itemsCount,
   keepsEditing,
 } from '@/lib/setup'
+import type { Voice } from '@/lib/styles'
 
 /** The 수정 button of the live contents, where focus goes back when the editor closes. */
 export const EDIT_BUTTON = 'contents-edit'
@@ -25,21 +28,25 @@ export type ShownContents = {
   /** The contents a book would be made from now; earlier ones, and those started with, are read only. */
   live: boolean
   editing: boolean
-  starting: boolean
+  /** A message or a pick is on its way: the contents may be about to change, so nothing starts. */
+  waiting: boolean
+  /** The voice a start is on its way with. */
+  starting: Voice | null
   /** Why the last start or save did not go through, said as Gloss would. */
   notice: string | null
   onEdit: () => void
-  onStart: () => void
+  onStart: (style: ChosenStyle) => void
 }
 
 type Props = { contents: ShownContents; typed: boolean }
 
 /**
  * The contents as a document in Gloss's answer: the book's header with its facts, the source and
- * 수정, then every item, parts and chapters as headings and sections as lists, then 이 목차로 시작.
+ * 수정, then every item, parts and chapters as headings and sections as lists, then the question of
+ * how the posts are written, whose answer starts with them.
  */
 export function SetupContents({ contents, typed }: Props) {
-  const { held, live, editing, starting, notice, onStart } = contents
+  const { held, live, editing, waiting, starting, notice, onStart } = contents
   return (
     <>
       <h1>{contentsHeading(held)}</h1>
@@ -52,21 +59,7 @@ export function SetupContents({ contents, typed }: Props) {
           return <h4 key={block.key}>{block.label}</h4>
         })}
       </div>
-      {live && (
-        <div className="actions">
-          {/* Not disabled while busy: a disabled button would drop focus to the page. */}
-          <button
-            type="button"
-            className="btn primary"
-            aria-disabled={starting || editing}
-            onClick={() => {
-              if (!starting && !editing) onStart()
-            }}
-          >
-            {starting ? '시작하는 중' : '이 목차로 시작'}
-          </button>
-        </div>
-      )}
+      <SetupStyle live={live} starting={starting} blocked={editing || waiting} onStart={onStart} />
       {notice && <p role="alert">{notice}</p>}
     </>
   )
@@ -123,9 +116,9 @@ function SourceRow({ contents }: { contents: ShownContents }) {
             id={EDIT_BUTTON}
             className="tbtn"
             aria-expanded={editing}
-            aria-disabled={starting}
+            aria-disabled={starting !== null}
             onClick={() => {
-              if (!starting) onEdit()
+              if (starting === null) onEdit()
             }}
           >
             수정
