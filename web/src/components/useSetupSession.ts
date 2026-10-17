@@ -98,6 +98,16 @@ export function useSetupSession(initial: SetupSession | null) {
     return result
   }
 
+  /** Looks for the held edition's contents on another source; the page looks again until it ends. */
+  async function seek() {
+    if (!session) return null
+    const path = sessionPath(session.id, 'contents-search')
+    const result = await send<SetupSession>('POST', path, { revision: session.revision })
+    if (result.ok) setSession(result.data)
+    else await catchUp(result)
+    return result
+  }
+
   /**
    * Makes the book from the held contents, as the reader saw them at the session's revision, its
    * posts to be written in the style chosen.
@@ -127,5 +137,5 @@ export function useSetupSession(initial: SetupSession | null) {
     setError(null)
   }, [])
 
-  return { session, pending, error, say, pick, type, edit, start, reset }
+  return { session, pending, error, say, pick, type, edit, seek, start, reset }
 }

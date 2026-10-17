@@ -53,6 +53,10 @@ class SetupSession private constructor(
     var contents: String? = null
         protected set
 
+    /** The page the held contents were found on, when a search on the web found them. */
+    var contentsSourceId: UUID? = null
+        protected set
+
     /** The book made when the reader started, and the version of its contents confirmed. */
     var bookId: UUID? = null
         protected set
@@ -76,7 +80,7 @@ class SetupSession private constructor(
     fun say(at: Instant) {
         check(!searching(at)) { "A message waits for the answer to the one before it" }
         searchingSince = at.truncatedTo(ChronoUnit.MICROS)
-        state = advance(SetupPolicy.Step.SAY)
+        state = advanced(state, SetupPolicy.Step.SAY)
         if (state == SetupPolicy.State.SEARCHING) hold(null)
         updatedAt = at
     }
@@ -86,13 +90,39 @@ class SetupSession private constructor(
         revision++
     }
 
+    /**
+     * Looks on the web for the held edition's detailed contents: the hold stays as it is until they are
+     * found, and nothing else may change it meanwhile. Timed as [say] is, so the same turn rules apply.
+     */
+    fun seek(at: Instant) {
+        check(!searching(at)) { "A search waits for the answer to the one before it" }
+        checkNotNull(editionRef) { "Only an edition's contents are looked for" }
+        state = advanced(state, SetupPolicy.Step.SEEK)
+        searchingSince = at.truncatedTo(ChronoUnit.MICROS)
+        updatedAt = at
+    }
+
+    /** The held edition's contents, as found on the page [sourceId] names, replace the held ones. */
+    fun found(
+        contents: String,
+        sourceId: UUID,
+        at: Instant,
+    ) {
+        checkNotNull(editionRef) { "Only an edition's contents are found" }
+        state = advanced(state, SetupPolicy.Step.SEEK)
+        this.contents = contents
+        contentsSourceId = sourceId
+        revision++
+        updatedAt = at
+    }
+
     fun choose(
         editionRef: String,
         title: String,
         contents: String,
         at: Instant,
     ) {
-        state = advance(SetupPolicy.Step.PICK)
+        state = advanced(state, SetupPolicy.Step.PICK)
         hold(SetupHold(editionRef = editionRef, title = title, typedAuthors = null, contents = contents))
         updatedAt = at
     }
@@ -104,7 +134,7 @@ class SetupSession private constructor(
         contents: String,
         at: Instant,
     ) {
-        state = advance(SetupPolicy.Step.PICK)
+        state = advanced(state, SetupPolicy.Step.PICK)
         hold(SetupHold(editionRef = null, title = title, typedAuthors = authors, contents = contents))
         updatedAt = at
     }
@@ -114,6 +144,7 @@ class SetupSession private constructor(
         heldTitle = held?.title
         typedAuthors = held?.typedAuthors?.toTypedArray()
         contents = held?.contents
+        contentsSourceId = null
         revision++
     }
 
@@ -121,7 +152,7 @@ class SetupSession private constructor(
         contents: String,
         at: Instant,
     ) {
-        state = advance(SetupPolicy.Step.EDIT)
+        state = advanced(state, SetupPolicy.Step.EDIT)
         this.contents = contents
         revision++
         updatedAt = at
@@ -132,15 +163,12 @@ class SetupSession private constructor(
         tocId: UUID,
         at: Instant,
     ) {
-        state = advance(SetupPolicy.Step.CONFIRM)
+        state = advanced(state, SetupPolicy.Step.CONFIRM)
         this.bookId = bookId
         this.tocId = tocId
         updatedAt = at
         confirmedAt = at
     }
-
-    private fun advance(step: SetupPolicy.Step): SetupPolicy.State =
-        checkNotNull(SetupPolicy.next(state, step)) { "$step is not open while $state" }
 
     companion object {
         fun start(
@@ -149,6 +177,11 @@ class SetupSession private constructor(
         ) = SetupSession(id = UuidV7.at(now), accountId = accountId, now = now)
     }
 }
+
+private fun advanced(
+    state: SetupPolicy.State,
+    step: SetupPolicy.Step,
+): SetupPolicy.State = checkNotNull(SetupPolicy.next(state, step)) { "$step is not open while $state" }
 
 /** What a session holds for the reader to start with: an edition, or a book they typed in with [typedAuthors]. */
 data class SetupHold(

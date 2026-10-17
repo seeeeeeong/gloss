@@ -7,10 +7,12 @@ import gloss.domain.llm.domain.chat.Role
 import gloss.domain.llm.domain.chat.ToolCall
 import gloss.domain.setup.domain.BooksFound
 import gloss.domain.setup.domain.BooksShown
+import gloss.domain.setup.domain.ContentsBrought
 import gloss.domain.setup.domain.GlossSaid
 import gloss.domain.setup.domain.HistoryPolicy
 import gloss.domain.setup.domain.ReaderPicked
 import gloss.domain.setup.domain.ReaderSaid
+import gloss.domain.setup.domain.ReaderSought
 import gloss.domain.setup.domain.ReaderTyped
 import gloss.domain.setup.domain.Recommended
 import gloss.domain.setup.domain.SetupContent
@@ -24,7 +26,8 @@ import tools.jackson.databind.ObjectMapper
  * A session's conversation as the model reads it, rebuilt from what was kept, the same bytes every
  * time, so a later turn's prompt starts with an earlier one's. What a tool found is told in full only
  * within the turn that asked: afterwards a book search is its refs and a web search its count, since
- * neither source's details are kept.
+ * neither source's details are kept. A look for an edition's contents is a conversation of its own and
+ * is never read here.
  */
 internal class SetupTranscript(
     private val objectMapper: ObjectMapper,
@@ -152,19 +155,28 @@ internal class SetupTranscript(
 }
 
 // Each reader message opens a turn, and each pick or typed contents a unit of its own, so a pick
-// after a failed turn is still read. What came before the first opens none.
+// after a failed turn is still read; so does a look for contents, which is never read. What came
+// before the first opens none.
 private fun unitsOf(contents: List<SetupContent>): List<List<SetupContent>> {
     val units = mutableListOf<MutableList<SetupContent>>()
     for (content in contents) {
-        if (content is ReaderSaid || content is ReaderPicked || content is ReaderTyped) {
-            units += mutableListOf<SetupContent>()
-        }
+        if (opens(content)) units += mutableListOf<SetupContent>()
         units.lastOrNull()?.add(content)
     }
     return units
 }
 
-private fun kept(unit: List<SetupContent>): Boolean = unit.first() !is ReaderSaid || unit.any(::answers)
+private fun opens(content: SetupContent): Boolean =
+    when (content) {
+        is ReaderSaid, is ReaderPicked, is ReaderTyped -> true
+        else -> seeks(content)
+    }
+
+// Asked by the reader, or started by contents too coarse to write from.
+private fun seeks(content: SetupContent) = content is ReaderSought || (content is ContentsBrought && content.thin)
+
+private fun kept(unit: List<SetupContent>): Boolean =
+    !seeks(unit.first()) && (unit.first() !is ReaderSaid || unit.any(::answers))
 
 // A search answered before models took part is that turn's answer.
 private fun answers(content: SetupContent) =

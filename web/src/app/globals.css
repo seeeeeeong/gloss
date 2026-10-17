@@ -824,6 +824,10 @@ svg {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A found page's title runs long: one line, cut, so the pill, the credit and the actions keep their row. */
+.bk-src .dl.found {
+  max-width: min(18em, 100%);
+}
 .bk-src svg {
   flex: none;
   color: var(--tx2);

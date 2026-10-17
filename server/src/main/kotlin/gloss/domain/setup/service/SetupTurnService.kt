@@ -18,15 +18,11 @@ import gloss.domain.setup.domain.GlossSaid
 import gloss.domain.setup.domain.SearchFailed
 import gloss.domain.setup.domain.SetupContent
 import gloss.domain.setup.domain.SetupPrompt
-import gloss.domain.setup.domain.SetupSession
 import gloss.domain.setup.domain.SetupTurnPolicy
 import gloss.domain.setup.domain.ToolsCalled
-import gloss.domain.setup.domain.repository.SetupSessionRepository
 import gloss.domain.setup.infrastructure.JdbcSetupMessages
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
-import org.springframework.transaction.support.TransactionTemplate
-import java.time.Clock
 import java.time.Instant
 import java.util.UUID
 
@@ -38,12 +34,10 @@ import java.util.UUID
  */
 @Service
 class SetupTurnService(
-    private val setupSessionRepository: SetupSessionRepository,
     private val jdbcSetupMessages: JdbcSetupMessages,
     private val llmService: LlmService,
     private val setupTools: SetupTools,
-    private val transactionTemplate: TransactionTemplate,
-    private val clock: Clock,
+    private val setupTurnWriter: SetupTurnWriter,
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -58,11 +52,11 @@ class SetupTurnService(
         sessionId: UUID,
         since: Instant,
     ) {
-        val asked = Asked(accountId, sessionId, since)
+        val asked = TurnAsked(accountId, sessionId, since)
         val ending =
             try {
                 converse(asked)
-            } catch (_: Superseded) {
+            } catch (_: TurnSuperseded) {
                 return
             } catch (e: GlossException) {
                 failure(e.error)
@@ -71,8 +65,8 @@ class SetupTurnService(
                 failure(SetupError.TURN_FAILED)
             }
         try {
-            if (ending != null) keep(asked, listOf(ending), done = true)
-        } catch (_: Superseded) {
+            if (ending != null) setupTurnWriter.keep(asked, listOf(ending), done = true)
+        } catch (_: TurnSuperseded) {
             // A newer message took its place while this one was answered.
         }
     }
@@ -85,22 +79,14 @@ class SetupTurnService(
         error: ErrorCode,
     ) {
         try {
-            keep(Asked(accountId, sessionId, since), listOf(failure(error)), done = true)
-        } catch (_: Superseded) {
+            setupTurnWriter.keep(TurnAsked(accountId, sessionId, since), listOf(failure(error)), done = true)
+        } catch (_: TurnSuperseded) {
             // Already answered by a newer message.
         }
     }
 
-    private class Asked(
-        val accountId: UUID,
-        val sessionId: UUID,
-        val since: Instant,
-    ) {
-        val deadline: Instant = since.plus(SetupTurnPolicy.DEADLINE)
-    }
-
     /** The last thing to keep, or null when a tool's answer already ended the turn. */
-    private fun converse(asked: Asked): SetupContent? {
+    private fun converse(asked: TurnAsked): SetupContent? {
         val history = jdbcSetupMessages.list(asked.sessionId, asked.accountId).map { it.content }
         val offered = history.filterIsInstance<BooksFound>().flatMap { found -> found.books.map { it.ref } }
         val turn = SetupTurn(asked.accountId, asked.sessionId, offered)
@@ -130,7 +116,7 @@ class SetupTurnService(
      * …) never completes: asked again, the same prompt would most likely end the same way, so it fails.
      */
     private fun step(
-        asked: Asked,
+        asked: TurnAsked,
         turn: SetupTurn,
         messages: MutableList<ChatMessage>,
         call: Int,
@@ -155,10 +141,6 @@ class SetupTurnService(
         }
     }
 
-    private fun checkDeadline(asked: Asked) {
-        if (!clock.instant().isBefore(asked.deadline)) throw GlossException(SetupError.TURN_TIMED_OUT)
-    }
-
     private fun saidOf(reply: LlmReply): SetupContent =
         reply.text
             .trim()
@@ -168,11 +150,11 @@ class SetupTurnService(
     // Thinking off: it bills output tokens on every call, and with tools offered DeepSeek refuses a
     // call (400) unless every earlier assistant turn's reasoning is kept and sent back with it.
     private fun ask(
-        asked: Asked,
+        asked: TurnAsked,
         messages: List<ChatMessage>,
         mayUseTools: Boolean,
     ): LlmReply {
-        checkDeadline(asked)
+        setupTurnWriter.checkDeadline(asked)
         val call =
             LlmCall(
                 accountId = asked.accountId,
@@ -184,14 +166,14 @@ class SetupTurnService(
                 tools = setupTools.offered,
                 toolChoice = if (mayUseTools) ToolChoice.Auto else ToolChoice.None,
             )
-        val reply = llmService.stream(call, onText = {}, isCancelled = { !clock.instant().isBefore(asked.deadline) })
+        val reply = llmService.stream(call, onText = {}, isCancelled = { setupTurnWriter.pastDeadline(asked) })
         if (reply.cancelled) throw GlossException(SetupError.TURN_TIMED_OUT)
         return reply
     }
 
     /** Runs every call the model made, in its order, and keeps them with their answers in one write. */
     private fun runTools(
-        asked: Asked,
+        asked: TurnAsked,
         turn: SetupTurn,
         reply: LlmReply,
     ): List<ChatMessage> {
@@ -200,41 +182,14 @@ class SetupTurnService(
         // answers a newer message has already made useless.
         val outcomes =
             reply.toolCalls.map { call ->
-                checkDeadline(asked)
+                setupTurnWriter.checkDeadline(asked)
                 setupTools.run(call, turn, alone)
             }
         val called = ToolsCalled(reply.text, reply.toolCalls.map { CalledTool(it.id, it.name, it.arguments) })
-        keep(asked, listOf(called) + outcomes.map { it.kept }, done = turn.answered)
+        setupTurnWriter.keep(asked, listOf(called) + outcomes.map { it.kept }, done = turn.answered)
         val answers = reply.toolCalls.zip(outcomes) { call, outcome -> ChatMessage.toolResult(call.id, outcome.reply) }
         return listOf(reply.asAssistantTurn()) + answers
     }
 
-    private fun keep(
-        asked: Asked,
-        contents: List<SetupContent>,
-        done: Boolean,
-    ) {
-        transactionTemplate.execute {
-            val session =
-                setupSessionRepository.findForUpdate(asked.sessionId, asked.accountId)
-                    ?: throw GlossException(SetupError.SESSION_NOT_FOUND)
-            if (session.searchingSince != asked.since) throw Superseded()
-            if (done) answered(session)
-            val now = clock.instant()
-            contents.forEach { content -> jdbcSetupMessages.append(session, content, now) }
-        }
-    }
-
-    private fun answered(session: SetupSession) {
-        session.answered()
-        setupSessionRepository.saveAndFlush(session)
-    }
-
     private fun failure(error: ErrorCode) = SearchFailed(error.code, error.message)
-
-    private class Superseded : RuntimeException() {
-        companion object {
-            private const val serialVersionUID = 1L
-        }
-    }
 }

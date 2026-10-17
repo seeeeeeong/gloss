@@ -18,6 +18,7 @@ import gloss.domain.llm.domain.chat.ToolCall
 import gloss.domain.llm.domain.chat.ToolChoice
 import gloss.domain.llm.service.DeepSeekModel
 import gloss.domain.llm.service.LlmError
+import gloss.domain.setup.FakePageGateway
 import gloss.domain.setup.FakeWebSearchGateway
 import gloss.domain.setup.SetupFakes
 import gloss.domain.setup.domain.BooksFound
@@ -53,6 +54,7 @@ import java.util.UUID
     FakeBookSourceGateway.Config::class,
     FakeLlmGateway.Config::class,
     FakeWebSearchGateway.Config::class,
+    FakePageGateway.Config::class,
     KeyedReaders.Config::class,
     MutableClock.Config::class,
     SetupFakes.Config::class,

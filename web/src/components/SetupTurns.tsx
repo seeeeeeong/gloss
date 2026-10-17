@@ -106,10 +106,16 @@ export function GlossTurn({ message, session, busy, contents, onPick, onType }: 
     }
     case 'contents':
       if (contents?.seq === message.seq)
-        return <SetupContents contents={contents} typed={message.payload.typed} />
+        return (
+          <>
+            {think}
+            <SetupContents contents={contents} typed={message.payload.typed} />
+          </>
+        )
       return (
         <>
-          <p>{contentsIntro(message.payload.typed)}</p>
+          {think}
+          <p>{contentsIntro(message.payload.typed, Boolean(message.payload.sourceUrl))}</p>
           <ContentsCard
             title={message.payload.title}
             items={cardItems(session, message.seq, message.payload.items)}
@@ -159,17 +165,40 @@ function ThinkLine({ steps, seconds }: { steps: TurnStep[]; seconds: number }) {
         <ul className="step-list">
           {steps.map((step) => (
             <li key={step.seq}>
-              <Icon name={step.kind === 'search' ? 'globe' : 'book'} size={16} />
-              <span>
-                <b>{step.kind === 'search' ? '검색' : 'YES24'}</b>
-                {step.query} · {step.kind === 'search' ? `${step.found}곳` : `판본 ${step.found}개`}
-              </span>
+              <Icon name={step.kind === 'books' ? 'book' : 'globe'} size={16} />
+              <span>{stepLine(step)}</span>
             </li>
           ))}
         </ul>
       )}
     </div>
   )
+}
+
+function stepLine(step: TurnStep) {
+  switch (step.kind) {
+    case 'search':
+      return (
+        <>
+          <b>검색</b>
+          {step.query} · {step.found}곳
+        </>
+      )
+    case 'books':
+      return (
+        <>
+          <b>YES24</b>
+          {step.query} · 판본 {step.found}개
+        </>
+      )
+    case 'read':
+      return (
+        <>
+          <b>읽기</b>
+          {step.query}
+        </>
+      )
+  }
 }
 
 /** Contents brought earlier, or before a reload: their title and size, never the whole list again. */

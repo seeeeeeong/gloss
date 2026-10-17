@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import org.springframework.transaction.support.TransactionTemplate
 import java.time.Clock
+import java.util.UUID
 
 /**
  * A web search on the operator's key, within its daily caps, recorded with what it cost. Asked outside
@@ -39,16 +40,18 @@ class SetupWebSearch(
         ) : Searched
     }
 
+    /** For the reader [accountId] in the session [sessionId]. */
     fun search(
-        turn: SetupTurn,
+        accountId: UUID,
+        sessionId: UUID,
         query: String,
     ): Searched {
         val asked =
             checkNotNull(
                 transactionTemplate.execute {
                     jdbcWebSearches.ask(
-                        accountId = turn.accountId,
-                        sessionId = turn.sessionId,
+                        accountId = accountId,
+                        sessionId = sessionId,
                         caps = caps,
                         now = clock.instant(),
                     )
@@ -57,17 +60,14 @@ class SetupWebSearch(
         val id =
             when (asked) {
                 is JdbcWebSearches.Asked.Allowed -> asked.id
-
-                is JdbcWebSearches.Asked.Refused -> return Searched.Refused(
-                    "web search is used up for today; use find_books",
-                )
+                is JdbcWebSearches.Asked.Refused -> return Searched.Refused(USED_UP)
             }
         val results =
             try {
                 webSearchGateway.search(query)
             } catch (_: WebSearchFailed) {
                 jdbcWebSearches.answer(id, answer = null, at = clock.instant())
-                return Searched.Refused("the web search failed; use find_books")
+                return Searched.Refused(FAILED)
             }
         val answer =
             JdbcWebSearches.Answer(
@@ -77,5 +77,11 @@ class SetupWebSearch(
             )
         jdbcWebSearches.answer(id, answer, clock.instant())
         return Searched.Found(results)
+    }
+
+    companion object {
+        /** What the model is told; a turn that has other tools adds which to use instead. */
+        const val USED_UP = "web search is used up for today"
+        const val FAILED = "the web search failed"
     }
 }

@@ -5,6 +5,7 @@ import {
   cardItems,
   chatKey,
   contentsHeading,
+  contentsIntro,
   docOf,
   factsOf,
   failureLink,
@@ -19,15 +20,18 @@ import {
   listOf,
   liveContents,
   type OfferedBook,
+  once,
   planPath,
   planProgress,
   planRetryPath,
   planRunning,
   planWaits,
   readerLine,
+  SEEK_LABEL,
   type SetupMessage,
   type SetupSession,
   type SetupState,
+  seekingContents,
   sessionPath,
   shownHold,
   showsTurn,
@@ -61,6 +65,7 @@ describe('sessionPath', () => {
   it('names the session, and the step when there is one', () => {
     expect(sessionPath('a')).toBe('/api/me/setup-sessions/a')
     expect(sessionPath('a', 'pick')).toBe('/api/me/setup-sessions/a/pick')
+    expect(sessionPath('a', 'contents-search')).toBe('/api/me/setup-sessions/a/contents-search')
   })
 })
 
@@ -172,6 +177,7 @@ describe('liveContents', () => {
         title: '책 4',
         authors: [],
         book: null,
+        found: null,
         raw: '1장\n2장',
         items: [
           { ord: 0, parent: null, depth: 1, number: '1장', title: '1장' },
@@ -334,6 +340,140 @@ describe('showsTurn', () => {
   })
 })
 
+describe('a look for contents', () => {
+  const pick: SetupMessage = {
+    seq: 1,
+    createdAt: '2026-10-17T00:00:00Z',
+    role: 'reader',
+    kind: 'pick',
+    payload: { ref: '101', title: '운영체제' },
+  }
+  const look: SetupMessage[] = [
+    pick,
+    {
+      ...at,
+      seq: 2,
+      role: 'gloss',
+      kind: 'contents',
+      payload: { ref: '101', title: '운영체제', items: 11, typed: false, thin: true },
+    },
+    {
+      ...at,
+      seq: 3,
+      role: 'gloss',
+      kind: 'tool_calls',
+      payload: { text: '', calls: [{ id: 'c1', name: 'fetch_page', arguments: '{}' }] },
+    },
+    {
+      ...at,
+      seq: 4,
+      role: 'gloss',
+      kind: 'page_fetched',
+      payload: {
+        callId: 'c1',
+        url: 'https://notes.example/toc',
+        title: '목차 정리',
+        characters: 900,
+      },
+    },
+    {
+      seq: 5,
+      createdAt: '2026-10-17T00:00:20Z',
+      role: 'gloss',
+      kind: 'contents',
+      payload: {
+        ref: '101',
+        title: '운영체제',
+        items: 206,
+        typed: false,
+        sourceUrl: 'https://notes.example/toc',
+        sourceTitle: '목차 정리',
+      },
+    },
+  ]
+
+  it('shows the pages read as steps of the contents found, never as turns of their own', () => {
+    expect(look.filter(showsTurn).map((message) => message.kind)).toEqual([
+      'pick',
+      'contents',
+      'contents',
+    ])
+    expect(turnOf(look, 5)).toEqual({
+      seconds: 20,
+      steps: [{ seq: 4, kind: 'read', query: '목차 정리', found: 1 }],
+    })
+    expect(turnOf(look, 2)).toBeNull()
+  })
+
+  it("says the reader's ask as the action they pressed", () => {
+    const sought: SetupMessage = { ...at, role: 'reader', kind: 'seek', payload: { ref: '101' } }
+
+    expect(readerLine(sought)).toBe(SEEK_LABEL)
+    expect(SEEK_LABEL).toBe('다른 출처 찾기')
+  })
+
+  it('is under way only while a chosen book waits for an answer', () => {
+    const session = (state: SetupState, searching: boolean): SetupSession => ({
+      id: 's',
+      revision: 0,
+      state,
+      searching,
+      bookId: null,
+      held: null,
+      messages: look,
+    })
+
+    expect(seekingContents(session('book_chosen', true))).toBe(true)
+    expect(seekingContents(session('book_chosen', false))).toBe(false)
+    expect(seekingContents(session('searching', true))).toBe(false)
+    expect(seekingContents(null)).toBe(false)
+  })
+
+  it('introduces contents found elsewhere as found', () => {
+    expect(contentsIntro(false, true)).toBe(
+      '다른 출처에서 목차를 찾았어요. 살펴보시고 괜찮으면 문체를 골라 시작해 주세요.',
+    )
+    expect(contentsIntro(false)).toBe(
+      '목차를 가져왔어요. 살펴보시고 괜찮으면 문체를 골라 시작해 주세요.',
+    )
+  })
+})
+
+describe('once', () => {
+  it('sends a second press nothing while the first is on its way, and the next one after it', async () => {
+    const flight = { current: false }
+    let asked = 0
+    let answer: (value: string) => void = () => {}
+    const ask = () => {
+      asked += 1
+      return new Promise<string>((resolve) => {
+        answer = resolve
+      })
+    }
+
+    const first = once(flight, ask)
+    const second = await once(flight, ask)
+    answer('answered')
+
+    expect(second).toBeNull()
+    expect(await first).toBe('answered')
+    expect(asked).toBe(1)
+    expect(flight.current).toBe(false)
+
+    const third = once(flight, ask)
+    answer('again')
+    expect(await third).toBe('again')
+    expect(asked).toBe(2)
+  })
+
+  it('lets the next press through after one that failed', async () => {
+    const flight = { current: false }
+
+    await expect(once(flight, () => Promise.reject(new Error('lost')))).rejects.toThrow('lost')
+    expect(flight.current).toBe(false)
+  })
+})
+
 describe('turnOf', () => {
   it("collects the searches since the reader's message and how long the answer took", () => {
     expect(turnOf(turn, 6)).toEqual({
@@ -466,6 +606,7 @@ describe('factsOf', () => {
     sourceUrl: 'https://www.yes24.com/product/goods/101',
     title: '운영체제',
     authors: [],
+    found: null,
     book: {
       ...book(true),
       title: '운영체제',
@@ -512,6 +653,7 @@ describe('shownHold', () => {
     sourceUrl: 'https://www.yes24.com/product/goods/101',
     title: '오브젝트',
     authors: [],
+    found: null,
     book: null,
     raw: '1장',
     items: [heldItem(0, null, 0, '1장')],

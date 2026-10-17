@@ -32,6 +32,11 @@ data class ReaderTyped(
     val title: String,
 ) : SetupContent
 
+/** The reader asked for the held edition's contents from another source than the bookshop's. */
+data class ReaderSought(
+    val ref: String,
+) : SetupContent
+
 /**
  * The reader started with the held contents; [tocId] is the confirmed version of the book made from
  * them, and [level] and [voice] the codes of how its posts are written, none before the choice.
@@ -109,13 +114,18 @@ data class SearchFailed(
 /**
  * The contents held for the reader to look over before any book is made: an edition's, named by
  * [ref], as the source gave them or as the reader [typed] them, or a book of their own. [title] is
- * kept as the book made from them would keep it.
+ * kept as the book made from them would keep it. [thin] contents are too coarse to write from, so a
+ * search for detailed ones starts with them; contents found on the web name the page they came from
+ * by its [sourceUrl] and [sourceTitle].
  */
 data class ContentsBrought(
     val ref: String?,
     val title: String,
     val items: Int,
     val typed: Boolean,
+    val thin: Boolean = false,
+    val sourceUrl: String? = null,
+    val sourceTitle: String? = null,
 ) : SetupContent
 
 /** The book is made and its contents confirmed, [items] of them, none counted before the plan was shown. */
@@ -145,6 +155,17 @@ data class WebSearched(
     val callId: String,
     val query: String,
     val results: Int,
+) : SetupContent
+
+/**
+ * A page the model read while looking for contents: its address, title and length. Its text is not
+ * kept: the page's terms grant no right to store it, so it is read only within the turn that asked.
+ */
+data class PageFetched(
+    val callId: String,
+    val url: String,
+    val title: String,
+    val characters: Int,
 ) : SetupContent
 
 /** A tool call that was not run, or ran and failed, and why, as the model was told. */
@@ -201,12 +222,14 @@ enum class SetupKind(
     PICK("pick", SetupRole.READER, ReaderPicked::class.java),
     TYPED("typed", SetupRole.READER, ReaderTyped::class.java),
     CONFIRM("confirm", SetupRole.READER, ReaderConfirmed::class.java),
+    SEEK("seek", SetupRole.READER, ReaderSought::class.java),
     BOOKS("books", SetupRole.GLOSS, BooksFound::class.java),
     SEARCH_FAILED("search_failed", SetupRole.GLOSS, SearchFailed::class.java),
     CONTENTS("contents", SetupRole.GLOSS, ContentsBrought::class.java),
     DONE("done", SetupRole.GLOSS, SetupDone::class.java),
     TOOL_CALLS("tool_calls", SetupRole.GLOSS, ToolsCalled::class.java),
     WEB_SEARCHED("web_searched", SetupRole.GLOSS, WebSearched::class.java),
+    PAGE_FETCHED("page_fetched", SetupRole.GLOSS, PageFetched::class.java),
     TOOL_REFUSED("tool_refused", SetupRole.GLOSS, ToolRefused::class.java),
     RECOMMEND("recommend", SetupRole.GLOSS, Recommended::class.java),
     BOOKS_SHOWN("books_shown", SetupRole.GLOSS, BooksShown::class.java),

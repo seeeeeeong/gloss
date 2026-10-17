@@ -11,6 +11,7 @@ spring-boot = "4.1.1"
 spring-modulith = "2.1.1"
 kotlin-jdsl = "3.9.0"
 commonmark = "0.30.1"
+jsoup = "1.23.2"
 
 [libraries]
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
@@ -46,6 +47,7 @@ kotlin-jdsl-jpql-render = { module = "com.linecorp.kotlin-jdsl:jpql-render", ver
 kotlin-jdsl-spring-data-jpa-boot4-support = { module = "com.linecorp.kotlin-jdsl:spring-data-jpa-boot4-support", version.ref = "kotlin-jdsl" }
 commonmark = { module = "org.commonmark:commonmark", version.ref = "commonmark" }
 commonmark-ext-gfm-tables = { module = "org.commonmark:commonmark-ext-gfm-tables", version.ref = "commonmark" }
+jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

@@ -13,8 +13,10 @@ import {
   docOf,
   factsOf,
   type HeldContents,
+  hostOf,
   itemsCount,
   keepsEditing,
+  SEEK_LABEL,
 } from '@/lib/setup'
 import type { Voice } from '@/lib/styles'
 
@@ -32,18 +34,21 @@ export type ShownContents = {
   waiting: boolean
   /** The voice a start is on its way with. */
   starting: Voice | null
-  /** Why the last start or save did not go through, said as Gloss would. */
+  /** Detailed contents are being looked for: these wait for them. */
+  searching: boolean
+  /** Why the last start, save or look did not go through, said as Gloss would. */
   notice: string | null
   onEdit: () => void
+  onSeek: () => void
   onStart: (style: ChosenStyle) => void
 }
 
 type Props = { contents: ShownContents; typed: boolean }
 
 /**
- * The contents as a document in Gloss's answer: the book's header with its facts, the source and
- * 수정, then every item, parts and chapters as headings and sections as lists, then the question of
- * how the posts are written, whose answer starts with them.
+ * The contents as a document in Gloss's answer: the book's header with its facts, the sources, 수정
+ * and 다른 출처 찾기, then every item, parts and chapters as headings and sections as lists, then the
+ * question of how the posts are written, whose answer starts with them.
  */
 export function SetupContents({ contents, typed }: Props) {
   const { held, live, editing, waiting, starting, notice, onStart } = contents
@@ -51,7 +56,7 @@ export function SetupContents({ contents, typed }: Props) {
     <>
       <h1>{contentsHeading(held)}</h1>
       <BookHeader contents={contents} />
-      <p>{contentsIntro(typed)}</p>
+      <p>{contentsIntro(typed, held.found !== null)}</p>
       <div className="doc">
         {docOf(held.items).map((block) => {
           if (block.kind === 'list') return <DocList key={block.key} items={block.items} />
@@ -65,7 +70,7 @@ export function SetupContents({ contents, typed }: Props) {
   )
 }
 
-/** The cover, the title linked to its page, the facts, then the source's credit and 수정. */
+/** The cover, the title linked to its page, the facts, then the sources, 수정 and 다른 출처 찾기. */
 function BookHeader({ contents }: { contents: ShownContents }) {
   const { held } = contents
   const href = held.book?.url ?? held.sourceUrl
@@ -97,12 +102,35 @@ function BookHeader({ contents }: { contents: ShownContents }) {
   )
 }
 
+/**
+ * Where the contents came from: the page they were found on, as a recommendation cites one, then the
+ * bookshop whose details the header shows, as its terms ask.
+ */
 function SourceRow({ contents }: { contents: ShownContents }) {
-  const { held, live, editing, starting, onEdit } = contents
+  const { held, live, editing, waiting, starting, searching, onEdit, onSeek } = contents
   const credit = held.source && held.sourceUrl ? creditOf(held.source) : null
-  if (!credit && !live) return null
+  const found = held.found
+  const busy = starting !== null || searching
+  if (!credit && !found && !live) return null
   return (
     <p className="bk-src">
+      {found && (
+        <>
+          <a
+            className="dl found"
+            href={found.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={found.title}
+          >
+            <span>{found.title}</span>
+            <Icon name="upRight" size={14} />
+          </a>
+          <a className="spill" href={found.url} target="_blank" rel="noopener noreferrer">
+            {hostOf(found.url)}
+          </a>
+        </>
+      )}
       {credit && held.sourceUrl && (
         <a className="dl" href={held.sourceUrl} target="_blank" rel="noopener noreferrer">
           <span>{credit}</span>
@@ -116,13 +144,26 @@ function SourceRow({ contents }: { contents: ShownContents }) {
             id={EDIT_BUTTON}
             className="tbtn"
             aria-expanded={editing}
-            aria-disabled={starting !== null}
+            aria-disabled={busy}
             onClick={() => {
-              if (starting === null) onEdit()
+              if (!busy) onEdit()
             }}
           >
             수정
           </button>
+          {held.ref !== null && (
+            <button
+              type="button"
+              className="tbtn"
+              aria-disabled={busy || editing || waiting}
+              aria-busy={searching}
+              onClick={() => {
+                if (!busy && !editing && !waiting) onSeek()
+              }}
+            >
+              {SEEK_LABEL}
+            </button>
+          )}
         </span>
       )}
     </p>
