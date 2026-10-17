@@ -323,6 +323,10 @@
 }
 .reader .tc-chapter {
   font-weight: 600;
+}
+/* Only a chapter over its sections: folded chapters in a row would chain into one block, and the
+   first page would break after the heading alone. */
+.reader .tc-chapter:has(+ .tc-section) {
   break-after: avoid;
 }
 .reader .tc-section + .tc-chapter,

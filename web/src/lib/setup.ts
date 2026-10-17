@@ -1,4 +1,5 @@
-import { type BookCandidate, isBookId, type TocNode, treeOf } from './books'
+import { authorsLine, type BookCandidate, editionOf, isBookId, type TocNode, treeOf } from './books'
+import { headingOf } from './posts'
 
 /** An edition a search in a setup session found, as the source describes it now: none of it is kept. */
 export type OfferedBook = Pick<
@@ -130,7 +131,7 @@ export function readerLine(message: SetupMessage): string | null {
   }
 }
 
-/** The live card counts the held contents as edited; earlier cards count what was brought then. */
+/** The live contents count as edited; earlier ones count what was brought then. */
 export function cardItems(session: SetupSession, seq: number, brought: number): number {
   return liveContents(session) === seq && session.held ? session.held.items.length : brought
 }
@@ -278,11 +279,111 @@ export function heldTree(items: HeldItem[]): TocNode[] {
 }
 
 /**
- * The latest contents Gloss brought: the only card that opens the panel while a book is chosen. A
- * new hold is a new message, so this also names the hold, and the panel starts over for each one.
+ * The latest contents Gloss brought: the only ones edited or started with while a book is chosen. A
+ * new hold is a new message, so this also names the hold, and the editor starts over for each one.
  */
 export function liveContents(session: SetupSession): number | null {
   if (session.state !== 'book_chosen') return null
   const last = session.messages.findLast((message) => message.kind === 'contents')
   return last?.seq ?? null
+}
+
+/** The heading the contents read under, in the thread and in the editor. */
+export const contentsHeading = (held: Pick<HeldContents, 'title'>) => `${held.title} 전체 목차`
+
+export const contentsIntro = (typed: boolean) =>
+  `${typed ? '목차를 받았어요.' : '목차를 가져왔어요.'} 살펴보시고 괜찮으면 이 목차로 시작해 주세요.`
+
+export const itemsCount = (count: number) => `${count}개 항목`
+
+/** The facts under the book's title: who wrote it, which edition, and how many items. */
+export function factsOf(held: HeldContents): string[] {
+  const authors = authorsLine(held.book?.authors ?? held.authors)
+  const edition = [held.book?.publisher ?? '', held.book?.publishedOn?.slice(0, 4) ?? '']
+    .filter((part) => part.length > 0)
+    .join(' ')
+  return [
+    authors && `저자: ${authors}`,
+    edition && `판본: ${edition}`,
+    `구성: ${itemsCount(held.items.length)}`,
+  ].filter((fact) => fact.length > 0)
+}
+
+/** An item of a list in the contents document, with the items under it. */
+export type DocItem = { key: string; label: string; children: DocItem[] }
+
+/** The contents as a document: parts and chapters as headings, what sits under a chapter as a list. */
+export type DocBlock =
+  | { kind: 'part' | 'chapter'; key: string; label: string }
+  | { kind: 'list'; key: string; items: DocItem[] }
+
+const depthOf = (nodes: TocNode[]): number =>
+  nodes.reduce((most, node) => Math.max(most, 1 + depthOf(node.children)), 0)
+
+const docItem = (node: TocNode): DocItem => ({
+  key: node.id,
+  label: headingOf(node),
+  children: node.children.map(docItem),
+})
+
+/**
+ * Three levels or more read as parts, chapters and lists of sections; two as chapters and their
+ * sections; one as a single list.
+ */
+export function docOf(items: HeldItem[]): DocBlock[] {
+  const roots = heldTree(items)
+  const headings = Math.min(depthOf(roots) - 1, 2)
+  const walk = (nodes: TocNode[], level: number): DocBlock[] => {
+    const [first] = nodes
+    if (!first) return []
+    if (level >= headings) return [{ kind: 'list', key: first.id, items: nodes.map(docItem) }]
+    const kind = headings - level === 2 ? 'part' : 'chapter'
+    return nodes.flatMap((node): DocBlock[] => [
+      { kind, key: node.id, label: headingOf(node) },
+      ...walk(node.children, level + 1),
+    ])
+  }
+  return walk(roots, 0)
+}
+
+/** The kind (도서, eBook) only where it alone tells two editions of one list apart. */
+export function kindTells(book: OfferedBook, books: OfferedBook[]): boolean {
+  const edition = editionOf(book, false)
+  return books.some(
+    (other) =>
+      other.ref !== book.ref &&
+      other.title === book.title &&
+      other.kind !== book.kind &&
+      editionOf(other, false) === edition,
+  )
+}
+
+/** Contents shown whole in the thread, by the message that brought them. */
+export type ShownHold = { seq: number; held: HeldContents }
+
+/**
+ * The contents held now, else the last ones held once a book is made from them, which the session
+ * no longer holds. A hold let go by a new message shows nothing whole.
+ */
+export function shownHold(session: SetupSession | null, kept: ShownHold | null): ShownHold | null {
+  const live = session ? liveContents(session) : null
+  if (live !== null && session?.held) return { seq: live, held: session.held }
+  return session?.state === 'confirmed' ? kept : null
+}
+
+/** What the reader is doing with one hold: editing it, starting with it, why the last try failed. */
+export type HoldStep = {
+  seq: number | null
+  editing: boolean
+  starting: boolean
+  notice: string | null
+}
+
+/**
+ * The step as it stands for the contents held at [live]. A step taken on other contents, or on a
+ * hold let go, is over: nothing of it (the editor, a start under way, a notice) carries over.
+ */
+export function stepOn(step: HoldStep, live: number | null): HoldStep {
+  if (step.seq !== null && step.seq === live) return step
+  return { seq: live, editing: false, starting: false, notice: null }
 }

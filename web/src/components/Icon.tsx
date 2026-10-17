@@ -28,6 +28,7 @@ const SHAPES = {
   send: <path d="M10 15.5V4.75M5.25 9.5 10 4.75l4.75 4.75" strokeWidth="2" />,
   chevR: <path d="M8 5.5 12.5 10 8 14.5" />,
   upRight: <path d="M6.5 13.5l7-7M8 6.5h5.5V12" />,
+  arrowR: <path d="M4.5 10h11M11 5.5l4.5 4.5-4.5 4.5" />,
   search: (
     <>
       <circle cx="9" cy="9" r="5.25" />

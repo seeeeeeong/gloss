@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { load } from '../lib/api'
 import { creditOf, editionOf } from '../lib/books'
@@ -9,11 +10,14 @@ import {
   type CitedPage,
   canPick,
   cardItems,
+  contentsHeading,
+  contentsIntro,
   failureLink,
   hostOf,
+  itemsCount,
+  kindTells,
   latestBooks,
   listOf,
-  liveContents,
   type OfferedBook,
   type RecommendedBook,
   type SetupMessage,
@@ -24,23 +28,27 @@ import {
 } from '../lib/setup'
 import { Icon } from './Icon'
 import { ListFailed } from './ListFailed'
+import { Cover, SetupContents, type ShownContents } from './SetupContents'
 import { useDismiss } from './useDismiss'
 
 type TurnProps = {
   message: SetupMessage
   session: SetupSession
   busy: boolean
-  panel: boolean
+  /** The contents shown whole: the live ones, or those just started with. */
+  contents: ShownContents | null
   onPick: (book: OfferedBook) => void
   onType: (book: OfferedBook) => void
-  onPanel: (open: boolean) => void
 }
+
+/** The 책으로 이동 button, which takes focus once the reader has started. */
+export const BOOK_READY = 'book-ready'
 
 /**
  * What Gloss says: the model's answer (recommended books, the editions of a book named, or words) after
  * the steps it took, what stopped it, the contents brought, or done.
  */
-export function GlossTurn({ message, session, busy, panel, onPick, onType, onPanel }: TurnProps) {
+export function GlossTurn({ message, session, busy, contents, onPick, onType }: TurnProps) {
   const turn = turnOf(session.messages, message.seq)
   const think = turn && <ThinkLine steps={turn.steps} seconds={turn.seconds} />
   const list = listOf(session.messages, message)
@@ -100,18 +108,14 @@ export function GlossTurn({ message, session, busy, panel, onPick, onType, onPan
       )
     }
     case 'contents':
+      if (contents?.seq === message.seq)
+        return <SetupContents contents={contents} typed={message.payload.typed} />
       return (
         <>
-          <p>
-            {message.payload.typed ? '목차를 받았어요.' : '목차를 가져왔어요.'} 살펴보시고 괜찮으면
-            이 목차로 시작해 주세요.
-          </p>
+          <p>{contentsIntro(message.payload.typed)}</p>
           <ContentsCard
             title={message.payload.title}
             items={cardItems(session, message.seq, message.payload.items)}
-            live={liveContents(session) === message.seq}
-            open={panel}
-            onPanel={onPanel}
           />
         </>
       )
@@ -119,14 +123,34 @@ export function GlossTurn({ message, session, busy, panel, onPick, onType, onPan
       return (
         <>
           <p>준비됐어요. 항목을 열면 그 글을 바로 써 드릴게요.</p>
-          <Link className="submit" href={`/books/${message.payload.bookId}`}>
-            책으로 이동
-          </Link>
+          <BookReady bookId={message.payload.bookId} />
         </>
       )
     default:
       return null
   }
+}
+
+/** To the book made, refreshing the sidebar on the way so it lists the book. */
+function BookReady({ bookId }: { bookId: string }) {
+  const router = useRouter()
+  const href = `/books/${bookId}`
+  return (
+    <a
+      id={BOOK_READY}
+      className="submit"
+      href={href}
+      onClick={(event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
+        event.preventDefault()
+        router.push(href)
+        router.refresh()
+      }}
+    >
+      책으로 이동
+      <Icon name="arrowR" size={16} />
+    </a>
+  )
 }
 
 // What the model wrote, as plain paragraphs: never markup.
@@ -172,28 +196,15 @@ function ThinkLine({ steps, seconds }: { steps: TurnStep[]; seconds: number }) {
   )
 }
 
-type CardProps = {
-  title: string
-  items: number
-  /** Only the latest contents brought, while a book is chosen, open the panel; earlier ones are history. */
-  live: boolean
-  open: boolean
-  onPanel: (open: boolean) => void
-}
-
-function ContentsCard({ title, items, live, open, onPanel }: CardProps) {
-  const body = (
-    <span className="tcard-text">
-      <span className="tcard-title">{title}</span>
-      <span className="tcard-meta">목차 · 항목 {items}개</span>
-    </span>
-  )
-  if (!live) return <div className="tcard">{body}</div>
+/** Contents brought earlier, or before a reload: their title and size, never the whole list again. */
+function ContentsCard({ title, items }: { title: string; items: number }) {
   return (
-    <button type="button" className="tcard" aria-expanded={open} onClick={() => onPanel(!open)}>
-      {body}
-      <Icon name="chevR" />
-    </button>
+    <div className="tcard">
+      <span className="tcard-text">
+        <span className="tcard-title">{contentsHeading({ title })}</span>
+        <span className="tcard-meta">{itemsCount(items)}</span>
+      </span>
+    </div>
   )
 }
 
@@ -216,7 +227,7 @@ function FoundBooks(props: ListProps) {
         <>
           <div className="books">
             {books.map((book) => (
-              <BookRow key={book.ref} book={book} {...props} />
+              <BookRow key={book.ref} book={book} showKind={kindTells(book, books)} {...props} />
             ))}
           </div>
           <Credit books={books} />
@@ -243,6 +254,7 @@ function Recommendation({ picks, ...props }: ListProps & { picks: RecommendedBoo
                 <BookRow
                   key={book.ref}
                   book={book}
+                  showKind={kindTells(book, books)}
                   rank={i + 1}
                   reason={pick.reason}
                   sources={pick.sources}
@@ -331,14 +343,19 @@ type RowProps = {
   busy: boolean
   onPick: (book: OfferedBook) => void
   onType: (book: OfferedBook) => void
+  /** Whether the kind (도서, eBook) is needed to tell this edition from another in its list. */
+  showKind?: boolean
   /** A recommendation's place, its reason and the pages it cited. */
   rank?: number
   reason?: string
   sources?: CitedPage[]
 }
 
-export function BookRow({ book, state, busy, onPick, onType, rank, reason, sources }: RowProps) {
-  const meta = [editionOf(book), book.hasContents ? '' : '목차 없음'].filter(Boolean).join(' · ')
+export function BookRow(props: RowProps) {
+  const { book, state, busy, onPick, onType, showKind = false, rank, reason, sources } = props
+  const meta = [editionOf(book, showKind), book.hasContents ? '' : '목차 없음']
+    .filter(Boolean)
+    .join(' · ')
   const pickable = canPick(state, book)
   const typable = state !== 'confirmed' && !book.hasContents
   return (
@@ -442,10 +459,4 @@ export function MorePages({ pages }: { pages: CitedPage[] }) {
       ))}
     </span>
   )
-}
-
-// Straight from the source's server: Next's optimizer would fetch and keep a copy of every cover.
-function Cover({ src }: { src: string }) {
-  // biome-ignore lint/performance/noImgElement: see above
-  return <img src={src} alt="" loading="lazy" referrerPolicy="no-referrer" />
 }

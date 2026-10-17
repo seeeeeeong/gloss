@@ -1,6 +1,5 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import { type ApiResult, load, send } from '@/lib/api'
 import {
@@ -21,10 +20,9 @@ export type Pending = { kind: 'say' | 'pick'; text: string }
 
 /**
  * A setup session as the page holds it, and the reader's steps on it. The first message starts the
- * session and puts it in the address; a pick calls [onChosen], so its contents open.
+ * session and puts it in the address.
  */
-export function useSetupSession(initial: SetupSession | null, onChosen: () => void) {
-  const router = useRouter()
+export function useSetupSession(initial: SetupSession | null) {
   const [session, setSession] = useState(initial)
   const [pending, setPending] = useState<Pending | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -73,7 +71,6 @@ export function useSetupSession(initial: SetupSession | null, onChosen: () => vo
     await catchUp(result)
     if (!result.ok) return setError(result.message)
     setSession(result.data)
-    onChosen()
   }
 
   /** Contents the reader typed in, held as a pick's are; a book of their own may start the session. */
@@ -87,7 +84,6 @@ export function useSetupSession(initial: SetupSession | null, onChosen: () => vo
     if (!session) window.history.replaceState(null, '', `?${SESSION_PARAM}=${result.data.id}`)
     setError(null)
     setSession(result.data)
-    onChosen()
     return result
   }
 
@@ -115,10 +111,8 @@ export function useSetupSession(initial: SetupSession | null, onChosen: () => vo
       await catchUp(sent)
       return sent
     }
+    // Not refreshed here: the chat would remount under the session's own key and lose its focus.
     setSession(result.data)
-    // Stays busy: the book's page is on its way; the sidebar lists the book too.
-    router.push(`/books/${result.data.bookId}`)
-    router.refresh()
     return result
   }
 

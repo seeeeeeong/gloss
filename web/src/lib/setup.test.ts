@@ -4,10 +4,16 @@ import {
   canPick,
   cardItems,
   chatKey,
+  contentsHeading,
+  docOf,
+  factsOf,
   failureLink,
+  type HeldContents,
+  type HeldItem,
   heldTree,
   hostOf,
   keepsEditing,
+  kindTells,
   latestBooks,
   listOf,
   liveContents,
@@ -17,8 +23,10 @@ import {
   type SetupSession,
   type SetupState,
   sessionPath,
+  shownHold,
   showsTurn,
   startMayHaveLanded,
+  stepOn,
   turnOf,
 } from './setup'
 
@@ -377,5 +385,166 @@ describe('hostOf', () => {
   it('names a cited page by its host', () => {
     expect(hostOf('https://www.example.com/a/b')).toBe('example.com')
     expect(hostOf('not a url')).toBe('not a url')
+  })
+})
+
+const heldItem = (ord: number, parent: number | null, depth: number, title: string): HeldItem => ({
+  ord,
+  parent,
+  depth,
+  number: null,
+  title,
+})
+
+describe('docOf', () => {
+  it('reads three levels as parts, chapters and lists of sections, deeper ones nested', () => {
+    const blocks = docOf([
+      heldItem(0, null, 0, 'Part 1 개관'),
+      heldItem(1, 0, 1, '1 서론'),
+      heldItem(2, 1, 2, '1.1 운영체제가 할 일'),
+      heldItem(3, 2, 3, '1.1.1 사용자 관점'),
+      heldItem(4, 1, 2, '1.2 구성'),
+      heldItem(5, 0, 1, '2 구조'),
+    ])
+
+    expect(blocks).toEqual([
+      { kind: 'part', key: '0', label: 'Part 1 개관' },
+      { kind: 'chapter', key: '1', label: '1 서론' },
+      {
+        kind: 'list',
+        key: '2',
+        items: [
+          {
+            key: '2',
+            label: '1.1 운영체제가 할 일',
+            children: [{ key: '3', label: '1.1.1 사용자 관점', children: [] }],
+          },
+          { key: '4', label: '1.2 구성', children: [] },
+        ],
+      },
+      { kind: 'chapter', key: '5', label: '2 구조' },
+    ])
+  })
+
+  it('reads two levels as chapters and their sections, one as a single list', () => {
+    expect(
+      docOf([heldItem(0, null, 0, '1장'), heldItem(1, 0, 1, '1.1'), heldItem(2, null, 0, '2장')]),
+    ).toEqual([
+      { kind: 'chapter', key: '0', label: '1장' },
+      { kind: 'list', key: '1', items: [{ key: '1', label: '1.1', children: [] }] },
+      { kind: 'chapter', key: '2', label: '2장' },
+    ])
+    expect(docOf([heldItem(0, null, 0, '1장'), heldItem(1, null, 0, '2장')])).toEqual([
+      {
+        kind: 'list',
+        key: '0',
+        items: [
+          { key: '0', label: '1장', children: [] },
+          { key: '1', label: '2장', children: [] },
+        ],
+      },
+    ])
+  })
+})
+
+describe('factsOf', () => {
+  const held: HeldContents = {
+    ref: '101',
+    source: 'yes24',
+    sourceUrl: 'https://www.yes24.com/product/goods/101',
+    title: '운영체제',
+    authors: [],
+    book: {
+      ...book(true),
+      title: '운영체제',
+      authors: ['Abraham Silberschatz,Peter Baer Galvin 공저', '박민규 역'],
+      publisher: '퍼스트북',
+      publishedOn: '2020-02-28',
+    },
+    raw: '1 서론',
+    items: [heldItem(0, null, 0, '1 서론')],
+  }
+
+  it('names the authors, the edition and the number of items', () => {
+    expect(factsOf(held)).toEqual([
+      '저자: Abraham Silberschatz, Peter Baer Galvin 공저, 박민규 역',
+      '판본: 퍼스트북 2020',
+      '구성: 1개 항목',
+    ])
+    expect(contentsHeading(held)).toBe('운영체제 전체 목차')
+  })
+
+  it('leaves out what a book typed in does not have', () => {
+    expect(factsOf({ ...held, book: null, authors: ['김민준'] })).toEqual([
+      '저자: 김민준',
+      '구성: 1개 항목',
+    ])
+  })
+})
+
+describe('kindTells', () => {
+  const paper = book(true)
+  const ebook = { ...book(true), ref: '102', kind: 'eBook' }
+
+  it('shows the kind only where it alone tells two editions apart', () => {
+    expect(kindTells(paper, [paper, ebook])).toBe(true)
+    expect(kindTells(paper, [paper, { ...ebook, publishedOn: '2024-11-11' }])).toBe(false)
+    expect(kindTells(paper, [paper])).toBe(false)
+  })
+})
+
+describe('shownHold', () => {
+  const held: HeldContents = {
+    ref: '101',
+    source: 'yes24',
+    sourceUrl: 'https://www.yes24.com/product/goods/101',
+    title: '오브젝트',
+    authors: [],
+    book: null,
+    raw: '1장',
+    items: [heldItem(0, null, 0, '1장')],
+  }
+  const contents: SetupMessage = {
+    seq: 2,
+    createdAt: '2026-10-17T00:00:00Z',
+    role: 'gloss',
+    kind: 'contents',
+    payload: { ref: '101', title: '오브젝트', items: 1, typed: false },
+  }
+  const session = (state: SetupState, holds: boolean): SetupSession => ({
+    id: 's',
+    revision: 2,
+    state,
+    searching: state === 'searching',
+    bookId: state === 'confirmed' ? 'b' : null,
+    held: holds ? held : null,
+    messages: [contents],
+  })
+  const kept = { seq: 2, held }
+
+  it('shows the contents held now', () => {
+    expect(shownHold(session('book_chosen', true), null)).toEqual(kept)
+  })
+
+  it('keeps the last contents held once started with', () => {
+    expect(shownHold(session('confirmed', false), kept)).toBe(kept)
+  })
+
+  it('shows nothing whole once a new message lets the hold go', () => {
+    expect(shownHold(session('searching', false), kept)).toBeNull()
+  })
+})
+
+describe('stepOn', () => {
+  const step = { seq: 2, editing: true, starting: true, notice: '시작하지 못했어요.' }
+
+  it('keeps the step taken on the contents still held', () => {
+    expect(stepOn(step, 2)).toBe(step)
+  })
+
+  it('drops the editor, a start and a notice once another book is picked or the hold is let go', () => {
+    const none = { editing: false, starting: false, notice: null }
+    expect(stepOn(step, 4)).toEqual({ seq: 4, ...none })
+    expect(stepOn(step, null)).toEqual({ seq: null, ...none })
   })
 })
