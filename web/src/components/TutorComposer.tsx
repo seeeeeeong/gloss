@@ -85,7 +85,6 @@ export function TutorComposer(props: Props) {
         ref={input}
         rows={1}
         aria-label="메시지"
-        placeholder="이 글에 대해 물어보세요"
         maxLength={MAX_QUESTION}
         value={value}
         onChange={(event) => onChange(event.target.value)}

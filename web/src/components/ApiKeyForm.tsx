@@ -82,7 +82,6 @@ export function ApiKeyForm({ apiKey }: { apiKey: ApiKey | null }) {
               className="field"
               name="key"
               type="password"
-              placeholder="sk-..."
               autoComplete="off"
               spellCheck={false}
               aria-label={apiKey ? '새 API 키' : 'API 키'}

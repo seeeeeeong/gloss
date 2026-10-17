@@ -17,9 +17,12 @@ describe('ApiKeyForm', () => {
     const out = renderToStaticMarkup(<ApiKeyForm apiKey={null} />)
 
     expect(out).toContain('등록된 키가 없어요.')
-    expect(out).toContain('placeholder="sk-..."')
     expect(out).toContain('키 등록')
     expect(out).not.toContain('API 키 삭제')
+  })
+
+  it('leaves the key field without a placeholder', () => {
+    expect(renderToStaticMarkup(<ApiKeyForm apiKey={null} />)).not.toContain('placeholder')
   })
 
   it('shows a registered key by its last four, with a way to delete it', () => {

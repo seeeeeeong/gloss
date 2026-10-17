@@ -22,10 +22,10 @@ function render(props: Partial<Parameters<typeof TutorComposer>[0]>) {
 }
 
 describe('TutorComposer', () => {
-  it('starts as one line whose send waits for text', () => {
+  it('starts as one bare line whose send waits for text', () => {
     const out = render({})
     expect(out).toContain('rows="1"')
-    expect(out).toContain('placeholder="이 글에 대해 물어보세요"')
+    expect(out).not.toContain('placeholder')
     expect(out).toMatch(/<button type="submit"[^>]*aria-label="보내기"[^>]*disabled=""/)
   })
 
