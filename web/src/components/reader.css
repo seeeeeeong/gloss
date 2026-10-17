@@ -1,14 +1,17 @@
 /* The reader (v4 reader.html): one multi-column flow, a column a page, turned a spread at a time */
 :root {
-  --code-block: #f3f3f3;
+  --code-block: #eef2fa;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --code-block: #212121;
+    --code-block: #1f2430;
   }
 }
 :root[data-theme="dark"] {
-  --code-block: #212121;
+  --code-block: #1f2430;
+}
+:is(.top-conv, .tp-row, .tp-ch, .reader .tc-row):focus-visible {
+  box-shadow: inset 0 0 0 2px var(--focus);
 }
 
 /* Header: "<book> · <item>" opens the contents */
@@ -108,6 +111,7 @@
 .tp-row[aria-current="page"],
 .tp-ch[aria-current="page"] {
   background: var(--selected);
+  color: var(--selected-tx);
 }
 .tp-row .meta,
 .tp-row svg {

@@ -21,7 +21,7 @@ export function themeAttribute(theme: Theme): 'light' | 'dark' | undefined {
 }
 
 // --page in globals.css.
-const CANVAS = { light: '#fcfcfc', dark: '#000000' } as const
+const CANVAS = { light: '#ffffff', dark: '#111419' } as const
 
 export function themeColors(theme: Theme): { media: string; color: string }[] {
   return (['light', 'dark'] as const).map((scheme) => ({

@@ -18,7 +18,8 @@
   display: none;
 }
 .top-acts .ibtn[aria-pressed="true"] {
-  background: var(--hover);
+  background: var(--selected);
+  color: var(--selected-tx);
 }
 
 .tutor {
