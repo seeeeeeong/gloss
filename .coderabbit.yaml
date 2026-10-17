@@ -1,0 +1,9 @@
+# Review rules live in AGENTS.md and CLAUDE.md, which CodeRabbit reads on its own.
+language: ko-KR
+reviews:
+  profile: chill
+  auto_review:
+    enabled: true
+    # Stacked pull requests target another feature branch, not dev.
+    base_branches:
+      - ".*"
