@@ -1,5 +1,6 @@
 package gloss.domain.plan.service
 
+import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.service.BookOutline
 import gloss.domain.book.service.TocService
 import gloss.domain.budget.service.Purpose
@@ -84,6 +85,8 @@ class PlanJobHandler(
         PlanPrompt.Subject(
             title = outline.title,
             authors = outline.authors,
+            level = levelOf(outline.style.level),
+            voice = voiceOf(outline.style.voice),
             lines =
                 outline.items.map {
                     PlanPrompt.Line(
@@ -95,6 +98,20 @@ class PlanJobHandler(
                     )
                 },
         )
+
+    private fun levelOf(level: WritingStyle.Level) =
+        when (level) {
+            WritingStyle.Level.INTRO -> PlanPrompt.Level.INTRO
+            WritingStyle.Level.COURSE -> PlanPrompt.Level.COURSE
+            WritingStyle.Level.WORK -> PlanPrompt.Level.WORK
+        }
+
+    private fun voiceOf(voice: WritingStyle.Voice) =
+        when (voice) {
+            WritingStyle.Voice.TEXTBOOK -> PlanPrompt.Voice.TEXTBOOK
+            WritingStyle.Voice.EXPLAIN -> PlanPrompt.Voice.EXPLAIN
+            WritingStyle.Voice.NOTE -> PlanPrompt.Voice.NOTE
+        }
 
     // Thinking is off: it bills its reasoning as output, and a plan is drawn from the contents alone.
     private fun callFor(

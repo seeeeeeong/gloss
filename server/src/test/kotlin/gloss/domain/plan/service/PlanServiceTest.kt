@@ -1,12 +1,15 @@
 package gloss.domain.plan.service
 
 import gloss.TestcontainersConfiguration
+import gloss.common.error.GlossException
 import gloss.domain.generation.domain.job.JobState
 import gloss.domain.generation.domain.job.JobStatus
 import gloss.domain.plan.domain.BookPlanDraft
 import gloss.domain.plan.domain.event.PlanKept
+import gloss.domain.plan.dto.response.PlanStatusResponse
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -27,7 +30,9 @@ class PlanServiceTest(
     @Autowired private val entityManager: EntityManager,
 ) {
     /** A reader's book with contents, made as the book module would have left them. Rolled back with the test. */
-    private inner class Shelf {
+    private inner class Shelf(
+        private val confirmedAgo: String = "0 seconds",
+    ) {
         val account: UUID = UUID.randomUUID()
         val book: UUID = UUID.randomUUID()
         val toc: UUID = UUID.randomUUID()
@@ -67,7 +72,12 @@ class PlanServiceTest(
 
         fun use(tocId: UUID) {
             jdbc
-                .sql("update toc set status = 'confirmed', confirmed_at = now() where id = :id and status = 'draft'")
+                .sql(
+                    """
+                    update toc set status = 'confirmed', confirmed_at = now() - cast(:ago as interval)
+                    where id = :id and status = 'draft'
+                    """.trimIndent(),
+                ).param("ago", confirmedAgo)
                 .param("id", tocId)
                 .update()
             jdbc
@@ -233,5 +243,93 @@ class PlanServiceTest(
 
         assertThat(planService.request(shelf.account, shelf.book, shelf.toc)).isNull()
         assertThat(planService.exists(UUID.randomUUID(), shelf.toc)).isFalse()
+    }
+
+    @Test
+    fun `a reader waiting on a book's plan sees it planning, then failed with why, or ready`() {
+        val shelf = Shelf()
+        val waiting = planService.status(shelf.account, shelf.book)
+        val job = planService.request(shelf.account, shelf.book, shelf.toc)
+        val asked = planService.status(shelf.account, shelf.book)
+        jdbc
+            .sql(
+                """
+                update generation_job set state = 'failed', error_kind = 'budget.limit_reached', finished_at = now()
+                where id = :id
+                """.trimIndent(),
+            ).param("id", job)
+            .update()
+        val failed = planService.status(shelf.account, shelf.book)
+        planService.keep(shelf.draft())
+
+        assertThat(waiting).isEqualTo(PlanStatusResponse.PLANNING)
+        assertThat(asked).isEqualTo(PlanStatusResponse.PLANNING)
+        assertThat(failed).isEqualTo(PlanStatusResponse.failed("budget.limit_reached"))
+        assertThat(planService.status(shelf.account, shelf.book)).isEqualTo(PlanStatusResponse.READY)
+    }
+
+    @Test
+    fun `a plan job cancelled, as for an account disabled while it waited, is failed, not planning forever`() {
+        val shelf = Shelf()
+        val job = planService.request(shelf.account, shelf.book, shelf.toc)
+        jdbc
+            .sql("update generation_job set state = 'cancelled', finished_at = now() where id = :id")
+            .param("id", job)
+            .update()
+
+        assertThat(planService.status(shelf.account, shelf.book)).isEqualTo(PlanStatusResponse.failed("plan.cancelled"))
+    }
+
+    @Test
+    fun `contents confirmed a while ago with no plan job asked for are failed, and a retry asks for one`() {
+        val fresh = Shelf()
+        val lost = Shelf(confirmedAgo = "2 minutes")
+
+        assertThat(planService.status(fresh.account, fresh.book)).isEqualTo(PlanStatusResponse.PLANNING)
+        assertThat(planService.status(lost.account, lost.book))
+            .isEqualTo(PlanStatusResponse.failed("plan.not_started"))
+        assertThat(planService.retry(lost.account, lost.book)).isEqualTo(PlanStatusResponse.PLANNING)
+        assertThat(planService.status(lost.account, lost.book)).isEqualTo(PlanStatusResponse.PLANNING)
+        assertThat(jobs(lost)).isEqualTo(1)
+    }
+
+    @Test
+    fun `a retry asks again for a plan that ended without one, and adds nothing to one still to come`() {
+        val shelf = Shelf()
+        val first = planService.request(shelf.account, shelf.book, shelf.toc)
+        val waiting = planService.retry(shelf.account, shelf.book)
+        val queued = jobs(shelf)
+        jdbc
+            .sql("update generation_job set state = 'cancelled', finished_at = now() where id = :id")
+            .param("id", first)
+            .update()
+
+        val asked = planService.retry(shelf.account, shelf.book)
+
+        assertThat(waiting).isEqualTo(PlanStatusResponse.PLANNING)
+        assertThat(queued).isEqualTo(1)
+        assertThat(asked).isEqualTo(PlanStatusResponse.PLANNING)
+        assertThat(jobs(shelf)).isEqualTo(2)
+        assertThat(planService.status(shelf.account, shelf.book)).isEqualTo(PlanStatusResponse.PLANNING)
+        planService.keep(shelf.draft())
+        assertThat(planService.retry(shelf.account, shelf.book)).isEqualTo(PlanStatusResponse.READY)
+        assertThat(jobs(shelf)).isEqualTo(2)
+    }
+
+    private fun jobs(shelf: Shelf): Int =
+        jdbc
+            .sql("select count(*) from generation_job where account_id = :account")
+            .param("account", shelf.account)
+            .query(Int::class.java)
+            .single()
+
+    @Test
+    fun `another reader's book, or one gone, has no plan to wait on`() {
+        val shelf = Shelf()
+
+        assertThatThrownBy { planService.status(UUID.randomUUID(), shelf.book) }
+            .isInstanceOfSatisfying(GlossException::class.java) {
+                assertThat(it.error).isEqualTo(PlanError.BOOK_NOT_FOUND)
+            }
     }
 }

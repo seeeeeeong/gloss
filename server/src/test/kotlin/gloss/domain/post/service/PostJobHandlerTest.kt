@@ -273,7 +273,7 @@ class PostJobHandlerTest(
                 .query()
                 .singleRow()
         assertThat(version.values)
-            .containsExactly(plan["id"], "deepseek-flash", "post-1", 700, 200, 300, true, book.keys[1])
+            .containsExactly(plan["id"], "deepseek-flash", "post-2", 700, 200, 300, true, book.keys[1])
         val call =
             jdbc
                 .sql(
@@ -284,7 +284,7 @@ class PostJobHandlerTest(
                 ).param("account", book.account)
                 .query()
                 .singleRow()
-        assertThat(call.values).containsExactly("post", "post-1", "stop")
+        assertThat(call.values).containsExactly("post", "post-2", "stop")
         assertThat(checks(book)).containsExactly(passed(1))
         assertThat(postReservations(book).values).containsExactly(listOf("reserve", "settle"))
     }

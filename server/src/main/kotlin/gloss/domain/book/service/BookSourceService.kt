@@ -8,6 +8,7 @@ import gloss.domain.book.domain.BookTitle
 import gloss.domain.book.domain.SourcedBook
 import gloss.domain.book.domain.TocParser
 import gloss.domain.book.domain.TocText
+import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookSourceAddRequest
 import gloss.domain.book.dto.request.TocReviseRequest
 import gloss.domain.book.dto.response.BookCandidateResponse
@@ -73,7 +74,12 @@ class BookSourceService(
             answer { bookSourceGateway.find(request.ref) } ?: throw GlossException(BookError.SOURCE_BOOK_NOT_FOUND)
         val typed = request.toc?.takeIf { it.isNotBlank() }
         if (typed == null && !readable(sourced.contents)) throw GlossException(BookError.SOURCE_NO_TOC)
-        return bookService.add(accountId = accountId, draft = draftOf(sourced), typed = typed, sourced = sourced)
+        return bookService.add(
+            accountId = accountId,
+            draft = draftOf(sourced, WritingStyle.DEFAULT),
+            typed = typed,
+            sourced = sourced,
+        )
     }
 
     /**
@@ -93,18 +99,19 @@ class BookSourceService(
      * Adds what [fetch] read and confirms its contents, in the caller's transaction. The source's
      * contents are the first version and [contents] the reader changed a second, so each keeps where
      * it came from; for an edition the source has none for, the reader's are the first. The one
-     * confirmed is the last.
+     * confirmed is the last. The book's posts are written in [style].
      */
     fun keep(
         accountId: UUID,
         edition: SourcedEdition,
         contents: String,
+        style: WritingStyle,
     ): ContentsVersion {
         val source = edition.contents
         val added =
             bookService.add(
                 accountId = accountId,
-                draft = draftOf(edition.book),
+                draft = draftOf(edition.book, style),
                 typed = if (source == null) contents else null,
                 sourced = edition.book,
             )
@@ -146,13 +153,17 @@ class BookSourceService(
     private fun readable(contents: String?): Boolean =
         contents?.let(TocText::of)?.let { TocParser.parse(it.value) is TocParser.Result.Parsed } ?: false
 
-    private fun draftOf(sourced: SourcedBook): BookDraft {
+    private fun draftOf(
+        sourced: SourcedBook,
+        style: WritingStyle,
+    ): BookDraft {
         val title = BookTitle.of(sourced.title) ?: throw GlossException(BookError.SOURCE_FAILED)
         return BookDraft(
             title = title,
             authors = sourced.authors,
             publisher = sourced.publisher,
             isbn13 = sourced.isbn13,
+            style = style,
         )
     }
 

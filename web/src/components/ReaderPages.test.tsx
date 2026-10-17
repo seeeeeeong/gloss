@@ -65,7 +65,7 @@ describe('ItemArticle', () => {
 })
 
 describe('Cover', () => {
-  it('names the book, its authors and publisher, and credits the source', () => {
+  it('names the book, its authors, publisher and voice, and credits the source', () => {
     const book = {
       id: 'b1',
       title: '운영체제 10판',
@@ -73,12 +73,15 @@ describe('Cover', () => {
       publisher: '퍼스트북',
       source: 'yes24',
       sourceUrl: 'https://www.yes24.com/product/goods/1',
+      voice: 'explain',
       tocVersionNo: 2,
     }
     const out = renderToStaticMarkup(<Cover book={book} />)
     expect(out).toContain('data-unit="0"')
     expect(out).toContain('<h1 class="cv-t">운영체제 10판</h1>')
-    expect(out).toContain('<span>Abraham Silberschatz, Greg Gagne</span><span>퍼스트북</span>')
+    expect(out).toContain(
+      '<span>Abraham Silberschatz, Greg Gagne</span><span>퍼스트북</span><span>문체: 설명체</span>',
+    )
     expect(out).toContain('출처 YES24')
     expect(out).toContain(
       '<span>목차 버전 2 · <a class="dl" href="/books/b1/contents">고치기</a></span>',

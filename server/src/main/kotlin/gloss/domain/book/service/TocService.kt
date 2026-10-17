@@ -70,6 +70,18 @@ class TocService(
         bookId: UUID,
     ): UUID? = bookRepository.findForUpdate(bookId, accountId)?.currentTocId
 
+    /** Which version of the contents is in use, unheld; null when the book is gone or none is confirmed yet. */
+    @Transactional(readOnly = true)
+    fun inUse(
+        accountId: UUID,
+        bookId: UUID,
+    ): ContentsInUse? {
+        val tocId =
+            bookRepository.findByIdAndAccountIdAndDeletedAtIsNull(bookId, accountId)?.currentTocId ?: return null
+        val toc = checkNotNull(tocRepository.findByIdAndAccountId(tocId, accountId))
+        return ContentsInUse(tocId = toc.id, confirmedAt = checkNotNull(toc.confirmedAt))
+    }
+
     /** The contents in use, in order; null when the book is gone or none are confirmed yet. */
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     fun outline(

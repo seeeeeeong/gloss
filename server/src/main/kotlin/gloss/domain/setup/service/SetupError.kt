@@ -15,6 +15,7 @@ enum class SetupError(
     SESSION_CHANGED(HttpStatus.CONFLICT, "setup.session_changed", "다른 곳에서 대화가 바뀌어 새로 불러왔어요. 다시 해 주세요."),
     CONTENTS_GONE(HttpStatus.CONFLICT, "setup.contents_gone", "지금은 이 판본의 목차를 가져올 수 없어요."),
     STILL_SEARCHING(HttpStatus.CONFLICT, "setup.still_searching", "앞선 메시지에 아직 답하고 있어요. 잠시 후 다시 보내 주세요."),
+    INVALID_STYLE(HttpStatus.BAD_REQUEST, "setup.invalid_style", "수준과 문체를 골라 주세요."),
     NO_BOOK_YET(HttpStatus.CONFLICT, "setup.no_book_yet", "먼저 책을 골라 주세요."),
     ALREADY_CONFIRMED(HttpStatus.CONFLICT, "setup.already_confirmed", "이미 이 목차로 시작했어요."),
     TURNS_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "setup.turns_busy", "지금은 요청이 많아요. 잠시 후 다시 보내 주세요."),

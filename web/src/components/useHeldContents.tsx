@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { EDIT_BUTTON, SetupContentsEditor, type ShownContents } from '@/components/SetupContents'
-import { BOOK_READY } from '@/components/SetupTurns'
+import { PLAN_LINE } from '@/components/SetupPlan'
 import { useShellPanel } from '@/components/ShellPanel'
 import type { useSetupSession } from '@/components/useSetupSession'
 import {
+  type ChosenStyle,
   type HoldStep,
   keepsEditing,
   liveContents,
@@ -17,21 +18,23 @@ import {
 
 type Setup = ReturnType<typeof useSetupSession>
 
-const NO_STEP: HoldStep = { seq: null, editing: false, starting: false, notice: null }
+const NO_STEP: HoldStep = { seq: null, editing: false, starting: null, notice: null }
 
 /**
  * The contents a session holds, shown whole in the thread: edited in the side panel, which hands
- * focus back to 수정 as it closes, and started with, which hands it to 책으로 이동.
+ * focus back to 수정 as it closes, and started with, which hands it to the line saying how the plan
+ * comes along.
  */
 export function useHeldContents(setup: Setup) {
   const { session } = setup
   const { slot, open, setOpen } = useShellPanel()
-  // Tagged with the contents message it was taken on, so a new hold starts from nothing.
+  // Tagged with the contents message it was taken on, so a new hold starts from nothing: no editor,
+  // no voice a start is on its way with, no notice.
   const [step, setStep] = useState(NO_STEP)
   // The contents last held, kept on screen once started with: the session holds them no longer.
   const [kept, setKept] = useState<ShownHold | null>(null)
   const backToEdit = useRef(false)
-  const toBook = useRef(false)
+  const toPlan = useRef(false)
 
   const live = session ? liveContents(session) : null
   const held = live === null ? null : (session?.held ?? null)
@@ -67,9 +70,9 @@ export function useHeldContents(setup: Setup) {
 
   const confirmed = session?.state === 'confirmed'
   useEffect(() => {
-    if (!confirmed || !toBook.current) return
-    toBook.current = false
-    document.getElementById(BOOK_READY)?.focus({ preventScroll: true })
+    if (!confirmed || !toPlan.current) return
+    toPlan.current = false
+    document.getElementById(PLAN_LINE)?.focus({ preventScroll: true })
   }, [confirmed])
 
   const closeEditor = useCallback(() => {
@@ -88,20 +91,21 @@ export function useHeldContents(setup: Setup) {
     return result
   }
 
-  async function start() {
+  async function start(style: ChosenStyle) {
     const seq = live
-    change(seq, { starting: true, notice: null })
-    toBook.current = true
-    const result = await setup.start()
+    change(seq, { starting: style.voice, notice: null })
+    toPlan.current = true
+    const result = await setup.start(style)
     const failed = result !== null && !result.ok
-    if (failed) toBook.current = false
-    change(seq, { starting: false, notice: failed ? result.message : null })
+    if (failed) toPlan.current = false
+    change(seq, { starting: null, notice: failed ? result.message : null })
   }
 
   const contents: ShownContents | null = shown && {
     ...shown,
     live: shown.seq === live,
     editing: editorOpen,
+    waiting: setup.pending !== null || session?.searching === true,
     starting: now.starting,
     notice: now.notice,
     onEdit: () => change(live, { editing: true, notice: null }),

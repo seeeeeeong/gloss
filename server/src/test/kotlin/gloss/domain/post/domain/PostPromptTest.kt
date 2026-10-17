@@ -31,4 +31,12 @@ class PostPromptTest {
             .contains("글 제목은 쓰지 않습니다")
             .contains("`-다` 체")
     }
+
+    @Test
+    fun `a post is written in the plan's level and voice, and a plan without them still reads as before`() {
+        assertThat(PostPrompt.SYSTEM)
+            .contains("style.level 의 rule")
+            .contains("문장은 style.voice 의 rule 대로 씁니다. plan 에 style 이 없으면 `-다` 체로 씁니다.")
+            .contains("독자의 수준이나 문체를 말하지 않습니다")
+    }
 }

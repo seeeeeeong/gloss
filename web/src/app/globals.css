@@ -2422,3 +2422,89 @@ button.think-head:focus-visible svg,
     transition: none !important;
   }
 }
+
+/* Adding a book: the level and the voices its posts are written in, then the plan's progress line */
+.lv {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lv-l {
+  font: 600 14px / 20px var(--font);
+}
+.seg.seg-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+.voices {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  min-width: 0;
+}
+@container main (min-width: 40rem) {
+  .voices {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+}
+.vb {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border: 1px solid var(--b-default);
+  border-radius: 16px;
+  background: var(--bg-primary);
+  transition:
+    background-color 100ms var(--ease),
+    border-color 100ms var(--ease);
+}
+.v-l {
+  font: 600 14px / 20px var(--font);
+}
+.v-s {
+  flex: 1;
+  margin-top: 8px;
+  font: 400 14px / 22px var(--font);
+  color: var(--tx2);
+  white-space: pre-line;
+}
+.vb .pick {
+  align-self: flex-start;
+  margin: 12px 0 0;
+}
+.vb .pick[aria-disabled="true"] {
+  cursor: default;
+}
+@media (hover: hover) {
+  .vb:hover,
+  .vb:has(.pick:focus-visible) {
+    background: var(--hover-card);
+    border-color: var(--b-heavy);
+  }
+  .vb:hover .pick {
+    opacity: 1;
+  }
+}
+@media (hover: none) {
+  .vb:has(.pick:focus-visible) {
+    background: var(--hover-card);
+  }
+}
+.progress {
+  height: 2px;
+  border-radius: 1px;
+  background: var(--b-default);
+  overflow: hidden;
+}
+.progress i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--tx);
+  transition: width 500ms linear;
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress i {
+    transition: none;
+  }
+}

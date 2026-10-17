@@ -2,6 +2,7 @@ package gloss.domain.book.service
 
 import gloss.domain.book.domain.Book
 import gloss.domain.book.domain.TocItem
+import gloss.domain.book.domain.style.WritingStyle
 import java.util.UUID
 
 /** A book and the contents in use, for the modules that write from them. */
@@ -10,6 +11,7 @@ data class BookOutline(
     val tocId: UUID,
     val title: String,
     val authors: List<String>,
+    val style: WritingStyle,
     val items: List<OutlineItem>,
 ) {
     companion object {
@@ -24,6 +26,7 @@ data class BookOutline(
                 tocId = tocId,
                 title = book.title,
                 authors = book.authors.toList(),
+                style = book.style,
                 items =
                     items.map {
                         OutlineItem(

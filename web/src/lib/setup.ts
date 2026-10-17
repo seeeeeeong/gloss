@@ -1,5 +1,6 @@
 import { authorsLine, type BookCandidate, editionOf, isBookId, type TocNode, treeOf } from './books'
 import { headingOf } from './posts'
+import { type Level, levelLabel, type Voice, voiceLabel } from './styles'
 
 /** An edition a search in a setup session found, as the source describes it now: none of it is kept. */
 export type OfferedBook = Pick<
@@ -36,7 +37,7 @@ export type SetupMessage =
   | Message<'reader', 'text', { text: string }>
   | Message<'reader', 'pick', { ref: string; title: string }>
   | Message<'reader', 'typed', { title: string }>
-  | Message<'reader', 'confirm', { tocId: string }>
+  | Message<'reader', 'confirm', { tocId: string; level?: string | null; voice?: string | null }>
   | Message<'gloss', 'books', { query: string; books: FoundRef[]; callId?: string | null }>
   | Message<'gloss', 'search_failed', { code: string; message: string }>
   | Message<
@@ -44,7 +45,7 @@ export type SetupMessage =
       'contents',
       { ref: string | null; title: string; items: number; typed: boolean }
     >
-  | Message<'gloss', 'done', { bookId: string }>
+  | Message<'gloss', 'done', { bookId: string; items?: number | null }>
   | Message<
       'gloss',
       'tool_calls',
@@ -125,11 +126,21 @@ export function readerLine(message: SetupMessage): string | null {
     case 'typed':
       return '목차를 직접 입력했어요'
     case 'confirm':
-      return '이 목차로 시작할게요'
+      return styleLine(message.payload) ?? '이 목차로 시작할게요'
     default:
       return null
   }
 }
+
+/** The level and voice a start chose, as the reader's bubble says them; none before the choice. */
+function styleLine(chosen: { level?: string | null; voice?: string | null }): string | null {
+  const level = chosen.level ? levelLabel(chosen.level) : null
+  const voice = chosen.voice ? voiceLabel(chosen.voice) : null
+  return level && voice ? `${level} · ${voice}` : null
+}
+
+/** How the book's posts are to be written, sent with the start. */
+export type ChosenStyle = { level: Level; voice: Voice }
 
 /** The live contents count as edited; earlier ones count what was brought then. */
 export function cardItems(session: SetupSession, seq: number, brought: number): number {
@@ -292,7 +303,7 @@ export function liveContents(session: SetupSession): number | null {
 export const contentsHeading = (held: Pick<HeldContents, 'title'>) => `${held.title} 전체 목차`
 
 export const contentsIntro = (typed: boolean) =>
-  `${typed ? '목차를 받았어요.' : '목차를 가져왔어요.'} 살펴보시고 괜찮으면 이 목차로 시작해 주세요.`
+  `${typed ? '목차를 받았어요.' : '목차를 가져왔어요.'} 살펴보시고 괜찮으면 문체를 골라 시작해 주세요.`
 
 export const itemsCount = (count: number) => `${count}개 항목`
 
@@ -375,7 +386,8 @@ export function shownHold(session: SetupSession | null, kept: ShownHold | null):
 export type HoldStep = {
   seq: number | null
   editing: boolean
-  starting: boolean
+  /** The voice a start is on its way with. */
+  starting: Voice | null
   notice: string | null
 }
 
@@ -385,5 +397,31 @@ export type HoldStep = {
  */
 export function stepOn(step: HoldStep, live: number | null): HoldStep {
   if (step.seq !== null && step.seq === live) return step
-  return { seq: live, editing: false, starting: false, notice: null }
+  return { seq: live, editing: false, starting: null, notice: null }
+}
+
+/** How far a book's plan has come, as GET /api/me/books/{id}/plan answers. */
+export type PlanStatus = { state: 'planning' | 'ready' | 'failed'; code: string | null }
+
+export const planPath = (bookId: string) => `/api/me/books/${bookId}/plan`
+
+/** Whether the plan is still looked at: until it ends, and not while the last look failed. */
+export const planWaits = (status: PlanStatus | null, lookFailed: string | null) =>
+  (status === null || status.state === 'planning') && lookFailed === null
+
+/** Asks again for a plan that ended without one; a plan kept or still to come is left as it is. */
+export const planRetryPath = (bookId: string) => `${planPath(bookId)}/retry`
+
+export const planRunning = (items: number | null | undefined) =>
+  `${items ? `${items}개 항목의 ` : ''}글 순서를 정리하고 있어요.`
+
+/**
+ * The thin line's fill while the plan is written, from how long it has run. The answer grows with the
+ * items, so the time expected does too; the line nears its end and waits there rather than claim a
+ * time it cannot know.
+ */
+export function planProgress(elapsedMs: number, items: number | null | undefined): number {
+  const expectedMs = (10 + 2 * (items ?? 100)) * 1000
+  const share = 1 - Math.exp(-Math.max(0, elapsedMs) / expectedMs)
+  return Math.round(Math.min(0.95, share) * 100)
 }

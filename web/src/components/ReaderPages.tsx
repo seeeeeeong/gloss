@@ -3,21 +3,27 @@ import type { MouseEvent } from 'react'
 import { type Book, contentsHref } from '../lib/books'
 import { readerHref } from '../lib/posts'
 import { CONTENTS, COVER, type ContentsRow, type ItemView, type RowMark } from '../lib/reader'
+import { voiceLabel } from '../lib/styles'
 import { Icon } from './Icon'
 import { Prose } from './Prose'
 import { SourceCredit } from './SourceCredit'
 
 export type ReaderBook = Pick<
   Book,
-  'id' | 'title' | 'authors' | 'publisher' | 'source' | 'sourceUrl'
+  'id' | 'title' | 'authors' | 'publisher' | 'source' | 'sourceUrl' | 'voice'
 > & { tocVersionNo: number }
 
 export const KEY_HREF = '/me#api-key-head'
 export const USAGE_HREF = '/me#usage'
 
-/** The first page: the book's title and where it came from, centred on the page. */
+/** The first page: the book's title, where it came from and how its posts read, centred on the page. */
 export function Cover({ book }: { book: ReaderBook }) {
-  const facts = [book.authors.join(', '), book.publisher ?? ''].filter((fact) => fact.length > 0)
+  const voice = voiceLabel(book.voice)
+  const facts = [
+    book.authors.join(', '),
+    book.publisher ?? '',
+    voice ? `문체: ${voice}` : '',
+  ].filter((fact) => fact.length > 0)
   return (
     <div className="cover" data-unit={COVER}>
       <h1 className="cv-t">{book.title}</h1>

@@ -25,7 +25,16 @@ export default async function BookPage({ params, searchParams }: Props) {
     searchParams,
   ])
   const start = toc.items.find((it) => it.itemKey === item)?.itemKey ?? null
-  const { id, title, authors, publisher, source, sourceUrl } = book
-  const shown = { id, title, authors, publisher, source, sourceUrl, tocVersionNo: toc.versionNo }
+  const { id, title, authors, publisher, source, sourceUrl, voice } = book
+  const shown = {
+    id,
+    title,
+    authors,
+    publisher,
+    source,
+    sourceUrl,
+    voice,
+    tocVersionNo: toc.versionNo,
+  }
   return <Reader book={shown} items={toc.items} posts={posts} start={start} />
 }

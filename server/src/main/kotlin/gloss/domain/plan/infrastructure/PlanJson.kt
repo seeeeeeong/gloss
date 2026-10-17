@@ -50,7 +50,10 @@ class PlanJson {
             example = node.text("example"),
         )
 
-    /** The book's title and each item's number and title go in with the plan, so a post's prompt needs only this. */
+    /**
+     * The book's title, the level and voice its posts are written in, and each item's number and
+     * title go in with the plan, so a post's prompt needs only this.
+     */
     fun write(
         subject: PlanPrompt.Subject,
         plan: PlanPolicy.Plan,
@@ -59,6 +62,16 @@ class PlanJson {
         root.putObject("book").apply {
             put("title", subject.title)
             putArray("authors").apply { subject.authors.forEach(::add) }
+        }
+        root.putObject("style").apply {
+            putObject("level").apply {
+                put("name", subject.level.label)
+                put("rule", subject.level.rule)
+            }
+            putObject("voice").apply {
+                put("name", subject.voice.label)
+                put("rule", subject.voice.rule)
+            }
         }
         root.put("audience", plan.audience)
         val glossary = root.putArray("glossary")

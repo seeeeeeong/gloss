@@ -11,6 +11,8 @@ class PlanJsonTest {
         PlanPrompt.Subject(
             title = "오브젝트",
             authors = listOf("조영호"),
+            level = PlanPrompt.Level.WORK,
+            voice = PlanPrompt.Voice.NOTE,
             lines =
                 listOf(
                     PlanPrompt.Line(ord = 0, parent = null, depth = 1, number = "1장", title = "객체, 설계"),
@@ -43,7 +45,10 @@ class PlanJsonTest {
     @Test
     fun `a plan is written with the book and each item's title, fields in one order, no whitespace`() {
         assertThat(planJson.write(subject, plan)).isEqualTo(
-            """{"book":{"title":"오브젝트","authors":["조영호"]},"audience":"초중급 개발자",""" +
+            """{"book":{"title":"오브젝트","authors":["조영호"]},""" +
+                """"style":{"level":{"name":"실무","rule":"${PlanPrompt.Level.WORK.rule}"},""" +
+                """"voice":{"name":"노트체","rule":"${PlanPrompt.Voice.NOTE.rule}"}},""" +
+                """"audience":"초중급 개발자",""" +
                 """"glossary":[{"term":"캡슐화","en":null,"means":"구현을 감추는 일","at":1}],""" +
                 """"items":[{"i":0,"parent":null,"number":"1장","title":"객체, 설계","kind":"overview",""" +
                 """"covers":["장의 흐름"],"excludes":[],"example":null},""" +
@@ -62,6 +67,15 @@ class PlanJsonTest {
     @Test
     fun `one plan is always the same bytes`() {
         assertThat(planJson.write(subject, plan)).isEqualTo(PlanJson().write(subject.copy(), plan.copy()))
+    }
+
+    @Test
+    fun `the style a book's posts are written in goes into the plan, so every post of it reads the same`() {
+        val explained = planJson.write(subject.copy(voice = PlanPrompt.Voice.EXPLAIN), plan)
+
+        assertThat(explained).contains(""""voice":{"name":"설명체","rule":"${PlanPrompt.Voice.EXPLAIN.rule}"}""")
+        assertThat(explained).isEqualTo(planJson.write(subject.copy(voice = PlanPrompt.Voice.EXPLAIN), plan.copy()))
+        assertThat(explained).isNotEqualTo(planJson.write(subject, plan))
     }
 
     @Test

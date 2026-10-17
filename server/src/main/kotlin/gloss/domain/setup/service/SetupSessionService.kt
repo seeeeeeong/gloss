@@ -2,6 +2,7 @@ package gloss.domain.setup.service
 
 import gloss.common.error.CommonError
 import gloss.common.error.GlossException
+import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.service.BookService
 import gloss.domain.book.service.BookSourceService
 import gloss.domain.book.service.ContentsReader
@@ -158,15 +159,17 @@ class SetupSessionService(
     }
 
     /**
-     * Makes the book from the held contents and confirms them through the book's own paths, so the
-     * plan is asked for exactly as from the book's page. The edition is read again first; the book is
-     * made under the session's lock, so a second start finds the session done and makes nothing.
+     * Makes the book from the held contents, written in the level and voice the reader chose, and
+     * confirms them through the book's own paths, so the plan is asked for exactly as from the book's
+     * page. The edition is read again first; the book is made under the session's lock, so a second
+     * start finds the session done and makes nothing.
      */
     fun confirm(
         accountId: UUID,
         sessionId: UUID,
         request: SetupConfirmRequest,
     ): SetupSessionResponse {
+        val style = styleOf(request)
         val seen =
             setupSessionRepository.findByIdAndAccountId(sessionId, accountId)
                 ?: throw GlossException(SetupError.SESSION_NOT_FOUND)
@@ -187,7 +190,7 @@ class SetupSessionService(
             val contents = checkNotNull(session.contents) { "A chosen book's contents are held" }
             val confirmed =
                 if (edition != null) {
-                    bookSourceService.keep(accountId, edition, contents)
+                    bookSourceService.keep(accountId = accountId, edition = edition, contents = contents, style = style)
                 } else {
                     val typed =
                         TypedBook.of(
@@ -195,13 +198,14 @@ class SetupSessionService(
                             session.typedAuthors.orEmpty().toList(),
                             contents,
                         )
-                    bookService.createConfirmed(accountId, typed)
+                    bookService.createConfirmed(accountId, typed, style)
                 }
             val now = clock.instant()
             session.confirm(bookId = confirmed.bookId, tocId = confirmed.tocId, at = now)
             setupSessionRepository.saveAndFlush(session)
-            jdbcSetupMessages.append(session, ReaderConfirmed(confirmed.tocId), now)
-            jdbcSetupMessages.append(session, SetupDone(confirmed.bookId), now)
+            val said = ReaderConfirmed(tocId = confirmed.tocId, level = style.level.code, voice = style.voice.code)
+            jdbcSetupMessages.append(session, said, now)
+            jdbcSetupMessages.append(session, SetupDone(bookId = confirmed.bookId, items = confirmed.items), now)
         }
         return get(accountId, sessionId)
     }
@@ -277,6 +281,13 @@ class SetupSessionService(
             isolationLevel = TransactionDefinition.ISOLATION_REPEATABLE_READ
             isReadOnly = true
         }
+}
+
+private fun styleOf(request: SetupConfirmRequest): WritingStyle {
+    val level = WritingStyle.Level.of(request.level)
+    val voice = WritingStyle.Voice.of(request.voice)
+    if (level == null || voice == null) throw GlossException(SetupError.INVALID_STYLE)
+    return WritingStyle(level, voice)
 }
 
 internal fun refuseUnless(

@@ -15,6 +15,8 @@ data class BookResponse(
     val source: String,
     val sourceUrl: String?,
     val currentTocId: UUID?,
+    val level: String,
+    val voice: String,
     val toc: TocResponse,
 ) {
     companion object {
@@ -31,6 +33,8 @@ data class BookResponse(
             source = book.source.code,
             sourceUrl = book.sourceUrl,
             currentTocId = book.currentTocId,
+            level = book.level.code,
+            voice = book.voice.code,
             toc = TocResponse.from(toc, items),
         )
     }

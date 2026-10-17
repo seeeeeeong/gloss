@@ -104,7 +104,7 @@ class SetupSessionServiceIntegrationTest(
     private fun seen(
         account: UUID,
         sessionId: UUID,
-    ) = SetupConfirmRequest(revision = rev(account, sessionId))
+    ) = SetupConfirmRequest(revision = rev(account, sessionId), level = "work", voice = "explain")
 
     private fun say(
         account: UUID,

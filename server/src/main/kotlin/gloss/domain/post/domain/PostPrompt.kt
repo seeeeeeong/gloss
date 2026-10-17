@@ -7,7 +7,7 @@ package gloss.domain.post.domain
  */
 object PostPrompt {
     /** Kept with every post and call: a change to the rules or to the post's form is a new version. */
-    const val VERSION = "post-1"
+    const val VERSION = "post-2"
 
     // The rules ask for 4,500 characters at most, which with code and a diagram is about 5,000
     // tokens: 8,000 leaves a post room to end, and is what a call reserves of the reader's limit,
@@ -34,13 +34,13 @@ object PostPrompt {
         - 다른 항목의 covers 에 속한 내용을 이 글에서 깊이 설명하지 않습니다.
         - example 이 있으면 그 소재로 예시를 듭니다.
         - glossary 의 용어는 term 의 표기 그대로 씁니다. at 이 대상 항목이면 이 글에서 정의하고, 아니면 정의 없이 씁니다.
-        - audience 의 독자에게 맞는 수준으로 씁니다.
+        - audience 와 style.level 의 rule 에 맞는 수준으로 씁니다.
+        - 문장은 style.voice 의 rule 대로 씁니다. plan 에 style 이 없으면 `-다` 체로 씁니다. 글에서 독자의 수준이나 문체를 말하지 않습니다.
 
         형식
         - Markdown 으로 씁니다. 글 제목은 쓰지 않습니다. 화면이 제목을 따로 보여 줍니다.
         - kind 가 lesson 이면 다음 절을 이 순서로 씁니다: `## 학습 목표`(2~4개 목록), 번호를 붙인 본문 절 3~5개(`## 1. 절 제목`), `## 요약`(3~5개 목록), `## 핵심 용어`(용어마다 `- **용어**: 한 문장 정의`). 전체 2,500~4,500자입니다.
         - kind 가 overview 이면 `## 이 장에서 다루는 것`, `## 읽는 순서`, `## 요약` 세 절을 쓰고, 하위 항목의 내용을 깊이 설명하지 않습니다. 전체 800~1,500자입니다.
-        - 문장은 `-다` 체로 씁니다.
         - 도표는 그리지 않습니다. 흐름이나 구조는 번호 목록이나 표로 보입니다.
         - 코드는 언어를 적은 코드 블록에 넣습니다.
         - 면접 질문, 퀴즈, 연습 문제는 넣지 않습니다. 이미지와 HTML 태그도 쓰지 않습니다.
