@@ -77,10 +77,9 @@ const turn = (message: SetupMessage) =>
       message={message}
       session={{ ...session, messages: [asked, message] }}
       busy={false}
-      panel={false}
+      contents={null}
       onPick={noop}
       onType={noop}
-      onPanel={noop}
     />,
   )
 
@@ -104,7 +103,7 @@ describe('BookRow', () => {
     )
 
     expect(out).toContain('1. <a class="dl" href="https://www.yes24.com/product/goods/101"')
-    expect(out).toContain('<p class="bk-meta">Silberschatz 저 · 퍼스트북 · 2020 · 도서</p>')
+    expect(out).toContain('<p class="bk-meta">Silberschatz 저 · 퍼스트북 · 2020</p>')
     expect(out).toContain('<p class="bk-why">전공 수업에서 많이 써요.</p>')
     expect(out).toContain('<span>OSC 10판 공식 사이트</span>')
     expect(out).toContain('href="https://os-book.com/ten"')
@@ -160,10 +159,9 @@ describe('GlossTurn', () => {
         message={recommended}
         session={session}
         busy={false}
-        panel={false}
+        contents={null}
         onPick={noop}
         onType={noop}
-        onPanel={noop}
       />,
     )
 
@@ -196,6 +194,19 @@ describe('GlossTurn', () => {
     expect(failed('llm.no_key', '키를 먼저 등록해 주세요')).toContain('href="/me#api-key-head"')
     expect(failed('budget.limit_not_set', '한도를 먼저 정해 주세요')).toContain('href="/me#usage"')
     expect(failed('setup.no_answer', '다시 보내 주세요')).not.toContain('href')
+  })
+
+  it('shows contents brought earlier as their heading and size, never the whole list', () => {
+    const out = turn({
+      ...at,
+      role: 'gloss',
+      kind: 'contents',
+      payload: { ref: '101', title: '운영체제', items: 11, typed: false },
+    })
+
+    expect(out).toContain('<span class="tcard-title">운영체제 전체 목차</span>')
+    expect(out).toContain('<span class="tcard-meta">11개 항목</span>')
+    expect(out).not.toContain('<h1>')
   })
 
   it('shows nothing of a search the model ran: it is a step of the answer', () => {

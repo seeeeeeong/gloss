@@ -5,9 +5,6 @@ import type { ApiResult } from '@/lib/api'
 import { authorsOf, editionOf } from '@/lib/books'
 import type { OfferedBook, TypedContents } from '@/lib/setup'
 
-// Shows the shape the server reads: one item a line, depth from numbering or indent.
-const TOC_EXAMPLE = '1장 시작하기\n  1.1 설치\n  1.2 첫 프로그램\n2장 자료형'
-
 type Props = {
   /** An edition this session found without contents; null for a book typed in whole. */
   found: OfferedBook | null
@@ -17,7 +14,7 @@ type Props = {
 
 /**
  * Contents the reader types in, held in the session as a pick's are: for `found`, or for a book of
- * their own. No book is made here; the panel opens with them.
+ * their own. No book is made here; the thread shows them as a pick's.
  */
 export function TypedContentsForm({ found, onSubmit, onCancel }: Props) {
   const [error, setError] = useState<string | null>(null)
@@ -71,13 +68,7 @@ export function TypedContentsForm({ found, onSubmit, onCancel }: Props) {
           </label>
           <label className="f-l">
             저자
-            <input
-              className="field"
-              name="authors"
-              autoComplete="off"
-              placeholder="쉼표로 구분"
-              disabled={pending}
-            />
+            <input className="field" name="authors" autoComplete="off" disabled={pending} />
           </label>
         </>
       )}
@@ -88,7 +79,6 @@ export function TypedContentsForm({ found, onSubmit, onCancel }: Props) {
           className="raw"
           name="toc"
           spellCheck={false}
-          placeholder={TOC_EXAMPLE}
           disabled={pending}
           required
         />

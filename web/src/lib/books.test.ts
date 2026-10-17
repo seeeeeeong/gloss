@@ -40,6 +40,10 @@ describe('bylineOf', () => {
     expect(bylineOf({ authors: ['A', 'B'], publisher: '한빛미디어' })).toBe('A, B · 한빛미디어')
   })
 
+  it('spaces the commas of several authors the source lists as one', () => {
+    expect(bylineOf({ authors: ['A,B 공저', 'C 역'], publisher: null })).toBe('A, B 공저, C 역')
+  })
+
   it('leaves out what is missing', () => {
     expect(bylineOf({ authors: [], publisher: '한빛미디어' })).toBe('한빛미디어')
     expect(bylineOf({ authors: ['A'], publisher: null })).toBe('A')
@@ -110,6 +114,10 @@ describe('editionOf', () => {
 
   it('tells an edition by who wrote it, its publisher, its year and its kind', () => {
     expect(editionOf(candidate)).toBe('조영호 저 · 위키북스 · 2019 · 도서')
+  })
+
+  it('leaves the kind out when asked to', () => {
+    expect(editionOf(candidate, false)).toBe('조영호 저 · 위키북스 · 2019')
   })
 
   it('leaves out what the source did not say', () => {

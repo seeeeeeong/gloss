@@ -72,8 +72,12 @@ export function authorsOf(raw: string): string[] {
     .filter((name) => name.length > 0)
 }
 
+/** YES24 lists several authors as one name, "A,B 공저": each comma gets its space. */
+export const authorsLine = (authors: string[]) =>
+  authors.map((name) => name.replace(/\s*,\s*/g, ', ')).join(', ')
+
 export function bylineOf(book: Pick<BookSummary, 'authors' | 'publisher'>): string {
-  return [book.authors.join(', '), book.publisher ?? '']
+  return [authorsLine(book.authors), book.publisher ?? '']
     .filter((part) => part.length > 0)
     .join(' · ')
 }
@@ -86,11 +90,13 @@ export function creditOf(source: string): string | null {
   return name ? `출처 ${name}` : null
 }
 
-/** What tells one edition from another: who, which publisher, what year, what kind. */
+/** What tells one edition from another: who, which publisher, what year, and what kind if [withKind]. */
 export function editionOf(
   candidate: Pick<BookCandidate, 'authors' | 'publisher' | 'publishedOn' | 'kind'>,
+  withKind = true,
 ): string {
-  return [bylineOf(candidate), candidate.publishedOn?.slice(0, 4) ?? '', candidate.kind ?? '']
+  const kind = withKind ? (candidate.kind ?? '') : ''
+  return [bylineOf(candidate), candidate.publishedOn?.slice(0, 4) ?? '', kind]
     .filter((part) => part.length > 0)
     .join(' · ')
 }

@@ -1,16 +1,14 @@
 'use client'
 
 import { useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useRef, useState } from 'react'
 import { Composer } from '@/components/Composer'
-import { SetupContents } from '@/components/SetupContents'
+import type { ShownContents } from '@/components/SetupContents'
 import { GlossTurn } from '@/components/SetupTurns'
-import { useShellPanel } from '@/components/ShellPanel'
 import { TypedContentsForm } from '@/components/TypedContentsForm'
+import { useHeldContents } from '@/components/useHeldContents'
 import { type Pending, useSetupSession } from '@/components/useSetupSession'
 import {
-  liveContents,
   type OfferedBook,
   readerLine,
   SESSION_PARAM,
@@ -23,18 +21,17 @@ const MAX_TEXT = 500
 
 /**
  * Adding a book by talking it through: the reader names a book or asks what to read, Gloss answers
- * with the editions found or the books it recommends, a pick brings its contents into the side panel,
- * and starting with them makes the book. Empty, the screen is a heading over the composer.
+ * with the editions found or the books it recommends, a pick brings its contents as a document into
+ * the thread, 수정 opens them as text in the side panel, and starting with them makes the book. Empty,
+ * the screen is a heading over the composer.
  */
 export function SetupChat({ initial }: { initial: SetupSession | null }) {
   const params = useSearchParams()
-  const { slot, setOpen } = useShellPanel()
-  // Held contents open in the panel, after a pick or a reload.
-  const [panel, setPanel] = useState(initial?.state === 'book_chosen')
   const [typing, setTyping] = useState<OfferedBook | 'blank' | null>(null)
-  const setup = useSetupSession(initial, () => setPanel(true))
+  const setup = useSetupSession(initial)
   const { session, pending, error, reset } = setup
-  const closePanel = useCallback(() => setPanel(false), [])
+  const held = useHeldContents(setup)
+  const resetHeld = held.reset
 
   // "새 책" from the sidebar comes back here without a session: a new thread.
   const fresh = params.get(SESSION_PARAM) === null
@@ -44,16 +41,9 @@ export function SetupChat({ initial }: { initial: SetupSession | null }) {
     wasFresh.current = fresh
     if (!cameBack) return
     reset()
+    resetHeld()
     setTyping(null)
-    setPanel(false)
-  }, [fresh, reset])
-
-  const held = panel ? (session?.held ?? null) : null
-  const heldKey = session ? liveContents(session) : null
-  useEffect(() => {
-    setOpen(held !== null)
-  }, [held, setOpen])
-  useEffect(() => () => setOpen(false), [setOpen])
+  }, [fresh, reset, resetHeld])
 
   const composer = (docked: boolean) => (
     <Composer
@@ -91,19 +81,16 @@ export function SetupChat({ initial }: { initial: SetupSession | null }) {
           <Turns
             session={session}
             pending={pending}
-            panel={panel}
+            contents={held.contents}
             onPick={(book) => {
               setTyping(null)
               void setup.pick(book)
             }}
             onType={setTyping}
-            onPanel={setPanel}
           />
           {error && (
             <div className="turn gloss">
-              <p className="f-err" role="alert">
-                {error}
-              </p>
+              <p role="alert">{error}</p>
             </div>
           )}
           {typing !== null && (
@@ -131,18 +118,7 @@ export function SetupChat({ initial }: { initial: SetupSession | null }) {
           <div className="col">{composer(true)}</div>
         </div>
       </div>
-      {held &&
-        slot &&
-        createPortal(
-          <SetupContents
-            key={heldKey ?? 'held'}
-            held={held}
-            onEdit={setup.edit}
-            onStart={setup.start}
-            onClose={closePanel}
-          />,
-          slot,
-        )}
+      {held.editor}
     </div>
   )
 }
@@ -150,14 +126,13 @@ export function SetupChat({ initial }: { initial: SetupSession | null }) {
 type TurnsProps = {
   session: SetupSession | null
   pending: Pending | null
-  panel: boolean
+  contents: ShownContents | null
   onPick: (book: OfferedBook) => void
   onType: (book: OfferedBook) => void
-  onPanel: (open: boolean) => void
 }
 
 /** The thread so far, then what the reader just did while the server answers it. */
-function Turns({ session, pending, panel, onPick, onType, onPanel }: TurnsProps) {
+function Turns({ session, pending, contents, onPick, onType }: TurnsProps) {
   const lastTurn = useRef<HTMLDivElement>(null)
   const messages = session?.messages ?? []
   const lastReader = pending ? -1 : messages.findLastIndex((message) => message.role === 'reader')
@@ -189,10 +164,9 @@ function Turns({ session, pending, panel, onPick, onType, onPanel }: TurnsProps)
                 message={message}
                 session={session}
                 busy={pending !== null}
-                panel={panel}
+                contents={contents}
                 onPick={onPick}
                 onType={onType}
-                onPanel={onPanel}
               />
             </div>
           )
@@ -208,9 +182,7 @@ function Turns({ session, pending, panel, onPick, onType, onPanel }: TurnsProps)
             <div className="bubble">{pending.text}</div>
           </div>
           <div className="turn gloss">
-            <p className="think pulse">
-              {pending.kind === 'say' ? '찾는 중' : '목차를 가져오는 중'}
-            </p>
+            <p className="think pulse">{pending.kind === 'say' ? '찾는 중' : '목차 찾는 중'}</p>
           </div>
         </>
       )}

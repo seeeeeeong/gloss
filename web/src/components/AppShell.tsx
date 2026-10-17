@@ -26,7 +26,10 @@ export function AppShell({ me, books, children }: Props) {
   const [drawer, setDrawer] = useState(false)
   const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null)
   const [panelOpen, setPanelOpen] = useState(false)
-  const panel = useMemo(() => ({ slot: panelSlot, setOpen: setPanelOpen }), [panelSlot])
+  const panel = useMemo(
+    () => ({ slot: panelSlot, open: panelOpen, setOpen: setPanelOpen }),
+    [panelSlot, panelOpen],
+  )
   const [pillSlot, setPillSlot] = useState<HTMLElement | null>(null)
   const [barSlot, setBarSlot] = useState<HTMLElement | null>(null)
   const title = useMemo(() => ({ pill: pillSlot, bar: barSlot }), [pillSlot, barSlot])
