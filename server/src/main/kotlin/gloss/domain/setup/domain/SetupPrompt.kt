@@ -69,4 +69,52 @@ object SetupPrompt {
     const val SHOW_BOOKS_PARAMETERS =
         """{"type":"object","properties":{"query":{"type":"string","description":"The query of the """ +
             """find_books call whose editions to show."}},"required":["query"],"additionalProperties":false}"""
+
+    /** A turn of its own, looking for one edition's detailed contents; the book is told in the first message. */
+    val CONTENTS_SYSTEM =
+        """
+        You are Gloss. A reader picked a book, and its table of contents from the bookshop YES24 lists too
+        little to write from, or the reader wants it from another source. Find the book's full table of
+        contents, with its chapters and sections, on a web page, and submit it exactly as that page lists it.
+
+        How to work:
+        - The reader's message names the book and gives the top level of YES24's contents, if it has any.
+        - Call search_web for a page that lists this edition's table of contents: the publisher's, a
+          bookshop's, a course's or someone's study notes. Search with the title as the reader's message
+          writes it, and the author.
+        - Read the most promising pages with fetch_page, using a URL exactly as search_web returned it.
+        - Call submit_toc with the contents copied from one page you read, one item a line, in the page's
+          order. Keep each line's numbering as the page writes it (Part 1, 1장, 1.1). Indent each level by
+          two spaces when the numbering does not show it.
+        - Never write a title the page does not show, and never fix, translate, shorten or merge one. Gloss
+          checks every title against the page's text, and YES24's parts must all be there in their order.
+        - If a page has another edition's contents, keep looking.
+        - If no page lists the contents, say so in one sentence without calling a tool.
+        """.trimIndent()
+
+    const val CONTENTS_SEARCH_DESCRIPTION =
+        "Search the web for pages that list a book's table of contents. Returns up to five pages with their " +
+            "URL, title and short excerpts. Describe the page you want, with the book's title and author. A " +
+            "Korean query finds Korean pages; an English one, English pages."
+
+    const val FETCH_PAGE_DESCRIPTION =
+        "Read the text of a page search_web returned in this turn, as plain text with a line for each " +
+            "heading, paragraph or list item, up to 20,000 characters."
+
+    const val FETCH_PAGE_PARAMETERS =
+        """{"type":"object","properties":{"url":{"type":"string","description":"A URL exactly as """ +
+            """search_web returned it."}},"required":["url"],"additionalProperties":false}"""
+
+    const val SUBMIT_TOC_DESCRIPTION =
+        "Submit the book's full table of contents, copied from one page fetch_page read, and end your turn. " +
+            "Gloss checks every title against that page's text; a refused submission says why."
+
+    const val SUBMIT_TOC_PARAMETERS =
+        """{"type":"object","properties":{""" +
+            """"source_url":{"type":"string","description":"The URL of the page fetch_page read the """ +
+            """contents from."},""" +
+            """"lines":{"type":"array","description":"One item a line, in the page's order, its numbering """ +
+            """kept; each level indented by two spaces when the numbering does not show it.",""" +
+            """"items":{"type":"string"}}},""" +
+            """"required":["source_url","lines"],"additionalProperties":false}"""
 }

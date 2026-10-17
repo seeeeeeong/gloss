@@ -36,6 +36,9 @@ object SetupPolicy {
         /** The held contents changed by the reader. */
         EDIT,
 
+        /** A look on the web for a held edition's detailed contents, which replace the held ones when found. */
+        SEEK,
+
         /** The book made from the held contents and confirmed: it is ready to be written from. */
         CONFIRM,
     }
@@ -50,14 +53,14 @@ object SetupPolicy {
                 when (step) {
                     Step.SAY -> State.SEARCHING
                     Step.PICK -> State.BOOK_CHOSEN
-                    Step.EDIT, Step.CONFIRM -> null
+                    Step.EDIT, Step.SEEK, Step.CONFIRM -> null
                 }
             }
 
             State.BOOK_CHOSEN -> {
                 when (step) {
                     Step.SAY -> State.SEARCHING
-                    Step.PICK, Step.EDIT -> State.BOOK_CHOSEN
+                    Step.PICK, Step.EDIT, Step.SEEK -> State.BOOK_CHOSEN
                     Step.CONFIRM -> State.CONFIRMED
                 }
             }

@@ -107,9 +107,9 @@ class SetupTools(
         val query =
             textOf(arguments["query"], MAX_WEB_QUERY) ?: return refuse(call, "query must be 1 to 200 characters")
         val results =
-            when (val searched = setupWebSearch.search(turn, query)) {
+            when (val searched = setupWebSearch.search(turn.accountId, turn.sessionId, query)) {
                 is SetupWebSearch.Searched.Found -> searched.results
-                is SetupWebSearch.Searched.Refused -> return refuse(call, searched.problem)
+                is SetupWebSearch.Searched.Refused -> return refuse(call, "${searched.problem}; use find_books")
             }
         results.pages.forEach(turn::read)
         return Outcome(

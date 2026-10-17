@@ -6,6 +6,7 @@ import gloss.domain.setup.dto.request.SetupConfirmRequest
 import gloss.domain.setup.dto.request.SetupContentsRequest
 import gloss.domain.setup.dto.request.SetupMessageRequest
 import gloss.domain.setup.dto.request.SetupPickRequest
+import gloss.domain.setup.dto.request.SetupSeekRequest
 import gloss.domain.setup.dto.request.SetupTypedRequest
 import gloss.domain.setup.dto.response.SetupEditionResponse
 import gloss.domain.setup.dto.response.SetupSessionResponse
@@ -71,7 +72,7 @@ class SetupSessionController(
         @CurrentAccount account: SessionAccount,
         @PathVariable sessionId: UUID,
         @Valid @RequestBody request: SetupPickRequest,
-    ): SetupSessionResponse = setupSessionService.pick(account.id, sessionId, request)
+    ): SetupSessionResponse = setupMessageService.pick(account.id, sessionId, request)
 
     @PostMapping("/{sessionId}/typed-contents")
     fun type(
@@ -86,6 +87,13 @@ class SetupSessionController(
         @PathVariable sessionId: UUID,
         @Valid @RequestBody request: SetupContentsRequest,
     ): SetupSessionResponse = setupSessionService.edit(account.id, sessionId, request)
+
+    @PostMapping("/{sessionId}/contents-search")
+    fun seek(
+        @CurrentAccount account: SessionAccount,
+        @PathVariable sessionId: UUID,
+        @Valid @RequestBody request: SetupSeekRequest,
+    ): SetupSessionResponse = setupMessageService.seek(account.id, sessionId, request)
 
     @PostMapping("/{sessionId}/confirm")
     fun confirm(

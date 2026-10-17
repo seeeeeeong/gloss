@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean
 class SetupFakes(
     val books: FakeBookSourceGateway,
     val web: FakeWebSearchGateway,
+    val pages: FakePageGateway,
     val model: FakeLlmGateway,
     val clock: MutableClock,
     private val editionCache: EditionCache,
@@ -19,6 +20,7 @@ class SetupFakes(
     fun reset() {
         books.reset()
         web.reset()
+        pages.reset()
         model.reset()
         clock.reset()
         editionCache.clear()
@@ -30,12 +32,14 @@ class SetupFakes(
         fun setupFakes(
             fakeBookSourceGateway: FakeBookSourceGateway,
             fakeWebSearchGateway: FakeWebSearchGateway,
+            fakePageGateway: FakePageGateway,
             fakeLlmGateway: FakeLlmGateway,
             mutableClock: MutableClock,
             editionCache: EditionCache,
         ) = SetupFakes(
             books = fakeBookSourceGateway,
             web = fakeWebSearchGateway,
+            pages = fakePageGateway,
             model = fakeLlmGateway,
             clock = mutableClock,
             editionCache = editionCache,

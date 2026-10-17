@@ -8,13 +8,16 @@ import gloss.domain.setup.domain.ContentsBrought
 import gloss.domain.setup.domain.FoundEdition
 import gloss.domain.setup.domain.GlossSaid
 import gloss.domain.setup.domain.HistoryPolicy
+import gloss.domain.setup.domain.PageFetched
 import gloss.domain.setup.domain.ReaderPicked
 import gloss.domain.setup.domain.ReaderSaid
+import gloss.domain.setup.domain.ReaderSought
 import gloss.domain.setup.domain.ReaderTyped
 import gloss.domain.setup.domain.SearchFailed
 import gloss.domain.setup.domain.SetupContent
 import gloss.domain.setup.domain.ToolRefused
 import gloss.domain.setup.domain.ToolsCalled
+import gloss.domain.setup.domain.WebSearched
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import tools.jackson.databind.json.JsonMapper
@@ -91,5 +94,34 @@ class SetupTranscriptTest {
 
         assertThat(messages.map { it.role }).containsExactly(Role.USER, Role.ASSISTANT, Role.USER)
         assertThat(messages[1].content).contains("\"ref\":\"101\"").doesNotContain("오브젝트")
+    }
+
+    @Test
+    fun `a look for contents, started by a coarse pick or asked for, is never read by a later turn`() {
+        fun look(callId: String) =
+            listOf(
+                ToolsCalled("", listOf(CalledTool(id = callId, name = "search_web", arguments = "{}"))),
+                WebSearched(callId = callId, query = "운영체제 목차", results = 3),
+                PageFetched(callId = callId, url = "https://example.com/toc", title = "목차", characters = 900),
+                ContentsBrought(
+                    ref = "101",
+                    title = "운영체제",
+                    items = 206,
+                    typed = false,
+                    sourceUrl = "https://example.com/toc",
+                ),
+            )
+        val contents =
+            listOf(ReaderPicked(ref = "101", title = "운영체제")) +
+                ContentsBrought(ref = "101", title = "운영체제", items = 11, typed = false, thin = true) +
+                look("s1") +
+                ReaderSought(ref = "101") +
+                look("s2") +
+                ReaderSaid("이 책 어때요?")
+
+        val messages = transcript.of(contents)
+
+        assertThat(messages.map { it.role }).containsExactly(Role.USER)
+        assertThat(messages.single().content).isEqualTo("「운영체제」을(를) 골랐어요.\n이 책 어때요?")
     }
 }

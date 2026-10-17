@@ -21,5 +21,11 @@ enum class SetupError(
     TURNS_BUSY(HttpStatus.SERVICE_UNAVAILABLE, "setup.turns_busy", "지금은 요청이 많아요. 잠시 후 다시 보내 주세요."),
     TURN_TIMED_OUT(HttpStatus.GATEWAY_TIMEOUT, "setup.turn_timed_out", "답이 너무 오래 걸려 멈췄어요. 다시 보내 주세요."),
     NO_ANSWER(HttpStatus.BAD_GATEWAY, "setup.no_answer", "답을 끝내지 못했어요. 다시 보내 주세요."),
+    CONTENTS_SEARCH_UNAVAILABLE(
+        HttpStatus.CONFLICT,
+        "setup.contents_search_unavailable",
+        "지금은 다른 출처에서 목차를 찾을 수 없어요.",
+    ),
+    CONTENTS_NOT_FOUND(HttpStatus.NOT_FOUND, "setup.contents_not_found", "다른 출처에서 목차를 찾지 못했어요."),
     TURN_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "setup.turn_failed", "답을 만들지 못했어요. 다시 보내 주세요."),
 }
