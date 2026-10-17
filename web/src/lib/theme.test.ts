@@ -28,11 +28,11 @@ describe('themeAttribute', () => {
 
 describe('themeColors', () => {
   it('follows each device scheme when the reader has not chosen', () => {
-    expect(themeColors('system').map((entry) => entry.color)).toEqual(['#fcfcfc', '#000000'])
+    expect(themeColors('system').map((entry) => entry.color)).toEqual(['#ffffff', '#111419'])
   })
 
   it('paints both schemes in the chosen theme', () => {
-    expect(themeColors('light').map((entry) => entry.color)).toEqual(['#fcfcfc', '#fcfcfc'])
-    expect(themeColors('dark').map((entry) => entry.color)).toEqual(['#000000', '#000000'])
+    expect(themeColors('light').map((entry) => entry.color)).toEqual(['#ffffff', '#ffffff'])
+    expect(themeColors('dark').map((entry) => entry.color)).toEqual(['#111419', '#111419'])
   })
 })

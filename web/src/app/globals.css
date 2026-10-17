@@ -1,139 +1,153 @@
 @import "tailwindcss";
 
-/* v4 prototype tokens (ChatGPT's measured values). A theme swaps values, never a name. */
+/*
+  Paper tinted toward the ink blue, ink for text and actions. A theme swaps values, never a name.
+  Normal states stay plain; color marks what needs a look (warn) or what cannot be undone (danger).
+*/
 :root {
   --font:
     "-apple-system-body", ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica,
     "Apple SD Gothic Neo", "Apple Color Emoji", Arial, sans-serif;
   --font-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Apple SD Gothic Neo", monospace;
-  --page: #fcfcfc;
-  --sidebar: #fcfcfc;
-  --sb-border: rgba(0, 0, 0, 0.05);
+  --page: #ffffff;
+  --sidebar: #f2f6fe;
+  --sb-border: #e5e9f0;
   --bg-primary: #ffffff;
-  --bg-secondary: #e8e8e8;
-  --bg-tertiary: #f3f3f3;
-  --hover: rgba(0, 0, 0, 0.07);
-  --selected: rgba(0, 0, 0, 0.05);
-  --tx: #0d0d0d;
-  --tx2: #5d5d5d;
-  --tx3: #8f8f8f;
-  --b-light: rgba(0, 0, 0, 0.05);
-  --b-default: rgba(0, 0, 0, 0.1);
-  --b-heavy: rgba(0, 0, 0, 0.15);
-  --bubble: #f4f4f4;
-  --accent: #3a83f7;
-  --link: #2964aa;
-  --btn-bg: #0d0d0d;
+  --bg-secondary: #dfe6f3;
+  --bg-tertiary: #eef2fa;
+  --hover: rgba(36, 70, 166, 0.07);
+  --selected: rgba(36, 70, 166, 0.12);
+  --selected-tx: #14275f;
+  --tx: #181d27;
+  --tx2: #4a505b;
+  --tx3: #646974;
+  --b-light: #e5e9f0;
+  --b-default: #d5dae5;
+  --b-heavy: #b4bbc8;
+  /* An input's outline keeps 3:1 against the page (WCAG 1.4.11). */
+  --b-field: #868c9a;
+  --bubble: #e8eefa;
+  --link: #2446a6;
+  --focus: #315dd4;
+  --selection: #d9e7ff;
+  --btn-bg: #2446a6;
   --btn-tx: #ffffff;
-  --btn-hover: rgba(0, 0, 0, 0.8);
-  --badge: #f3f3f3;
-  --hover-card: #f6f6f6;
-  --panel: #ffffff;
-  --divider: rgba(0, 0, 0, 0.06);
-  --good-tx: #196f1e;
+  --btn-hover: #193990;
+  --badge: #eef2fa;
+  --hover-card: #f5f8fe;
+  --panel: #f2f6fe;
+  --divider: #e5e9f0;
+  --warn-tx: #985b0b;
   --composer: #ffffff;
-  --composer-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.04), 0 2px 8px 0 rgba(0, 0, 0, 0.04),
-    0 4px 80px 8px rgba(0, 0, 0, 0.024);
-  --dialog-shadow: 0 8px 12px 0 rgba(0, 0, 0, 0.08), 0 0 1px 0 rgba(0, 0, 0, 0.62);
-  --translucent: rgba(252, 252, 252, 0.72);
-  --scrim: rgba(0, 0, 0, 0.2);
-  --danger-bg: #e02e2a;
-  --danger-bg-hover: #c42521;
-  --danger-tx: #e02e2a;
-  --danger-soft: rgba(224, 46, 42, 0.08);
+  --composer-shadow: 0 0 0 1px var(--b-field);
+  --dialog-shadow: 0 8px 12px 0 rgba(24, 29, 39, 0.08), 0 0 1px 0 rgba(24, 29, 39, 0.62);
+  --translucent: rgba(255, 255, 255, 0.72);
+  --scrim: rgba(24, 29, 39, 0.28);
+  --danger-bg: #ba1a3a;
+  --danger-bg-hover: #a5002a;
+  --danger-tx: #ba1a3a;
+  --danger-soft: rgba(186, 26, 58, 0.08);
+  --danger-on: #ffffff;
   --menu: #ffffff;
   --field: var(--bg-primary);
   --seg: var(--bg-tertiary);
   --seg-on: var(--bg-primary);
-  --code-inline: #ececec;
+  --code-inline: #eef2fa;
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --page: #000;
-    --sidebar: #000;
-    --sb-border: rgba(255, 255, 255, 0.1);
-    --bg-primary: #212121;
-    --bg-secondary: #303030;
-    --bg-tertiary: #414141;
-    --hover: rgba(255, 255, 255, 0.15);
-    --selected: rgba(255, 255, 255, 0.1);
-    --tx: #ffffff;
-    --tx2: #cdcdcd;
-    --tx3: #afafaf;
-    --b-light: rgba(255, 255, 255, 0.05);
-    --b-default: rgba(255, 255, 255, 0.15);
-    --b-heavy: rgba(255, 255, 255, 0.2);
-    --bubble: #303030;
-    --accent: #2c67c5;
-    --link: #7ab7ff;
-    --btn-bg: #f9f9f9;
-    --btn-tx: #0d0d0d;
-    --btn-hover: rgba(249, 249, 249, 0.8);
-    --badge: #303030;
-    --hover-card: #2a2a2a;
-    --panel: #000;
-    --divider: rgba(255, 255, 255, 0.12);
-    --good-tx: #8fd99a;
-    --composer: #212121;
-    --composer-shadow: inset 0 0 1px 0 rgba(255, 255, 255, 0.2);
+    --page: #111419;
+    --sidebar: #0c0e14;
+    --sb-border: #22252c;
+    --bg-primary: #161920;
+    --bg-secondary: #2a3142;
+    --bg-tertiary: #1f2430;
+    --hover: rgba(147, 171, 244, 0.1);
+    --selected: rgba(147, 171, 244, 0.16);
+    --selected-tx: #d6e2ff;
+    --tx: #eceef4;
+    --tx2: #c3c7cf;
+    --tx3: #9a9ea7;
+    --b-light: #22252c;
+    --b-default: #30343d;
+    --b-heavy: #424855;
+    --b-field: #696f7c;
+    --bubble: #212a3d;
+    --link: #93abf4;
+    --focus: #9ebdff;
+    --selection: #26365c;
+    --btn-bg: #93abf4;
+    --btn-tx: #0d1321;
+    --btn-hover: #a8c4ff;
+    --badge: #21252e;
+    --hover-card: #1b1f27;
+    --panel: #0c0e14;
+    --divider: #22252c;
+    --warn-tx: #e7b369;
+    --composer: #161920;
     --dialog-shadow: 0 8px 12px 0 rgba(0, 0, 0, 0.4), inset 0 0 1px 0 rgba(255, 255, 255, 0.2);
-    --translucent: rgba(33, 33, 33, 0.72);
+    --translucent: rgba(22, 25, 32, 0.72);
     --scrim: rgba(0, 0, 0, 0.5);
-    --danger-bg-hover: #f0433e;
-    --danger-tx: #ff7b78;
-    --danger-soft: rgba(255, 123, 120, 0.12);
-    --menu: #353535;
-    --field: var(--bg-secondary);
-    --seg: var(--bg-secondary);
-    --seg-on: var(--bg-tertiary);
-    --code-inline: #424242;
+    --danger-bg: #f38086;
+    --danger-bg-hover: #ff9da1;
+    --danger-tx: #f38086;
+    --danger-soft: rgba(243, 128, 134, 0.12);
+    --danger-on: #2a0a0e;
+    --menu: #1f2430;
+    --field: #1b1f27;
+    --seg: var(--bg-tertiary);
+    --seg-on: var(--bg-secondary);
+    --code-inline: #232836;
     color-scheme: dark;
   }
 }
 /* Same values as above, when the reader has chosen dark over the device. */
 :root[data-theme="dark"] {
-  --page: #000;
-  --sidebar: #000;
-  --sb-border: rgba(255, 255, 255, 0.1);
-  --bg-primary: #212121;
-  --bg-secondary: #303030;
-  --bg-tertiary: #414141;
-  --hover: rgba(255, 255, 255, 0.15);
-  --selected: rgba(255, 255, 255, 0.1);
-  --tx: #ffffff;
-  --tx2: #cdcdcd;
-  --tx3: #afafaf;
-  --b-light: rgba(255, 255, 255, 0.05);
-  --b-default: rgba(255, 255, 255, 0.15);
-  --b-heavy: rgba(255, 255, 255, 0.2);
-  --bubble: #303030;
-  --accent: #2c67c5;
-  --link: #7ab7ff;
-  --btn-bg: #f9f9f9;
-  --btn-tx: #0d0d0d;
-  --btn-hover: rgba(249, 249, 249, 0.8);
-  --badge: #303030;
-  --hover-card: #2a2a2a;
-  --panel: #000;
-  --divider: rgba(255, 255, 255, 0.12);
-  --good-tx: #8fd99a;
-  --composer: #212121;
-  --composer-shadow: inset 0 0 1px 0 rgba(255, 255, 255, 0.2);
+  --page: #111419;
+  --sidebar: #0c0e14;
+  --sb-border: #22252c;
+  --bg-primary: #161920;
+  --bg-secondary: #2a3142;
+  --bg-tertiary: #1f2430;
+  --hover: rgba(147, 171, 244, 0.1);
+  --selected: rgba(147, 171, 244, 0.16);
+  --selected-tx: #d6e2ff;
+  --tx: #eceef4;
+  --tx2: #c3c7cf;
+  --tx3: #9a9ea7;
+  --b-light: #22252c;
+  --b-default: #30343d;
+  --b-heavy: #424855;
+  --b-field: #696f7c;
+  --bubble: #212a3d;
+  --link: #93abf4;
+  --focus: #9ebdff;
+  --selection: #26365c;
+  --btn-bg: #93abf4;
+  --btn-tx: #0d1321;
+  --btn-hover: #a8c4ff;
+  --badge: #21252e;
+  --hover-card: #1b1f27;
+  --panel: #0c0e14;
+  --divider: #22252c;
+  --warn-tx: #e7b369;
+  --composer: #161920;
   --dialog-shadow: 0 8px 12px 0 rgba(0, 0, 0, 0.4), inset 0 0 1px 0 rgba(255, 255, 255, 0.2);
-  --translucent: rgba(33, 33, 33, 0.72);
+  --translucent: rgba(22, 25, 32, 0.72);
   --scrim: rgba(0, 0, 0, 0.5);
-  --danger-bg-hover: #f0433e;
-  --danger-tx: #ff7b78;
-  --danger-soft: rgba(255, 123, 120, 0.12);
-  --menu: #353535;
-  --field: var(--bg-secondary);
-  --seg: var(--bg-secondary);
-  --seg-on: var(--bg-tertiary);
-  --code-inline: #424242;
+  --danger-bg: #f38086;
+  --danger-bg-hover: #ff9da1;
+  --danger-tx: #f38086;
+  --danger-soft: rgba(243, 128, 134, 0.12);
+  --danger-on: #2a0a0e;
+  --menu: #1f2430;
+  --field: #1b1f27;
+  --seg: var(--bg-tertiary);
+  --seg-on: var(--bg-secondary);
+  --code-inline: #232836;
   color-scheme: dark;
 }
 
@@ -222,11 +236,15 @@ svg {
   display: none !important;
 }
 ::selection {
-  background: rgba(58, 131, 247, 0.25);
+  background: var(--selection);
 }
 :focus-visible {
-  outline: 1.5px solid var(--tx);
-  outline-offset: 2.5px;
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+/* These drop the outline for their hover fill; the inner ring keeps focus visible at 3:1. */
+:is(.row, .ibtn, .tbtn, .c-plus, .li-row, .call, .dd-btn, .mi, .cp):focus-visible {
+  box-shadow: inset 0 0 0 2px var(--focus);
 }
 .sr-only {
   position: absolute;
@@ -317,9 +335,13 @@ svg {
   transition: background-color 150ms var(--ease);
   white-space: nowrap;
 }
-.row:hover,
+.row:hover {
+  background: var(--hover);
+}
 .row[aria-current="page"] {
   background: var(--selected);
+  color: var(--selected-tx);
+  font-weight: 600;
 }
 .row:focus-visible {
   outline: none;
@@ -349,6 +371,7 @@ svg {
 }
 .sb-rail .ibtn[aria-current="page"] {
   background: var(--selected);
+  color: var(--selected-tx);
 }
 
 /* Icon buttons */
@@ -477,7 +500,7 @@ svg {
   z-index: 100;
   padding: 5px 12px;
   border-radius: 999px;
-  background: rgb(27, 27, 27);
+  background: #1a1f2b;
   color: #fff;
   font: 600 14px / 18px var(--font);
   letter-spacing: -0.15px;
@@ -523,7 +546,7 @@ svg {
 }
 .btn.danger {
   background: var(--danger-bg);
-  color: #fff;
+  color: var(--danger-on);
 }
 .btn.danger:hover:not(:disabled) {
   background: var(--danger-bg-hover);
@@ -609,6 +632,11 @@ svg {
   cursor: text;
   transition: box-shadow 200ms ease-in-out;
 }
+.composer:focus-within {
+  box-shadow:
+    0 0 0 1px var(--focus),
+    0 0 0 4px var(--selection);
+}
 .composer.no-plus {
   grid-template-columns: minmax(0, 1fr) 36px;
   grid-template-areas: "text send";
@@ -620,8 +648,8 @@ svg {
 }
 .c-send {
   grid-area: send;
-  background: var(--accent);
-  color: #fff;
+  background: var(--btn-bg);
+  color: var(--btn-tx);
 }
 .composer textarea {
   grid-area: text;
@@ -1053,8 +1081,25 @@ button.think-head:focus-visible svg,
   font: 400 12px / 16px var(--font);
   color: var(--tx3);
 }
-.s-sub .ok {
-  color: var(--good-tx);
+.s-state {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.s-state svg {
+  color: var(--tx3);
+}
+.s-state.warn {
+  color: var(--warn-tx);
+}
+.s-state.bad {
+  color: var(--danger-tx);
+}
+.s-state:is(.warn, .bad) svg {
+  color: currentColor;
+}
+.s-v.s-state {
+  justify-content: flex-end;
 }
 .s-v {
   flex: none;
@@ -1072,10 +1117,11 @@ button.think-head:focus-visible svg,
   vertical-align: 1px;
 }
 .sw.spent {
-  background: var(--tx);
+  background: var(--link);
 }
+/* Stripes, not a lighter tint: the reserved share stays 3:1 off its ground and apart from the spent. */
 .sw.res {
-  background: var(--tx3);
+  background: repeating-linear-gradient(-45deg, var(--link) 0 2px, transparent 2px 4px);
 }
 .sw.left {
   background: var(--b-heavy);
@@ -1099,7 +1145,7 @@ button.think-head:focus-visible svg,
   width: 100%;
   height: 36px;
   padding: 0 12px;
-  border: 1px solid var(--b-heavy);
+  border: 1px solid var(--b-field);
   border-radius: 10px;
   background: transparent;
   font: 400 14px / 20px var(--font);
@@ -1112,7 +1158,7 @@ button.think-head:focus-visible svg,
 }
 .field:focus {
   outline: none;
-  border-color: var(--tx2);
+  border-color: var(--focus);
 }
 .field[aria-invalid="true"] {
   border-color: var(--danger-tx);
@@ -1174,10 +1220,10 @@ button.think-head:focus-visible svg,
   height: 100%;
 }
 .ubar .spent {
-  background: var(--tx);
+  background: var(--link);
 }
 .ubar .res {
-  background: var(--tx3);
+  background: repeating-linear-gradient(-45deg, var(--link) 0 2px, transparent 2px 4px);
 }
 .sub-h {
   margin: 28px 0 0;
@@ -1379,6 +1425,17 @@ button.think-head:focus-visible svg,
 .off .lid {
   color: var(--tx3);
 }
+.st {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.st.warn {
+  color: var(--warn-tx);
+}
+.st.off {
+  color: var(--tx3);
+}
 .act {
   position: relative;
   display: flex;
@@ -1530,7 +1587,7 @@ button.think-head:focus-visible svg,
   width: 100%;
   height: 40px;
   padding: 0 12px;
-  border: 1px solid var(--b-default);
+  border: 1px solid var(--b-field);
   border-radius: 10px;
   background: var(--field);
   font: 400 14px / 20px var(--font);
@@ -1539,10 +1596,10 @@ button.think-head:focus-visible svg,
   transition: border-color 150ms var(--ease);
 }
 .in:hover {
-  border-color: var(--b-heavy);
+  border-color: var(--tx3);
 }
 .in:focus {
-  border-color: var(--tx);
+  border-color: var(--focus);
 }
 .seg {
   display: inline-grid;
@@ -1683,7 +1740,7 @@ button.think-head:focus-visible svg,
   width: 100%;
   height: 52px;
   padding: 0 20px;
-  border: 1px solid var(--b-heavy);
+  border: 1px solid var(--b-field);
   border-radius: 999px;
   background: transparent;
   font: 400 16px / 24px var(--font);
@@ -1694,8 +1751,8 @@ button.think-head:focus-visible svg,
 }
 .fl input:focus {
   outline: none;
-  border-color: var(--tx);
-  box-shadow: inset 0 0 0 0.5px var(--tx);
+  border-color: var(--focus);
+  box-shadow: inset 0 0 0 0.5px var(--focus);
 }
 .fl label {
   position: absolute;
@@ -1834,7 +1891,7 @@ button.think-head:focus-visible svg,
   width: 100%;
   min-height: 18rem;
   padding: 16px;
-  border: 1px solid var(--b-default);
+  border: 1px solid var(--b-field);
   border-radius: 16px;
   background: var(--bg-primary);
   font: 400 14px / 22px var(--font-mono);
@@ -1846,7 +1903,7 @@ button.think-head:focus-visible svg,
 }
 .raw:focus {
   outline: none;
-  border-color: var(--tx2);
+  border-color: var(--focus);
 }
 .raw::placeholder {
   color: var(--tx3);
@@ -1905,6 +1962,8 @@ button.think-head:focus-visible svg,
 }
 .prose a {
   color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .prose code {
   padding: 2px 4px;

@@ -119,34 +119,78 @@ export function AdminAccounts({ accounts, myId }: { accounts: AdminAccount[]; my
         />
       )}
       {asking && (
-        <Dialog labelledBy="ask-title" onClose={() => setAsking(null)} alert look="plain">
-          {asking.action === 'password-reset' ? (
-            <h2 id="ask-title">{asking.account.displayName} 님의 비밀번호를 초기화할까요?</h2>
-          ) : (
-            <>
-              <h2 id="ask-title">{asking.account.displayName} 님의 계정을 사용 중지할까요?</h2>
-              <p className="dlg-p">로그인한 기기에서도 바로 로그아웃돼요.</p>
-            </>
-          )}
-          <div className="dlg-a">
-            <button type="button" className="btn sec" onClick={() => setAsking(null)}>
-              취소
-            </button>
-            <button
-              type="button"
-              className={asking.action === 'disable' ? 'btn danger' : 'btn primary'}
-              data-autofocus
-              onClick={() => act(asking.account, asking.action)}
-            >
-              {asking.action === 'disable' ? '사용 중지' : '초기화'}
-            </button>
-          </div>
-        </Dialog>
+        <AskDialog
+          asking={asking}
+          onCancel={() => setAsking(null)}
+          onConfirm={() => act(asking.account, asking.action)}
+        />
       )}
       {handed && (
         <TemporaryPassword key={handed.seq} handed={handed} onDone={() => setHanded(null)} />
       )}
     </div>
+  )
+}
+
+export function AskDialog({
+  asking,
+  onCancel,
+  onConfirm,
+}: {
+  asking: Asking
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const disable = asking.action === 'disable'
+  return (
+    <Dialog labelledBy="ask-title" onClose={onCancel} alert look="plain">
+      {disable ? (
+        <>
+          <h2 id="ask-title">{asking.account.displayName} 님의 계정을 사용 중지할까요?</h2>
+          <p className="dlg-p">로그인한 기기에서도 바로 로그아웃돼요.</p>
+        </>
+      ) : (
+        <h2 id="ask-title">{asking.account.displayName} 님의 비밀번호를 초기화할까요?</h2>
+      )}
+      <div className="dlg-a">
+        {/* A destructive choice is never the default: Enter on the open dialog cancels it. */}
+        <button
+          type="button"
+          className="btn sec"
+          data-autofocus={disable || undefined}
+          onClick={onCancel}
+        >
+          취소
+        </button>
+        <button
+          type="button"
+          className={disable ? 'btn danger' : 'btn primary'}
+          data-autofocus={disable ? undefined : true}
+          onClick={onConfirm}
+        >
+          {disable ? '사용 중지' : '초기화'}
+        </button>
+      </div>
+    </Dialog>
+  )
+}
+
+// An account in use stays plain; one waiting on its password or turned off says so with an icon.
+function AccountStatus({ account }: { account: AdminAccount }) {
+  const label = statusOf(account)
+  if (account.status !== 'active')
+    return (
+      <span className="st off">
+        <Icon name="ban" size={16} />
+        {label}
+      </span>
+    )
+  if (!account.mustChangePassword) return label
+  return (
+    <span className="st warn">
+      <Icon name="key" size={16} />
+      {label}
+    </span>
   )
 }
 
@@ -200,7 +244,9 @@ function AccountRow({ account, mine, busy, issuing, onAct }: RowProps) {
         </span>
       </td>
       <td className="td c-role">{roleLabel(account.role)}</td>
-      <td className="td c-status">{statusOf(account)}</td>
+      <td className="td c-status">
+        <AccountStatus account={account} />
+      </td>
       <td className="td c-last">
         {account.lastLoginAt ? (
           formatDateTime(account.lastLoginAt)

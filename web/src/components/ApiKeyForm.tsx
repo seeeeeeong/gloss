@@ -132,28 +132,46 @@ export function ApiKeyForm({ apiKey }: { apiKey: ApiKey | null }) {
   )
 }
 
+// A key in use stays plain: only one to enter again or one DeepSeek refused gets a tone.
+const KEY_TONES: Record<string, string> = { unreadable: 'warn', invalid: 'bad' }
+
 function KeyStatus({ apiKey }: { apiKey: ApiKey | null }) {
+  const tone = apiKey ? KEY_TONES[apiKey.status] : undefined
   return (
     <div className="srow">
       <div className="s-line">
         <span className="s-k">
           DeepSeek API 키
           {apiKey && (
-            <span className="s-sub">
-              <span className={apiKey.status === 'valid' ? 'ok' : undefined}>
-                {keyStatusLabel(apiKey.status)}
-              </span>
-              {apiKey.validatedAt && ` · ${formatDateTime(apiKey.validatedAt)} 확인`}
+            <span className={tone ? `s-sub s-state ${tone}` : 's-sub s-state'}>
+              <Icon name={tone ? 'alert' : 'check'} size={14} />
+              {keyStatusLabel(apiKey.status)}
             </span>
           )}
+          {apiKey?.validatedAt && (
+            <span className="s-sub">{formatDateTime(apiKey.validatedAt)} 확인</span>
+          )}
         </span>
-        <span className="s-v">{apiKey ? `····${apiKey.last4}` : '등록된 키가 없어요.'}</span>
+        {apiKey ? (
+          <span className="s-v">{`····${apiKey.last4}`}</span>
+        ) : (
+          <span className="s-v s-state warn">
+            <Icon name="alert" size={14} />
+            등록된 키가 없어요.
+          </span>
+        )}
       </div>
     </div>
   )
 }
 
-function RemoveKeyDialog({ onRemove, onCancel }: { onRemove: () => void; onCancel: () => void }) {
+export function RemoveKeyDialog({
+  onRemove,
+  onCancel,
+}: {
+  onRemove: () => void
+  onCancel: () => void
+}) {
   return (
     <Dialog labelledBy="remove-key-title" onClose={onCancel} alert look="confirm">
       <button type="button" className="ibtn x" aria-label="닫기" onClick={onCancel}>
@@ -162,10 +180,10 @@ function RemoveKeyDialog({ onRemove, onCancel }: { onRemove: () => void; onCance
       <h2 id="remove-key-title">API 키를 삭제할까요?</h2>
       <p className="dlg-p">튜터와 글 생성이 멈춥니다.</p>
       <div className="dlg-stack">
-        <button type="button" className="btn danger" data-autofocus onClick={onRemove}>
+        <button type="button" className="btn danger" onClick={onRemove}>
           삭제
         </button>
-        <button type="button" className="btn sec" onClick={onCancel}>
+        <button type="button" className="btn sec" data-autofocus onClick={onCancel}>
           취소
         </button>
       </div>
