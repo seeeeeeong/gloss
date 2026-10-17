@@ -153,6 +153,9 @@ export function turnIn(messages: ChatMessage[], turnId: string): 'absent' | 'kep
   return repliedTo(messages, asked.seq) ? 'answered' : 'kept'
 }
 
+/** Whether the tutor docks as a book opens, from what the browser kept: only once the reader docked it. */
+export const startsDocked = (kept: string | null) => kept === 'true'
+
 // The book needs this much beside a docked tutor of 380: one page of text a reader can follow.
 export const MIN_READER = 480
 export const TUTOR_WIDTH = 380

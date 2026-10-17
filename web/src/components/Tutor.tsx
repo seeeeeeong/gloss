@@ -16,7 +16,7 @@ import { createPortal } from 'react-dom'
 import type { TocItem } from '@/lib/books'
 import { itemKeyFor, type Quote, quoteOf } from '@/lib/chat'
 import { itemOfUnit } from '@/lib/reader'
-import { holdOthers, narrowAt, pillTop, showsThread } from '@/lib/tutor'
+import { holdOthers, narrowAt, pillTop, showsThread, startsDocked } from '@/lib/tutor'
 import { Icon } from './Icon'
 import { useShellPanel } from './ShellPanel'
 import { useShellTitle } from './ShellTitle'
@@ -39,7 +39,7 @@ type Props = {
   onGo: (itemKey: string) => void
 }
 
-const OPEN_KEY = 'gloss.tutor.open'
+const DOCKED_KEY = 'gloss.tutor.docked'
 
 /**
  * The tutor beside the book: docked in the shell's panel, opened and closed from the header, or a
@@ -50,7 +50,8 @@ export function Tutor(props: Props) {
   const tutor = useTutor(bookId)
   const { slot, setOpen } = useShellPanel()
   const shell = useShellTitle()
-  const [open, setOpenState] = useDocked()
+  const docking = useDocked(width > 0)
+  const { open } = docking
   const [sheet, setSheet] = useState(false)
   const [quote, setQuote] = useState<Quote | null>(null)
   const [draft, setDraft] = useState('')
@@ -131,7 +132,7 @@ export function Tutor(props: Props) {
     setQuote(picked)
     tutor.dismissRefusal()
     if (phone) setSheet(true)
-    else setOpenState(true)
+    else docking.show()
   }
 
   function go(itemKey: string) {
@@ -176,7 +177,7 @@ export function Tutor(props: Props) {
             aria-pressed={open}
             aria-label={toggleLabel}
             data-tip={toggleLabel}
-            onClick={() => setOpenState(!open)}
+            onClick={() => docking.choose(!open)}
           >
             <Icon name="panelR" />
           </button>,
@@ -288,21 +289,27 @@ function TutorPanel({ tutor, items, grab, onGo, composer }: PanelProps) {
 // Within this of the bottom, a new piece keeps the thread at the bottom.
 const STICK_PX = 120
 
-/** Whether the tutor is docked, remembered across books; open until the reader closes it. */
-function useDocked(): [boolean, (open: boolean) => void] {
-  const [open, setOpen] = useState(true)
+/**
+ * Whether the tutor is docked: closed as a book opens unless the reader docked it from the header,
+ * a choice kept across books. Opened to ask about a phrase, it stays open for that book only.
+ */
+function useDocked(laidOut: boolean) {
+  const [open, setOpen] = useState(false)
+  // Not before the book's first width is judged: it was measured with the tutor closed.
   useEffect(() => {
+    if (!laidOut) return
     try {
-      if (localStorage.getItem(OPEN_KEY) === 'false') setOpen(false)
+      if (startsDocked(localStorage.getItem(DOCKED_KEY))) setOpen(true)
     } catch {}
-  }, [])
-  const change = useCallback((next: boolean) => {
+  }, [laidOut])
+  const show = useCallback(() => setOpen(true), [])
+  const choose = useCallback((next: boolean) => {
     setOpen(next)
     try {
-      localStorage.setItem(OPEN_KEY, String(next))
+      localStorage.setItem(DOCKED_KEY, String(next))
     } catch {}
   }, [])
-  return [open, change]
+  return { open, show, choose }
 }
 
 type Pick = Quote & { style: CSSProperties }
