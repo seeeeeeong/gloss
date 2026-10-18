@@ -78,18 +78,10 @@ export function geometryOf(width: number, height: number, phone: boolean, line =
 }
 
 /**
- * The flow's units are the cover, the 차례, then every item in reading order; [starts] holds the
- * page each begins on and [total] the pages of the whole flow.
+ * The flow's units are the book's items in reading order, so a unit is an item's index; [starts]
+ * holds the page each begins on and [total] the pages of the whole flow.
  */
 export type Layout = { starts: number[]; total: number }
-
-export const COVER = 0
-export const CONTENTS = 1
-export const FIRST_ITEM = 2
-
-export const unitOfItem = (index: number) => FIRST_ITEM + index
-export const itemOfUnit = (unit: number) => unit - FIRST_ITEM
-export const isItemUnit = (unit: number) => unit >= FIRST_ITEM
 
 export function sameLayout(a: Layout | null, b: Layout): boolean {
   return (
@@ -151,18 +143,15 @@ export function visibleUnits(layout: Layout, first: number, cols: number): numbe
   return units
 }
 
-/** The unit the header names: the one the reader went to, else the spread's item, else its left page's. */
+/** The item the header names: the one the reader went to while it shows, else the left page's. */
 export function currentUnit(visible: number[], focus: number | null): number {
   if (focus !== null && visible.includes(focus)) return focus
-  const [left = COVER, right] = visible
-  if (!isItemUnit(left) && right !== undefined && isItemUnit(right)) return right
-  return left
+  return visible[0] ?? 0
 }
 
-/** "2 / 4" for the left page of an item, "차례" on the cover and 차례 spreads. */
+/** "12 / 248": the left page in the whole book, which grows as its posts are written. */
 export function pagerLabel(layout: Layout, first: number): string {
-  const { unit, n, of } = pageIn(layout, first)
-  return isItemUnit(unit) ? `${n} / ${of}` : '차례'
+  return `${first + 1} / ${layout.total}`
 }
 
 /** What an item shows, from its post and from the work this page has asked for. */
@@ -209,63 +198,17 @@ export function itemViewOf(
   return { kind: 'todo' }
 }
 
-export const isWritten = (view: ItemView) => view.kind === 'written'
-
-/** A row of the 차례 page; [keys] are the items it stands for, more than one for a folded chapter. */
-export type ContentsRow = {
-  key: string
-  label: string
-  kind: 'part' | 'chapter' | 'section'
-  depth: number
-  keys: string[]
-}
-
 const height = (nodes: TocNode[]): number =>
   nodes.reduce((most, node) => Math.max(most, 1 + height(node.children)), 0)
-
-const keysUnder = (node: TocNode): string[] => [node.itemKey, ...node.children.flatMap(keysUnder)]
-
-/**
- * Parts and chapters, and the sections only under the chapter holding [openKey], so the 차례
- * stays a few pages long. A chapter is the second level of a deeper book, else the first.
- */
-export function contentsRowsOf(items: TocItem[], openKey: string | null): ContentsRow[] {
-  const roots = treeOf(items)
-  const chapterLevel = height(roots) >= 3 ? 1 : 0
-  const row = (node: TocNode, kind: ContentsRow['kind'], depth: number, keys: string[]) => ({
-    key: node.itemKey,
-    label: headingOf(node),
-    kind,
-    depth,
-    keys,
-  })
-  const sections = (nodes: TocNode[], depth: number): ContentsRow[] =>
-    nodes.flatMap((node) => [
-      row(node, 'section', depth, [node.itemKey]),
-      ...sections(node.children, depth + 1),
-    ])
-  const chapter = (node: TocNode): ContentsRow[] => {
-    const all = keysUnder(node)
-    if (openKey === null || !all.includes(openKey)) return [row(node, 'chapter', 0, all)]
-    return [row(node, 'chapter', 0, [node.itemKey]), ...sections(node.children, 0)]
-  }
-  const walk = (nodes: TocNode[], level: number): ContentsRow[] =>
-    nodes.flatMap((node) =>
-      level < chapterLevel && node.children.length > 0
-        ? [row(node, 'part', 0, [node.itemKey]), ...walk(node.children, level + 1)]
-        : chapter(node),
-    )
-  return walk(roots, 0)
-}
 
 /** An item in the contents sidebar, with the items under it. */
 export type ContentsNode = {
   item: TocItem
-  kind: ContentsRow['kind']
+  kind: 'part' | 'chapter' | 'section'
   children: ContentsNode[]
 }
 
-/** The whole contents as a tree: parts over chapters over sections, as the 차례 page names them. */
+/** The whole contents as a tree: parts over chapters over sections; a chapter is the second level of a deeper book, else the first. */
 export function contentsTreeOf(items: TocItem[]): ContentsNode[] {
   const roots = treeOf(items)
   const chapterLevel = height(roots) >= 3 ? 1 : 0
@@ -300,26 +243,35 @@ export function itemOfSearch(search: string, items: TocItem[]): string | null {
   return items.find((item) => item.itemKey === key)?.itemKey ?? null
 }
 
+/**
+ * The items a book is read in. Front and back matter, the unnumbered top-level items before the
+ * first one that holds a number (추천사, 들어가며) and after the last (용어집, 찾아보기), are left
+ * out; a book that numbers nothing keeps them all.
+ */
+export function readableItems(items: TocItem[]): TocItem[] {
+  const byId = new Map(items.map((item) => [item.id, item]))
+  const rootOf = (item: TocItem): string => {
+    let at = item
+    for (let up = 0; up < items.length; up++) {
+      const parent = at.parentId === null ? undefined : byId.get(at.parentId)
+      if (!parent) break
+      at = parent
+    }
+    return at.id
+  }
+  const roots = items.filter((item) => rootOf(item) === item.id).map((item) => item.id)
+  const numbered = new Set(items.filter((item) => item.number).map(rootOf))
+  const first = roots.findIndex((root) => numbered.has(root))
+  const last = roots.findLastIndex((root) => numbered.has(root))
+  if (first === -1 || (first === 0 && last === roots.length - 1)) return items
+  const kept = new Set(roots.slice(first, last + 1))
+  return items.filter((item) => kept.has(rootOf(item)))
+}
+
 /** The running header of an item's left page: the item it sits under, or its own. */
 export function chapterOf(items: TocItem[], item: TocItem): string {
   const parent = items.find((other) => other.id === item.parentId)
   return headingOf(parent ?? item)
-}
-
-/** How a 차례 row reads: live while one of its items is written, quiet while none is, checked once read. */
-export type RowMark = { live: boolean; todo: boolean; read: boolean }
-
-export function rowMarkOf(
-  row: ContentsRow,
-  viewOf: (key: string) => ItemView,
-  isRead: (key: string) => boolean,
-): RowMark {
-  const views = row.keys.map(viewOf)
-  const live = views.some((view) => view.kind === 'writing')
-  const todo = !live && !views.some(isWritten)
-  const [only] = row.keys
-  const read = row.keys.length === 1 && only !== undefined && isRead(only)
-  return { live, todo, read }
 }
 
 type ReadingArgs = {
@@ -333,36 +285,31 @@ type ReadingArgs = {
 
 /**
  * The item the reader is reading on the spread from [first], by index: the one gone to by name
- * while it shows, else the left page's. When the left page is the cover or the 차례, or the last
- * page of an item written or with nothing to write, the item starting on the right is read: a turn
- * moves two pages, so it may never sit on the left. Peeking past an item still to come is not.
+ * while it shows, else the left page's. When the left page is the last of an item written or with
+ * nothing to write, the item starting on the right is read: a turn moves two pages, so it may never
+ * sit on the left. Peeking past an item still to come is not.
  */
-export function readingItemOf({ layout, first, cols, focus, viewOf }: ReadingArgs): number | null {
-  if (focus !== null && visibleUnits(layout, first, cols).includes(unitOfItem(focus))) return focus
+export function readingItemOf({ layout, first, cols, focus, viewOf }: ReadingArgs): number {
+  if (focus !== null && visibleUnits(layout, first, cols).includes(focus)) return focus
   const left = pageIn(layout, first)
-  const leftItem = isItemUnit(left.unit) ? itemOfUnit(left.unit) : null
-  const ended = leftItem !== null && left.n === left.of
-  const done = ended && ['written', 'none'].includes(viewOf(leftItem).kind)
-  if (leftItem !== null && !done) return leftItem
-  if (cols < 2 || first + 1 >= layout.total) return leftItem
-  const right = unitAt(layout, first + 1)
-  return isItemUnit(right) && right !== left.unit ? itemOfUnit(right) : leftItem
+  const done = left.n === left.of && ['written', 'none'].includes(viewOf(left.unit).kind)
+  if (!done || cols < 2 || first + 1 >= layout.total) return left.unit
+  return unitAt(layout, first + 1)
 }
 
 /** The items on a spread and one either side, whose posts are read before a turn reaches them. */
 export function itemsAround(visible: number[], count: number): number[] {
   if (visible.length === 0) return []
-  const from = Math.max(0, itemOfUnit(Math.min(...visible)) - 1)
-  const to = Math.min(count - 1, itemOfUnit(Math.max(...visible)) + 1)
+  const from = Math.max(0, Math.min(...visible) - 1)
+  const to = Math.min(count - 1, Math.max(...visible) + 1)
   return Array.from({ length: Math.max(0, to - from + 1) }, (_, i) => from + i)
 }
 
-/** A page's running header: "차례" after the 차례's first page, an item's chapter on the left and its own heading on the right. */
+/** A page's running header: an item's chapter on the left page, its own heading on the right. */
 export function runningHeadOf(layout: Layout, page: number, items: TocItem[]): string | null {
-  const { unit } = pageIn(layout, page)
-  const item = isItemUnit(unit) ? items[itemOfUnit(unit)] : undefined
-  if (item) return page % 2 === 1 ? headingOf(item) : chapterOf(items, item)
-  return unit === CONTENTS && page !== layout.starts[CONTENTS] ? '차례' : null
+  const item = items[pageIn(layout, page).unit]
+  if (!item) return null
+  return page % 2 === 1 ? headingOf(item) : chapterOf(items, item)
 }
 
 type OpenArgs = {
@@ -374,11 +321,11 @@ type OpenArgs = {
   focus: string | null
 }
 
-/** The item the header names, null on the front spreads; before the first layout, the one gone to. */
+/** The item the header names; before the first layout, the one gone to, else the first. */
 export function openItemOf({ items, layout, first, cols, focus }: OpenArgs): string | null {
   const at = focus === null ? -1 : items.findIndex((item) => item.itemKey === focus)
-  const focusUnit = at < 0 ? null : unitOfItem(at)
+  const focusUnit = at < 0 ? null : at
   const visible = layout ? visibleUnits(layout, first, cols) : []
-  const unit = visible.length > 0 ? currentUnit(visible, focusUnit) : (focusUnit ?? COVER)
-  return isItemUnit(unit) ? (items[itemOfUnit(unit)]?.itemKey ?? null) : null
+  const unit = visible.length > 0 ? currentUnit(visible, focusUnit) : (focusUnit ?? 0)
+  return items[unit]?.itemKey ?? null
 }

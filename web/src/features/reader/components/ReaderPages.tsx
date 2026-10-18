@@ -1,100 +1,12 @@
 import Link from 'next/link'
-import type { MouseEvent } from 'react'
-import { Icon } from '@/components/ui/Icon'
-import { SourceCredit } from '@/components/ui/SourceCredit'
-import {
-  CONTENTS,
-  COVER,
-  type ContentsRow,
-  type ItemView,
-  type RowMark,
-} from '@/features/reader/utils/reader'
-import { type Book, contentsHref } from '@/lib/books'
-import { readerHref } from '@/lib/posts'
-import { voiceLabel } from '@/lib/styles'
+import type { ItemView } from '@/features/reader/utils/reader'
+import type { Book } from '@/lib/books'
 import { Prose } from './Prose'
 
-export type ReaderBook = Pick<
-  Book,
-  'id' | 'title' | 'authors' | 'publisher' | 'source' | 'sourceUrl' | 'voice'
-> & { tocVersionNo: number }
+export type ReaderBook = Pick<Book, 'id' | 'title'>
 
 export const KEY_HREF = '/me#api-key-head'
 export const USAGE_HREF = '/me#usage'
-
-/** The first page: the book's title, where it came from and how its posts read, centred on the page. */
-export function Cover({ book }: { book: ReaderBook }) {
-  const voice = voiceLabel(book.voice)
-  const facts = [
-    book.authors.join(', '),
-    book.publisher ?? '',
-    voice ? `문체: ${voice}` : '',
-  ].filter((fact) => fact.length > 0)
-  return (
-    <div className="cover" data-unit={COVER}>
-      <h1 className="cv-t">{book.title}</h1>
-      <p className="cv-f">
-        {facts.map((fact) => (
-          <span key={fact}>{fact}</span>
-        ))}
-        <span>
-          목차 버전 {book.tocVersionNo} ·{' '}
-          <Link className="dl" href={contentsHref(book.id)}>
-            고치기
-          </Link>
-        </span>
-        <SourceCredit book={book} />
-      </p>
-    </div>
-  )
-}
-
-type ContentsProps = {
-  bookId: string
-  rows: ContentsRow[]
-  markOf: (row: ContentsRow) => RowMark
-  onGo: (key: string) => void
-}
-
-/** The 차례: every row is a link to its item, opened in place. */
-export function Contents({ bookId, rows, markOf, onGo }: ContentsProps) {
-  const go = (key: string) => (event: MouseEvent<HTMLAnchorElement>) => {
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return
-    event.preventDefault()
-    onGo(key)
-  }
-  return (
-    <section className="toc-pg" data-unit={CONTENTS} aria-labelledby="contents-title">
-      <h1 className="toc-t" id="contents-title">
-        차례
-      </h1>
-      {rows.map((row) => {
-        const mark = markOf(row)
-        const cls = ['tc-row', `tc-${row.kind}`, (mark.todo || mark.live) && 'todo']
-        return (
-          <a
-            key={row.key}
-            className={cls.filter(Boolean).join(' ')}
-            style={row.depth > 0 ? { paddingLeft: 14 * (row.depth + 1) } : undefined}
-            href={readerHref(bookId, row.key)}
-            onClick={go(row.key)}
-          >
-            <span className="tl">{row.label}</span>
-            {mark.live ? (
-              <span className="spin" role="img" aria-label="쓰는 중" />
-            ) : (
-              mark.read && (
-                <span className="rd" role="img" aria-label="읽음">
-                  <Icon name="check" size={16} />
-                </span>
-              )
-            )}
-          </a>
-        )
-      })}
-    </section>
-  )
-}
 
 type ItemProps = {
   unit: number

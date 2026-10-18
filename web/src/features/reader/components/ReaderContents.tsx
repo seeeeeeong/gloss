@@ -23,14 +23,15 @@ import { useDismiss } from '@/hooks/useDismiss'
 import type { TocItem } from '@/lib/books'
 import { headingOf, readerHref } from '@/lib/posts'
 import { toneOf } from '@/lib/shelf'
+import type { ReaderBook } from './ReaderPages'
 
 export const CONTENTS_ID = 'reader-contents'
 const SHUT_KEY = 'gloss.reader.contents'
 
 type Props = {
-  book: { id: string; title: string }
+  book: ReaderBook
   items: TocItem[]
-  /** The item open, null on the book's front pages. */
+  /** The item open; null before the book is laid out. */
   current: string | null
   phone: boolean
   viewOf: (key: string) => ItemView

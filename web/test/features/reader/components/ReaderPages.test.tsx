@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { Contents, Cover, ItemArticle } from '@/features/reader/components/ReaderPages'
-import type { ContentsRow, ItemView, RowMark } from '@/features/reader/utils/reader'
+import { ItemArticle } from '@/features/reader/components/ReaderPages'
+import type { ItemView } from '@/features/reader/utils/reader'
 
 const noop = () => {}
 const article = (view: ItemView, markdown: string | null = null) =>
@@ -62,62 +62,5 @@ describe('ItemArticle', () => {
 
   it('shows only the heading for an item nothing has been asked for yet', () => {
     expect(article({ kind: 'todo' })).toMatch(/<h1 tabindex="-1">.+?<\/h1><\/article>$/)
-  })
-})
-
-describe('Cover', () => {
-  it('names the book, its authors, publisher and voice, and credits the source', () => {
-    const book = {
-      id: 'b1',
-      title: '운영체제 10판',
-      authors: ['Abraham Silberschatz', 'Greg Gagne'],
-      publisher: '퍼스트북',
-      source: 'yes24',
-      sourceUrl: 'https://www.yes24.com/product/goods/1',
-      voice: 'explain',
-      tocVersionNo: 2,
-    }
-    const out = renderToStaticMarkup(<Cover book={book} />)
-    expect(out).toContain('data-unit="0"')
-    expect(out).toContain('<h1 class="cv-t">운영체제 10판</h1>')
-    expect(out).toContain(
-      '<span>Abraham Silberschatz, Greg Gagne</span><span>퍼스트북</span><span>문체: 설명체</span>',
-    )
-    expect(out).toContain('출처 YES24')
-    expect(out).toContain(
-      '<span>목차 버전 2 · <a class="dl" href="/books/b1/contents">고치기</a></span>',
-    )
-  })
-})
-
-describe('Contents', () => {
-  const rows: ContentsRow[] = [
-    { key: 'p1', label: 'Part 1 개관', kind: 'part', depth: 0, keys: ['p1'] },
-    { key: 'c1', label: '1 서론', kind: 'chapter', depth: 0, keys: ['c1'] },
-    { key: 's11', label: '1.1 할 일', kind: 'section', depth: 0, keys: ['s11'] },
-    { key: 's12', label: '1.2 구성', kind: 'section', depth: 0, keys: ['s12'] },
-    { key: 'c2', label: '2 구조', kind: 'chapter', depth: 0, keys: ['c2', 's21'] },
-  ]
-  const marks: Record<string, RowMark> = {
-    s11: { live: false, todo: false, read: true },
-    s12: { live: true, todo: false, read: false },
-    c2: { live: false, todo: true, read: false },
-  }
-  const markOf = (row: ContentsRow) => marks[row.key] ?? { live: false, todo: false, read: false }
-  const out = renderToStaticMarkup(<Contents bookId="b1" rows={rows} markOf={markOf} onGo={noop} />)
-
-  it('links every row to the reader at its item', () => {
-    expect(out).toContain('data-unit="1"')
-    expect(out).toContain('<h1 class="toc-t" id="contents-title">차례</h1>')
-    expect(out).toContain('<a class="tc-row tc-part" href="/books/b1?item=p1">')
-    expect(out).toContain('href="/books/b1?item=s12"')
-  })
-
-  it('checks what was read, spins for what is being written and quiets what has nothing', () => {
-    expect(out).toMatch(/1\.1 할 일<\/span><span class="rd" role="img" aria-label="읽음"><svg/)
-    expect(out).toMatch(
-      /class="tc-row tc-section todo"[^>]*><span class="tl">1\.2 구성<\/span><span class="spin" role="img" aria-label="쓰는 중">/,
-    )
-    expect(out).toContain('<a class="tc-row tc-chapter todo" href="/books/b1?item=c2">')
   })
 })

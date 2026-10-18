@@ -1,27 +1,34 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { lastReadIn } from '@/features/reader/hooks/useReadingPlace'
 import { useReadingView } from '@/features/reader/hooks/useReadingView'
-import { itemOfSearch } from '@/features/reader/utils/reader'
+import { itemOfSearch, readableItems } from '@/features/reader/utils/reader'
 import type { ReadingView } from '@/features/reader/utils/reading'
 import { PostReader } from './PostReader'
 import { Reader, type ReaderProps } from './Reader'
 
 /**
- * The book in the view the reader chose. A switch opens the other view on the item the address
- * names, which either view keeps current; the page's own start is only the first.
+ * The book in the view the reader chose, without its front matter. Either view opens on the item
+ * the address names, else the one last read, else the first; a switch reads the address, which
+ * either view keeps current, since the page's own start is only the first.
  */
 export function ReaderSwitch(props: ReaderProps) {
+  const { book, start } = props
   const [view] = useReadingView()
+  const items = useMemo(() => readableItems(props.items), [props.items])
+  const index = useMemo(() => new Map(items.map((item, i) => [item.itemKey, i])), [items])
   const [shown, setShown] = useState<{ view: ReadingView | null; start: string | null }>({
     view: null,
-    start: props.start,
+    start: null,
   })
   if (view !== shown.view) {
-    const start = shown.view === null ? props.start : itemOfSearch(location.search, props.items)
-    setShown({ view, start })
+    const named = shown.view === null ? start : itemOfSearch(location.search, items)
+    // An address naming front matter, or an item no longer there, opens the first item.
+    const at = named === null ? lastReadIn(book.id, index) : index.has(named) ? named : null
+    setShown({ view, start: at ?? items[0]?.itemKey ?? null })
   }
   if (shown.view === null) return null
   const View = shown.view === 'post' ? PostReader : Reader
-  return <View {...props} start={shown.start} />
+  return <View {...props} items={items} start={shown.start} />
 }

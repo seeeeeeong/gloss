@@ -26,17 +26,7 @@ export default async function BookPage({ params, searchParams }: Props) {
     searchParams,
   ])
   const start = toc.items.find((it) => it.itemKey === item)?.itemKey ?? null
-  const { id, title, authors, publisher, source, sourceUrl, voice } = book
-  const shown = {
-    id,
-    title,
-    authors,
-    publisher,
-    source,
-    sourceUrl,
-    voice,
-    tocVersionNo: toc.versionNo,
-  }
+  const shown = { id: book.id, title: book.title }
   return (
     // Another book starts the reader over: nothing of the last one, such as its bookmarks, carries across.
     <ReaderSwitch
