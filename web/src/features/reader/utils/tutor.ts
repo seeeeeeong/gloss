@@ -207,6 +207,14 @@ export const showsThread = (
   state: Pick<TutorState, 'messages' | 'loadFailed' | 'live' | 'refused'>,
 ) => state.messages !== null || state.loadFailed || state.live !== null || state.refused !== null
 
+/** Read, and nothing yet said or on its way: the panel shows only the mark. */
+export const isQuiet = (state: Pick<TutorState, 'messages' | 'loadFailed' | 'live' | 'refused'>) =>
+  state.messages !== null &&
+  state.messages.length === 0 &&
+  !state.loadFailed &&
+  state.live === null &&
+  state.refused === null
+
 // An answer may wait two minutes for its first piece and run twenty (the server's idle timeout and
 // call deadline); another tab's turn is followed that long and a little more.
 export const FOLLOW_LIMIT_MS = 22 * 60_000
@@ -239,4 +247,23 @@ export async function followWhileAnswering(
 /** The items the reader has talked with the tutor about. */
 export function talkedItems(messages: ChatMessage[] | null): ReadonlySet<string> {
   return new Set((messages ?? []).flatMap((message) => message.itemKey ?? []))
+}
+
+/** What the empty composer asks for: about the phrase quoted, more after an answer, else the post. */
+export function promptOf(quote: Quote | null, messages: ChatMessage[] | null): string {
+  if (quote) return '이 부분에 대해 물어보세요'
+  const answered = (messages ?? []).some((message) => message.role === 'gloss' && message.text)
+  return answered ? '이어서 물어보세요' : '이 글에 대해 물어보세요'
+}
+
+export type SheetSize = 'half' | 'full' | 'closed'
+
+// A drag shorter than this leaves the sheet where it was.
+const SHEET_DRAG = 48
+
+/** Where a drag of [dy] leaves the sheet: up to full height, down a step, or closed from half. */
+export function sheetAfterDrag(size: Exclude<SheetSize, 'closed'>, dy: number): SheetSize {
+  if (dy < -SHEET_DRAG) return 'full'
+  if (dy > SHEET_DRAG) return size === 'full' ? 'half' : 'closed'
+  return size
 }

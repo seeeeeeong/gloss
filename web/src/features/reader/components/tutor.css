@@ -27,7 +27,12 @@
   flex-direction: column;
   min-width: 0;
   height: 100%;
-  background: var(--bg-primary);
+  background: var(--sidebar);
+}
+/* On the sidebar's ground with a firm edge, so the tutor never reads as the post's own column */
+.panel:has(> .tutor) {
+  background: var(--sidebar);
+  box-shadow: inset 1px 0 0 var(--b-default);
 }
 .t-grab {
   display: none;
@@ -43,13 +48,27 @@
 }
 .t-title {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
   font: 500 14px / 20px var(--font);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .t-body {
   flex: 1;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 18px;
+}
+/* Before the first question: the mark alone, quiet, in the middle */
+.t-quiet {
+  display: grid;
+  place-items: center;
+  height: 100%;
+}
+.t-quiet .brand {
+  color: var(--tx3);
+  opacity: 0.55;
 }
 .t-thread {
   padding: 22px 0 16px;
@@ -199,10 +218,11 @@
   margin-top: 8px;
 }
 
-/* The composer: one line that grows to five, send inside; the quote row above with its x */
+/* The composer: one line that grows to five, send inside, as wide as the head's gutters; a phrase
+   quoted rides on a card above it with its x */
 .t-dock {
   flex: none;
-  padding: 12px;
+  padding: 12px 18px 16px;
   border-top: 1px solid var(--b-light);
 }
 .tutor .composer {
@@ -212,8 +232,8 @@
   align-items: end;
   padding: 8px 8px 8px 12px;
 }
-.tutor .composer.has-quote {
-  grid-template-areas: "quote quote" "text send";
+.tutor .composer.quoted {
+  border-radius: 0 0 12px 12px;
 }
 .tutor .composer textarea {
   align-self: end;
@@ -223,12 +243,14 @@
   font: 400 14px / 22px var(--font);
 }
 .t-quote {
-  grid-area: quote;
   display: flex;
   align-items: flex-start;
   gap: 8px;
   min-width: 0;
-  padding: 2px 0 4px;
+  padding: 8px 8px 8px 12px;
+  border-radius: 12px 12px 0 0;
+  background: var(--composer);
+  box-shadow: var(--composer-shadow);
   font: 400 13px / 20px var(--font);
   color: var(--tx2);
 }
@@ -324,27 +346,39 @@
   background: var(--scrim);
   z-index: 44;
 }
+/* Over the lower part of the page with the post above it, full height once pulled up or typed in */
 .t-sheet {
+  --sheet-h: 60dvh;
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
-  height: calc(100dvh - 40px);
+  bottom: var(--vv-bottom, 0px);
+  height: calc(var(--sheet-h) + var(--pull, 0px));
+  max-height: calc(var(--vv-h, 100dvh) - 40px);
   border-radius: 16px 16px 0 0;
   box-shadow: var(--dialog-shadow);
   transform: translateY(100%);
   visibility: hidden;
   transition:
     transform 240ms var(--ease),
+    height 240ms var(--ease),
     visibility 0s linear 240ms;
   z-index: 45;
+}
+.t-sheet.full {
+  --sheet-h: calc(var(--vv-h, 100dvh) - 40px);
 }
 .t-sheet.open {
   transform: none;
   visibility: visible;
   transition:
     transform 240ms var(--ease),
+    height 240ms var(--ease),
     visibility 0s;
+}
+.t-sheet .t-grab,
+.t-sheet .t-head {
+  touch-action: none;
 }
 .t-sheet .t-grab {
   display: block;
@@ -363,7 +397,7 @@
   padding: 0 16px;
 }
 .t-sheet .t-dock {
-  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
 }
 @media (min-width: 768px) {
   .t-sheet {

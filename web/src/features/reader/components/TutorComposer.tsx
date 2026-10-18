@@ -19,6 +19,7 @@ type Props = {
   onChange: (value: string) => void
   quote: Quote | null
   onUnquote: () => void
+  placeholder: string
   /** While Gloss answers, send becomes stop. */
   answering: boolean
   onSend: () => void
@@ -26,9 +27,9 @@ type Props = {
   input: RefObject<HTMLTextAreaElement | null>
 }
 
-/** One line that grows to five, send inside it, and the picked phrase above it with its x. */
+/** One line that grows to five, send inside it, and the picked phrase on a card above it with its x. */
 export function TutorComposer(props: Props) {
-  const { value, onChange, quote, onUnquote, answering, onSend, onStop, input } = props
+  const { value, onChange, quote, onUnquote, placeholder, answering, onSend, onStop, input } = props
   const empty = value.trim() === ''
 
   // One line that grows with its text, up to the cap; an emptied box shrinks back.
@@ -66,13 +67,7 @@ export function TutorComposer(props: Props) {
   }
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: a click on the box's padding only moves focus to its text box
-    <form
-      className={quote ? 'composer has-quote' : 'composer'}
-      autoComplete="off"
-      onSubmit={submit}
-      onClick={focusBox}
-    >
+    <>
       {quote && (
         <div className="t-quote">
           <p>
@@ -83,24 +78,33 @@ export function TutorComposer(props: Props) {
           </button>
         </div>
       )}
-      <textarea
-        ref={input}
-        rows={1}
-        aria-label="메시지"
-        maxLength={MAX_QUESTION}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={keyDown}
-      />
-      {answering ? (
-        <button type="button" className="cbtn c-send stop" aria-label="중지" onClick={onStop}>
-          <Icon name="stop" />
-        </button>
-      ) : (
-        <button type="submit" className="cbtn c-send" aria-label="보내기" disabled={empty}>
-          <Icon name="send" />
-        </button>
-      )}
-    </form>
+      {/* biome-ignore lint/a11y/useKeyWithClickEvents: a click on the box's padding only moves focus to its text box */}
+      <form
+        className={quote ? 'composer quoted' : 'composer'}
+        autoComplete="off"
+        onSubmit={submit}
+        onClick={focusBox}
+      >
+        <textarea
+          ref={input}
+          rows={1}
+          aria-label="메시지"
+          placeholder={placeholder}
+          maxLength={MAX_QUESTION}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          onKeyDown={keyDown}
+        />
+        {answering ? (
+          <button type="button" className="cbtn c-send stop" aria-label="중지" onClick={onStop}>
+            <Icon name="stop" />
+          </button>
+        ) : (
+          <button type="submit" className="cbtn c-send" aria-label="보내기" disabled={empty}>
+            <Icon name="send" />
+          </button>
+        )}
+      </form>
+    </>
   )
 }

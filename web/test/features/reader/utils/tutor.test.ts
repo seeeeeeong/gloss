@@ -5,12 +5,15 @@ import {
   followWait,
   followWhileAnswering,
   holdOthers,
+  isQuiet,
   MIN_READER,
   mergeBySeq,
   narrowAt,
   pillTop,
   pollUntil,
+  promptOf,
   repliedTo,
+  sheetAfterDrag,
   shownOf,
   showsThread,
   startsDocked,
@@ -203,6 +206,17 @@ describe('showsThread', () => {
   })
 })
 
+describe('isQuiet', () => {
+  it('holds only once read with nothing said, sent or refused', () => {
+    const read = { messages: [], loadFailed: false, live: null, refused: null }
+    expect(isQuiet(read)).toBe(true)
+    expect(isQuiet({ ...read, messages: null })).toBe(false)
+    expect(isQuiet({ ...read, messages: [message(1, 'reader')] })).toBe(false)
+    expect(isQuiet({ ...read, live: { asked: message(-1, 'reader'), text: '' } })).toBe(false)
+    expect(isQuiet({ ...read, loadFailed: true })).toBe(false)
+  })
+})
+
 describe('pillTop', () => {
   const screen = 800
 
@@ -313,5 +327,40 @@ describe('talkedItems', () => {
       ...talkedItems([message(1, 'reader'), message(2, 'gloss'), elsewhere, general]),
     ]).toEqual(['a', 'b'])
     expect(talkedItems(null).size).toBe(0)
+  })
+})
+
+describe('promptOf', () => {
+  const quote = { text: '자원 할당자', itemKey: 'a' }
+
+  it('asks about the post, then for more once Gloss has answered', () => {
+    expect(promptOf(null, null)).toBe('이 글에 대해 물어보세요')
+    expect(promptOf(null, [message(1, 'reader')])).toBe('이 글에 대해 물어보세요')
+    expect(promptOf(null, [message(1, 'reader'), message(2, 'gloss')])).toBe('이어서 물어보세요')
+  })
+
+  it('asks about the phrase quoted, before anything else', () => {
+    expect(promptOf(quote, [message(1, 'reader'), message(2, 'gloss')])).toBe(
+      '이 부분에 대해 물어보세요',
+    )
+  })
+
+  it('does not count a reply with no words as an answer', () => {
+    expect(promptOf(null, [message(1, 'reader'), message(2, 'gloss', '')])).toBe(
+      '이 글에 대해 물어보세요',
+    )
+  })
+})
+
+describe('sheetAfterDrag', () => {
+  it('grows to full height when pulled up, and steps down or closes when pulled down', () => {
+    expect(sheetAfterDrag('half', -80)).toBe('full')
+    expect(sheetAfterDrag('full', 80)).toBe('half')
+    expect(sheetAfterDrag('half', 80)).toBe('closed')
+  })
+
+  it('stays where it was after a short drag', () => {
+    expect(sheetAfterDrag('half', -20)).toBe('half')
+    expect(sheetAfterDrag('full', 30)).toBe('full')
   })
 })
