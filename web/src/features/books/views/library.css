@@ -327,6 +327,10 @@
   color: var(--tx);
   font: 400 12px / 18px var(--font);
 }
+.shelf-search input::placeholder {
+  color: var(--tx3);
+  opacity: 1;
+}
 .shelf-search input::-webkit-search-cancel-button {
   display: none;
 }

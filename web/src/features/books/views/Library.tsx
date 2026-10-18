@@ -88,6 +88,7 @@ export function Library({ books, mark }: Props) {
                 <input
                   type="search"
                   aria-label="내 책장 검색"
+                  placeholder="제목이나 저자"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                 />
