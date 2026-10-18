@@ -173,6 +173,9 @@ from memory.
   | Rules about who may do what | add `## 동작`: each case and what it allows |
   | A migration | add `## 데이터베이스`: the migration, its constraints and triggers |
 
+  Keep it as short as a release note: three to five bullets per section, each one line on
+  what the reader can now do or what changed for them. No pixel values, colors, copy
+  strings or step-by-step UI, since the diff shows those; an API change names its endpoints.
   Lead with behavior a user sees, then implementation. When permissions or existing
   behavior are touched, say what stays the same (`기존 ~은 유지합니다`). No verification
   line: CI shows the checks; mention only checks CI cannot see, such as a browser pass. The
