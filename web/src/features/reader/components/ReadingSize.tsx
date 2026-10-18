@@ -1,15 +1,22 @@
 'use client'
 
-import { Dialog } from '@/components/ui/Dialog'
+import { useCallback, useRef, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { useReadingSize } from '@/features/reader/hooks/useReadingSize'
-import { lineOf, READING_SIZES, sizeLabel, stepped } from '@/features/reader/utils/reading'
+import { READING_SIZES, stepped } from '@/features/reader/utils/reading'
+import { useDismiss } from '@/hooks/useDismiss'
 
 const SMALLEST = READING_SIZES[0]
 const LARGEST = READING_SIZES[READING_SIZES.length - 1]
 
+type StepperProps = {
+  labelledBy: string
+  /** Shows 가 set at the size beside its number. */
+  sample?: boolean
+}
+
 /** − 18 +: the book's text a size smaller or larger. */
-export function SizeStepper({ labelledBy }: { labelledBy: string }) {
+export function SizeStepper({ labelledBy, sample = false }: StepperProps) {
   const [size, setSize] = useReadingSize()
   return (
     <fieldset className="stepper" aria-labelledby={labelledBy}>
@@ -21,7 +28,16 @@ export function SizeStepper({ labelledBy }: { labelledBy: string }) {
       >
         <Icon name="minus" size={14} />
       </button>
-      <span aria-live="polite">{size}</span>
+      {sample ? (
+        <span className="cur" aria-live="polite">
+          <b aria-hidden="true" style={{ fontSize: size }}>
+            가
+          </b>
+          {size}
+        </span>
+      ) : (
+        <span aria-live="polite">{size}</span>
+      )}
       <button
         type="button"
         aria-label="글자 크게"
@@ -34,34 +50,34 @@ export function SizeStepper({ labelledBy }: { labelledBy: string }) {
   )
 }
 
-/** 글자 크기 from the reader's header: the three sizes, each with 가 set in it, and a line of the book in the one chosen. */
-export function ReadingSizeDialog({ onClose }: { onClose: () => void }) {
-  const [size, setSize] = useReadingSize()
+const SIZE_BUTTON = 'size-btn'
+
+/** 가 in the reader's header, opening − 가 18 + under it. */
+export function SizeMenu() {
+  const [open, setOpen] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
+  const trigger = useRef<HTMLButtonElement>(null)
+  const close = useCallback(() => setOpen(false), [])
+  useDismiss(open, root, trigger, close)
   return (
-    <Dialog labelledBy="size-title" onClose={onClose}>
-      <h2 id="size-title">글자 크기</h2>
-      <button type="button" className="ibtn x" aria-label="닫기" onClick={onClose}>
-        <Icon name="x" />
+    <div ref={root} className="size-menu">
+      <button
+        ref={trigger}
+        id={SIZE_BUTTON}
+        type="button"
+        className="ibtn ga"
+        aria-expanded={open}
+        aria-label="글자 크기"
+        data-tip={open ? undefined : '글자 크기'}
+        onClick={() => setOpen(!open)}
+      >
+        가
       </button>
-      <div className="sizes">
-        {READING_SIZES.map((option) => (
-          <button
-            key={option}
-            type="button"
-            aria-pressed={size === option}
-            data-autofocus={size === option || undefined}
-            onClick={() => setSize(option)}
-          >
-            <span style={{ fontSize: option }} aria-hidden="true">
-              가
-            </span>
-            {sizeLabel(option)}
-          </button>
-        ))}
-      </div>
-      <p className="size-sample" style={{ fontSize: size, lineHeight: `${lineOf(size)}px` }}>
-        프로세스는 실행 중인 프로그램과 그 실행 상태를 말한다.
-      </p>
-    </Dialog>
+      {open && (
+        <div className="size-pop">
+          <SizeStepper labelledBy={SIZE_BUTTON} sample />
+        </div>
+      )}
+    </div>
   )
 }

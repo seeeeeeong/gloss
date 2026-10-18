@@ -13,9 +13,6 @@ import {
   useRef,
   useState,
 } from 'react'
-import { createPortal } from 'react-dom'
-import { useShellTitle } from '@/components/layouts/ShellTitle'
-import { Icon } from '@/components/ui/Icon'
 import { BookmarkButton } from '@/features/reader/components/BookmarkButton'
 import { Edges, PageChrome, Pager } from '@/features/reader/components/ReaderChrome'
 import {
@@ -25,7 +22,7 @@ import {
   type ReaderBook,
 } from '@/features/reader/components/ReaderPages'
 import { ReaderTitle } from '@/features/reader/components/ReaderTitle'
-import { ReadingSizeDialog } from '@/features/reader/components/ReadingSize'
+import { ReadingControls } from '@/features/reader/components/ReadingView'
 import { Tutor } from '@/features/reader/components/Tutor'
 import { useBookPosts } from '@/features/reader/hooks/useBookPosts'
 import { useReadingPlace } from '@/features/reader/hooks/useReadingPlace'
@@ -62,7 +59,7 @@ const TURN_KEYS: Record<string, -1 | 1> = {
   PageDown: 1,
 }
 
-type Props = {
+export type ReaderProps = {
   book: ReaderBook
   items: TocItem[]
   posts: PostSummary[]
@@ -76,7 +73,7 @@ type Props = {
  * box, a column a page, turned a spread at a time. Pages are counted inside their item, since a
  * resize or a newly written item moves every page after it.
  */
-export function Reader({ book, items, posts, start, bookmarks }: Props) {
+export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
   const index = useMemo(() => new Map(items.map((item, i) => [item.itemKey, i])), [items])
   const { viewOf, texts, versions, arrive, prefetch, retry } = useBookPosts(book.id, posts)
   const stage = useRef<HTMLDivElement>(null)
@@ -229,13 +226,13 @@ export function Reader({ book, items, posts, start, bookmarks }: Props) {
       <div className="sr-only" role="status">
         {spreads.announced}
       </div>
+      <ReadingControls />
       <BookmarkButton
         current={ready ? currentKey : null}
         marks={marks.marks}
         onSave={(key) => void marks.save(book.id, key, null)}
         onRemove={(mark) => void marks.remove(mark)}
       />
-      <SizeButton />
       <div className={marks.said ? 'toast shown' : 'toast'} role="status">
         {marks.said}
       </div>
@@ -371,26 +368,4 @@ function useSwipe({ onDrag, onTurn, onSpringBack }: SwipeHandlers) {
     else onSpringBack()
   }
   return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: onTouchEnd }
-}
-
-/** 글자 크기 in the header, before the tutor's toggle. */
-function SizeButton() {
-  const shell = useShellTitle()
-  const [open, setOpen] = useState(false)
-  if (!shell.acts) return null
-  return createPortal(
-    <>
-      <button
-        type="button"
-        className="ibtn"
-        aria-label="글자 크기"
-        data-tip="글자 크기"
-        onClick={() => setOpen(true)}
-      >
-        <Icon name="text" />
-      </button>
-      {open && <ReadingSizeDialog onClose={() => setOpen(false)} />}
-    </>,
-    shell.acts,
-  )
 }

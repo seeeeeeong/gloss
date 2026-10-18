@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { bookmarksBeside, bookOf, tocInUse } from '@/features/books/api/server-books'
 import { BookContents } from '@/features/books/views/BookContents'
-import { Reader } from '@/features/reader/views/Reader'
+import { ReaderSwitch } from '@/features/reader/views/ReaderSwitch'
 import { landingOf } from '@/lib/books'
 import type { PostSummary } from '@/lib/posts'
 import { serverGet } from '@/lib/server-session'
@@ -39,7 +39,7 @@ export default async function BookPage({ params, searchParams }: Props) {
   }
   return (
     // Another book starts the reader over: nothing of the last one, such as its bookmarks, carries across.
-    <Reader
+    <ReaderSwitch
       key={book.id}
       book={shown}
       items={toc.items}

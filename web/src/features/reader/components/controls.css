@@ -1,0 +1,79 @@
+/* The reader's header: the view as two icons always in sight, the text size behind 가 */
+.views {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  margin: 0 6px 0 0;
+  padding: 2px;
+  border: 1px solid var(--b-light);
+  border-radius: 10px;
+}
+.views .ibtn {
+  width: 32px;
+  height: 30px;
+  border-radius: 7px;
+  color: var(--tx3);
+}
+.views .ibtn:hover {
+  color: var(--tx);
+}
+.top-acts .views .ibtn[aria-pressed="true"] {
+  background: var(--selected);
+  color: var(--link);
+}
+
+.size-menu {
+  position: relative;
+}
+.ibtn.ga {
+  font: 600 15px / 1 var(--font);
+  color: var(--tx2);
+}
+.ibtn.ga:hover,
+.ibtn.ga[aria-expanded="true"] {
+  background: var(--hover);
+  color: var(--tx);
+}
+.size-pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 40;
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--menu);
+  box-shadow: var(--dialog-shadow);
+}
+.size-pop .stepper {
+  height: 34px;
+}
+.size-pop .stepper button {
+  width: 34px;
+}
+.stepper .cur {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  min-width: 68px;
+  height: 100%;
+  border-left: 1px solid var(--b-light);
+  border-right: 1px solid var(--b-light);
+  font: 400 12px / 1 var(--font);
+  color: var(--tx3);
+}
+.stepper .cur b {
+  font: 400 18px / 1 var(--font-book);
+  color: var(--tx);
+}
+
+@media (max-width: 767px) {
+  .views {
+    margin-right: 2px;
+  }
+  .views .ibtn {
+    width: 30px;
+  }
+}

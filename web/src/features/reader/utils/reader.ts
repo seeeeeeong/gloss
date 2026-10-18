@@ -269,6 +269,24 @@ export function menuRowsOf(items: TocItem[]): MenuRow[] {
   }))
 }
 
+/** The items [item] sits under, outermost first. */
+export function ancestorsOf(items: TocItem[], item: TocItem): TocItem[] {
+  const byId = new Map(items.map((other) => [other.id, other]))
+  const path: TocItem[] = []
+  let up = item.parentId === null ? undefined : byId.get(item.parentId)
+  while (up && path.length < items.length) {
+    path.unshift(up)
+    up = up.parentId === null ? undefined : byId.get(up.parentId)
+  }
+  return path
+}
+
+/** The item an address's query names, if the book has it. */
+export function itemOfSearch(search: string, items: TocItem[]): string | null {
+  const key = new URLSearchParams(search).get('item')
+  return items.find((item) => item.itemKey === key)?.itemKey ?? null
+}
+
 /** The running header of an item's left page: the item it sits under, or its own. */
 export function chapterOf(items: TocItem[], item: TocItem): string {
   const parent = items.find((other) => other.id === item.parentId)
