@@ -31,6 +31,7 @@ const SHAPES = {
   ),
   menu: <path d="M3.75 7.25h12.5M3.75 12.75h7.5" />,
   plus: <path d="M10 4.25v11.5M4.25 10h11.5" />,
+  minus: <path d="M4.25 10h11.5" />,
   send: <path d="M10 15.5V4.75M5.25 9.5 10 4.75l4.75 4.75" strokeWidth="2" />,
   stop: <rect x="6.5" y="6.5" width="7" height="7" rx="1.25" fill="currentColor" stroke="none" />,
   chevR: <path d="M8 5.5 12.5 10 8 14.5" />,

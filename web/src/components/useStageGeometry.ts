@@ -9,8 +9,11 @@ const PHONE = '(max-width: 767px)'
 const same = (a: Geometry | null, b: Geometry) =>
   a !== null && (Object.keys(b) as (keyof Geometry)[]).every((k) => a[k] === b[k])
 
-/** The pages that fit the stage, again on every resize; a web font arriving re-renders to reflow them. */
-export function useStageGeometry(stage: RefObject<HTMLElement | null>) {
+/**
+ * The pages that fit the stage at the [line] of the reading size, again on every resize; a web font
+ * arriving re-renders to reflow them.
+ */
+export function useStageGeometry(stage: RefObject<HTMLElement | null>, line: number) {
   const [geo, setGeo] = useState<Geometry | null>(null)
   const [phone, setPhone] = useState(false)
   const [width, setWidth] = useState(0)
@@ -23,7 +26,7 @@ export function useStageGeometry(stage: RefObject<HTMLElement | null>) {
     const update = () => {
       setPhone(media.matches)
       setWidth(el.clientWidth)
-      const next = geometryOf(el.clientWidth, el.clientHeight, media.matches)
+      const next = geometryOf(el.clientWidth, el.clientHeight, media.matches, line)
       setGeo((before) => (same(before, next) ? before : next))
     }
     const observer = new ResizeObserver(update)
@@ -34,7 +37,7 @@ export function useStageGeometry(stage: RefObject<HTMLElement | null>) {
       observer.disconnect()
       media.removeEventListener('change', update)
     }
-  }, [stage])
+  }, [stage, line])
 
   useEffect(() => {
     const fonts = document.fonts

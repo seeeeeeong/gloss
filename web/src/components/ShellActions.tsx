@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { initialOf } from '@/lib/shell'
 import { Dialog } from './Dialog'
 import { Icon } from './Icon'
+import { SizeStepper } from './ReadingSize'
 import { ThemeSwitch } from './ThemeSwitch'
 import { useDarkTheme } from './useDarkTheme'
 
@@ -52,6 +53,10 @@ export function ShellActions({ name }: { name: string }) {
           <div className="set-row">
             <span id="set-dark">다크 모드</span>
             <ThemeSwitch labelledBy="set-dark" />
+          </div>
+          <div className="set-row">
+            <span id="set-size">읽기 글자 크기</span>
+            <SizeStepper labelledBy="set-size" />
           </div>
         </Dialog>
       )}

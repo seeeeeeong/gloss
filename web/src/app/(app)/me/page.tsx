@@ -3,6 +3,7 @@ import { ApiKeyForm } from '@/components/ApiKeyForm'
 import { Page } from '@/components/Page'
 import { PasswordSetting } from '@/components/PasswordChangeForm'
 import { ProfileForm } from '@/components/ProfileForm'
+import { SizeStepper } from '@/components/ReadingSize'
 import { RecentCalls } from '@/components/RecentCalls'
 import { SignOutButton } from '@/components/SignOutButton'
 import { ThemeSwitch } from '@/components/ThemeSwitch'
@@ -74,6 +75,14 @@ export default async function MePage() {
               다크 모드
             </span>
             <ThemeSwitch labelledBy="dark-label" />
+          </div>
+        </div>
+        <div className="srow">
+          <div className="s-line">
+            <span className="s-k" id="size-label">
+              읽기 글자 크기
+            </span>
+            <SizeStepper labelledBy="size-label" />
           </div>
         </div>
       </section>
