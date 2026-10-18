@@ -22,3 +22,6 @@ export function stepped(size: ReadingSize, by: -1 | 1): ReadingSize {
   const at = Math.min(READING_SIZES.length - 1, Math.max(0, READING_SIZES.indexOf(size) + by))
   return READING_SIZES[at] ?? size
 }
+
+// As in globals.css.
+export const PHONE = '(max-width: 767px)'

@@ -4,7 +4,6 @@ import './reader.css'
 import {
   type CSSProperties,
   type FocusEvent,
-  type MouseEvent,
   memo,
   type RefObject,
   type TouchEvent,
@@ -17,21 +16,23 @@ import {
 import { createPortal } from 'react-dom'
 import { useShellTitle } from '@/components/layouts/ShellTitle'
 import { Icon } from '@/components/ui/Icon'
+import { BookmarkButton } from '@/features/reader/components/BookmarkButton'
 import { Edges, PageChrome, Pager } from '@/features/reader/components/ReaderChrome'
-import { MENU_ID, ReaderMenu } from '@/features/reader/components/ReaderMenu'
 import {
   Contents,
   Cover,
   ItemArticle,
   type ReaderBook,
 } from '@/features/reader/components/ReaderPages'
+import { ReaderTitle } from '@/features/reader/components/ReaderTitle'
 import { ReadingSizeDialog } from '@/features/reader/components/ReadingSize'
 import { Tutor } from '@/features/reader/components/Tutor'
 import { useBookPosts } from '@/features/reader/hooks/useBookPosts'
+import { useReadingPlace } from '@/features/reader/hooks/useReadingPlace'
 import { useReadingSize } from '@/features/reader/hooks/useReadingSize'
 import { useSpreads } from '@/features/reader/hooks/useSpreads'
 import { useStageGeometry } from '@/features/reader/hooks/useStageGeometry'
-import { dwell } from '@/features/reader/utils/dwell'
+import { dwell, REST_MS } from '@/features/reader/utils/dwell'
 import {
   COVER,
   type ContentsRow,
@@ -39,7 +40,6 @@ import {
   type Geometry,
   type ItemView,
   itemsAround,
-  menuRowsOf,
   openItemOf,
   readingItemOf,
   rowMarkOf,
@@ -49,13 +49,10 @@ import {
 } from '@/features/reader/utils/reader'
 import { lineOf } from '@/features/reader/utils/reading'
 import { useBookmarks } from '@/hooks/useBookmarks'
-import { type Bookmark, itemMarkOf } from '@/lib/bookmarks'
+import type { Bookmark } from '@/lib/bookmarks'
 import type { TocItem } from '@/lib/books'
-import { headingOf, type PostSummary, readerHref } from '@/lib/posts'
-import { RECENT_KEY, readsFrom, withRead } from '@/lib/shelf'
+import type { PostSummary } from '@/lib/posts'
 
-// A post is asked for only once the reader has stayed on its item this long: each is paid for.
-const REST_MS = 1500
 // A swipe shorter than this springs back.
 const SWIPE = 40
 const TURN_KEYS: Record<string, -1 | 1> = {
@@ -73,8 +70,6 @@ type Props = {
   /** The bookmarks the reader keeps in this book. */
   bookmarks: Bookmark[]
 }
-
-const lastReadKey = (bookId: string) => `gloss.reader.${bookId}.lastRead`
 
 /**
  * A book read page by page: the cover, the 차례 and every item flow through one multi-column
@@ -300,59 +295,6 @@ const BookPages = memo(function BookPages(props: BookPagesProps) {
   )
 })
 
-type PlaceArgs = {
-  bookId: string
-  items: TocItem[]
-  index: ReadonlyMap<string, number>
-  start: string | null
-  /** The item open once the pages are laid out, null on the front spreads; undefined before. */
-  current: string | null | undefined
-}
-
-/**
- * The item last read: the address names it, and the 차례 opens at its chapter and checks what
- * came before it, here and the next time the book opens.
- */
-function useReadingPlace({ bookId, items, index, start, current }: PlaceArgs): string | null {
-  const [lastRead, setLastRead] = useState<string | null>(start)
-
-  useEffect(() => {
-    if (start) return
-    try {
-      const stored = localStorage.getItem(lastReadKey(bookId))
-      if (stored && index.has(stored)) setLastRead(stored)
-    } catch {}
-  }, [bookId, index, start])
-
-  useEffect(() => {
-    if (current === undefined) return
-    history.replaceState(null, '', current ? readerHref(bookId, current) : `/books/${bookId}`)
-    if (!current) return
-    setLastRead(current)
-    try {
-      localStorage.setItem(lastReadKey(bookId), current)
-      keepRecentRead(bookId, items, index.get(current))
-    } catch {}
-  }, [bookId, items, index, current])
-
-  return lastRead
-}
-
-/** Puts the item at [at] in front of the reads the shelf offers again. */
-function keepRecentRead(bookId: string, items: TocItem[], at: number | undefined) {
-  const item = at === undefined ? undefined : items[at]
-  if (at === undefined || !item) return
-  const read = {
-    bookId,
-    itemKey: item.itemKey,
-    title: item.title,
-    position: at + 1,
-    total: items.length,
-  }
-  const kept = readsFrom(localStorage.getItem(RECENT_KEY))
-  localStorage.setItem(RECENT_KEY, JSON.stringify(withRead(kept, read)))
-}
-
 function bookStyle(geo: Geometry | null, ready: boolean): CSSProperties {
   if (!geo) return { visibility: 'hidden' }
   return {
@@ -431,82 +373,6 @@ function useSwipe({ onDrag, onTurn, onSpringBack }: SwipeHandlers) {
   return { onTouchStart, onTouchMove, onTouchEnd, onTouchCancel: onTouchEnd }
 }
 
-type TitleProps = {
-  book: ReaderBook
-  items: TocItem[]
-  current: string | null
-  phone: boolean
-  viewOf: (key: string) => ItemView
-  onGo: (key: string) => void
-}
-
-/** The item open, or the book on its front pages, in the shell's header; it opens the contents. */
-function ReaderTitle({ book, items, current, phone, viewOf, onGo }: TitleProps) {
-  const shell = useShellTitle()
-  const bar = useRef<HTMLButtonElement>(null)
-  const pill = useRef<HTMLButtonElement>(null)
-  const [menu, setMenu] = useState<{ left: number | null; focus: boolean } | null>(null)
-  const rows = useMemo(() => menuRowsOf(items), [items])
-  const item = items.find((it) => it.itemKey === current)
-  const label = item ? headingOf(item) : book.title
-
-  const close = useCallback(
-    (refocus: boolean) => {
-      setMenu(null)
-      if (refocus) (phone ? pill : bar).current?.focus({ preventScroll: true })
-    },
-    [phone],
-  )
-  function toggle(event: MouseEvent<HTMLButtonElement>) {
-    if (menu) {
-      setMenu(null)
-      return
-    }
-    const button = event.currentTarget
-    const main = button.closest('.main')?.getBoundingClientRect()
-    const left = phone || !main ? null : button.getBoundingClientRect().left - main.left
-    setMenu({ left, focus: event.detail === 0 })
-  }
-  function go(key: string) {
-    close(true)
-    onGo(key)
-  }
-
-  const button = (className: string, ref: RefObject<HTMLButtonElement | null>) => (
-    <button
-      ref={ref}
-      type="button"
-      className={className}
-      aria-haspopup="menu"
-      aria-expanded={menu !== null}
-      aria-controls={MENU_ID}
-      data-contents-trigger=""
-      onClick={toggle}
-    >
-      <span>{label}</span>
-      <Icon name="chevD" size={16} />
-    </button>
-  )
-  return (
-    <>
-      {shell.bar && createPortal(button('top-conv', bar), shell.bar)}
-      {shell.pill && createPortal(button('name', pill), shell.pill)}
-      {menu && (
-        <ReaderMenu
-          bookId={book.id}
-          rows={rows}
-          current={current}
-          viewOf={viewOf}
-          left={menu.left}
-          focusCurrent={menu.focus}
-          onGo={go}
-          onClose={close}
-        />
-      )}
-    </>
-  )
-}
-
 /** 글자 크기 in the header, before the tutor's toggle. */
 function SizeButton() {
   const shell = useShellTitle()
@@ -525,38 +391,6 @@ function SizeButton() {
       </button>
       {open && <ReadingSizeDialog onClose={() => setOpen(false)} />}
     </>,
-    shell.acts,
-  )
-}
-
-type MarkProps = {
-  current: string | null
-  marks: Bookmark[]
-  onSave: (itemKey: string) => void
-  onRemove: (mark: Bookmark) => void
-}
-
-/** The item open kept whole as a bookmark, or let go, from the header; nothing to keep on the front pages. */
-function BookmarkButton({ current, marks, onSave, onRemove }: MarkProps) {
-  const shell = useShellTitle()
-  if (!shell.acts) return null
-  const own = itemMarkOf(marks, current)
-  const label = own ? '책갈피 지우기' : '이 글 책갈피에 저장'
-  return createPortal(
-    <button
-      type="button"
-      className={own ? 'ibtn saved' : 'ibtn'}
-      aria-pressed={own !== undefined}
-      aria-label={label}
-      data-tip={label}
-      disabled={current === null}
-      onClick={() => {
-        if (own) onRemove(own)
-        else if (current) onSave(current)
-      }}
-    >
-      <Icon name="bookmark" />
-    </button>,
     shell.acts,
   )
 }
