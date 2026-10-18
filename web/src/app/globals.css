@@ -6,8 +6,9 @@
 */
 :root {
   --font:
-    "-apple-system-body", ui-sans-serif, -apple-system, system-ui, "Segoe UI", Helvetica,
-    "Apple SD Gothic Neo", "Apple Color Emoji", Arial, sans-serif;
+    "Pretendard Variable", "-apple-system-body", ui-sans-serif, -apple-system, system-ui,
+    "Segoe UI", Helvetica, "Apple SD Gothic Neo", "Apple Color Emoji", Arial, sans-serif;
+  --font-book: "Gowun Batang", Batang, serif;
   --font-mono:
     ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Apple SD Gothic Neo", monospace;
   --page: #ffffff;

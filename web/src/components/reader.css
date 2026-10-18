@@ -155,7 +155,7 @@
 .reader .flow {
   position: absolute;
   column-fill: auto;
-  font: 400 16px / 28px var(--font);
+  font: 400 16px / 28px var(--font-book);
   orphans: 2;
   widows: 2;
 }

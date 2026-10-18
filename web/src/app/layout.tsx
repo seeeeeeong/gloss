@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 import { cookies } from 'next/headers'
 import { THEME_COOKIE, themeAttribute, themeColors, themeFrom } from '@/lib/theme'
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css'
+import '@fontsource/gowun-batang/400.css'
+import '@fontsource/gowun-batang/700.css'
 import './globals.css'
 
 export const metadata: Metadata = {
