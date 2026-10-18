@@ -55,7 +55,18 @@
         "noParameterAssign": "error",
         "useImportType": "error",
         "noEnum": "error",
-        "noDescendingSpecificity": "off"
+        "noDescendingSpecificity": "off",
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "patterns": [
+              {
+                "group": ["../**", "./**/../**"],
+                "message": "Import from another folder through @/."
+              }
+            ]
+          }
+        }
       },
       "correctness": {
         "noUnusedImports": "error",
@@ -76,5 +87,183 @@
         "organizeImports": "on"
       }
     }
-  }
+  },
+  "overrides": [
+    {
+      "includes": ["src/components/**", "src/hooks/**", "src/lib/**", "src/utils/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@/features/**", "@/app/**", "../**", "./**/../**"],
+                    "message": "Shared code imports neither a feature nor a route."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/admin/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/features/**",
+                      "!@/features/admin/**",
+                      "@/app/**",
+                      "../**",
+                      "./**/../**"
+                    ],
+                    "message": "A feature imports only itself and shared code; compose features in a route."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/auth/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/features/**",
+                      "!@/features/auth/**",
+                      "@/app/**",
+                      "../**",
+                      "./**/../**"
+                    ],
+                    "message": "A feature imports only itself and shared code; compose features in a route."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/books/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/features/**",
+                      "!@/features/books/**",
+                      "@/app/**",
+                      "../**",
+                      "./**/../**"
+                    ],
+                    "message": "A feature imports only itself and shared code; compose features in a route."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/me/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/features/**",
+                      "!@/features/me/**",
+                      "@/app/**",
+                      "../**",
+                      "./**/../**"
+                    ],
+                    "message": "A feature imports only itself and shared code; compose features in a route."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/reader/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/features/**",
+                      "!@/features/reader/**",
+                      "@/app/**",
+                      "../**",
+                      "./**/../**"
+                    ],
+                    "message": "A feature imports only itself and shared code; compose features in a route."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/features/setup/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/features/**",
+                      "!@/features/setup/**",
+                      "@/app/**",
+                      "../**",
+                      "./**/../**"
+                    ],
+                    "message": "A feature imports only itself and shared code; compose features in a route."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }
