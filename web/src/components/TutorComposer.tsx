@@ -75,7 +75,9 @@ export function TutorComposer(props: Props) {
     >
       {quote && (
         <div className="t-quote">
-          <p>{quote.text}</p>
+          <p>
+            <mark>{quote.text}</mark>
+          </p>
           <button type="button" className="ibtn" aria-label="인용 지우기" onClick={onUnquote}>
             <Icon name="x" size={16} />
           </button>

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { TocItem } from './books'
-import { type ChatMessage, itemKeyFor, noteOf, quoteOf, readEvents, threadRowsOf } from './chat'
+import {
+  type ChatMessage,
+  itemKeyFor,
+  noteOf,
+  paragraphsOf,
+  quoteOf,
+  readEvents,
+  threadRowsOf,
+} from './chat'
 
 const message = (seq: number, role: 'reader' | 'gloss', itemKey: string | null): ChatMessage => ({
   seq,
@@ -122,5 +130,19 @@ describe('itemKeyFor', () => {
   it('follows the latest turn from the cover only while the contents still hold its item', () => {
     expect(itemKeyFor(null, null, [message(1, 'reader', 'a')], items)).toBe('a')
     expect(itemKeyFor(null, null, asked, items)).toBeNull()
+  })
+})
+
+describe('paragraphsOf', () => {
+  it('splits at blank lines, keeps a single line break, and drops empty ones', () => {
+    expect(paragraphsOf('첫 문단\n\n둘째\n줄')).toEqual([
+      { at: 0, text: '첫 문단' },
+      { at: 6, text: '둘째\n줄' },
+    ])
+    expect(paragraphsOf('가\n  \n\n  - 나\n\n')).toEqual([
+      { at: 0, text: '가' },
+      { at: 6, text: '  - 나' },
+    ])
+    expect(paragraphsOf('')).toEqual([{ at: 0, text: '' }])
   })
 })
