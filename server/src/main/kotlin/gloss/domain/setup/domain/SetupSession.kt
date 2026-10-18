@@ -127,18 +127,6 @@ class SetupSession private constructor(
         updatedAt = at
     }
 
-    /** A book typed in whole, held as a picked edition is; [authors] may be none. */
-    fun type(
-        title: String,
-        authors: List<String>,
-        contents: String,
-        at: Instant,
-    ) {
-        state = advanced(state, SetupPolicy.Step.PICK)
-        hold(SetupHold(editionRef = null, title = title, typedAuthors = authors, contents = contents))
-        updatedAt = at
-    }
-
     private fun hold(held: SetupHold?) {
         editionRef = held?.editionRef
         heldTitle = held?.title
@@ -146,16 +134,6 @@ class SetupSession private constructor(
         contents = held?.contents
         contentsSourceId = null
         revision++
-    }
-
-    fun edit(
-        contents: String,
-        at: Instant,
-    ) {
-        state = advanced(state, SetupPolicy.Step.EDIT)
-        this.contents = contents
-        revision++
-        updatedAt = at
     }
 
     fun confirm(

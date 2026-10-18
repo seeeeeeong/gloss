@@ -19,10 +19,8 @@ import gloss.domain.setup.domain.ReaderTyped
 import gloss.domain.setup.domain.SearchFailed
 import gloss.domain.setup.domain.SetupDone
 import gloss.domain.setup.dto.request.SetupConfirmRequest
-import gloss.domain.setup.dto.request.SetupContentsRequest
 import gloss.domain.setup.dto.request.SetupMessageRequest
 import gloss.domain.setup.dto.request.SetupPickRequest
-import gloss.domain.setup.dto.request.SetupTypedRequest
 import gloss.domain.setup.dto.response.SetupSessionResponse
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -220,13 +218,6 @@ class SetupEditionsServiceTest(
         assertThat(shown.single().hasContents).isTrue()
         assertFails(SetupError.CONTENTS_GONE) {
             pickRef(account, session.id, "101")
-        }
-        assertFails(SetupError.BOOK_NOT_OFFERED) {
-            setupSessionService.type(
-                account,
-                session.id,
-                SetupTypedRequest(ref = "101", toc = "1장 객체", revision = rev(account, session.id)),
-            )
         }
     }
 

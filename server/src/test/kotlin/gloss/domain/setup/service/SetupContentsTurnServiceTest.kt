@@ -32,7 +32,7 @@ import gloss.domain.setup.domain.SearchFailed
 import gloss.domain.setup.domain.SetupPrompt
 import gloss.domain.setup.domain.ToolRefused
 import gloss.domain.setup.domain.WebPage
-import gloss.domain.setup.dto.request.SetupContentsRequest
+import gloss.domain.setup.dto.request.SetupConfirmRequest
 import gloss.domain.setup.dto.request.SetupMessageRequest
 import gloss.domain.setup.dto.request.SetupPickRequest
 import gloss.domain.setup.dto.request.SetupSeekRequest
@@ -464,7 +464,7 @@ class SetupContentsTurnServiceTest(
     }
 
     @Test
-    fun `while contents are looked for, the held ones are neither edited nor started with`() {
+    fun `while contents are looked for, the held ones are not started with`() {
         val reader = keyedReaders.create()
         val session = shown(reader)
         var refused: Throwable? = null
@@ -472,7 +472,11 @@ class SetupContentsTurnServiceTest(
             val now = setupSessionService.get(reader, session.id)
             refused =
                 runCatching {
-                    setupSessionService.edit(reader, session.id, SetupContentsRequest("1장 고친 장", now.revision))
+                    setupSessionService.confirm(
+                        reader,
+                        session.id,
+                        SetupConfirmRequest(revision = now.revision, level = "work", voice = "explain"),
+                    )
                 }.exceptionOrNull()
             says("못 찾았어요.")(request)
         })

@@ -1,6 +1,5 @@
 package gloss.domain.setup.service
 
-import gloss.common.error.CommonError
 import gloss.common.error.GlossException
 import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.service.BookService
@@ -14,7 +13,6 @@ import gloss.domain.setup.domain.FoundEdition
 import gloss.domain.setup.domain.ReaderConfirmed
 import gloss.domain.setup.domain.ReaderPicked
 import gloss.domain.setup.domain.ReaderSought
-import gloss.domain.setup.domain.ReaderTyped
 import gloss.domain.setup.domain.SetupDone
 import gloss.domain.setup.domain.SetupMessage
 import gloss.domain.setup.domain.SetupPolicy
@@ -22,9 +20,7 @@ import gloss.domain.setup.domain.SetupSession
 import gloss.domain.setup.domain.ShownEditions
 import gloss.domain.setup.domain.repository.SetupSessionRepository
 import gloss.domain.setup.dto.request.SetupConfirmRequest
-import gloss.domain.setup.dto.request.SetupContentsRequest
 import gloss.domain.setup.dto.request.SetupPickRequest
-import gloss.domain.setup.dto.request.SetupTypedRequest
 import gloss.domain.setup.dto.response.SetupContentsItemResponse
 import gloss.domain.setup.dto.response.SetupContentsResponse
 import gloss.domain.setup.dto.response.SetupSessionResponse
@@ -39,8 +35,8 @@ import java.util.UUID
 
 /**
  * A reader adds a book by talking it through: the model answers each message (SetupMessageService), a
- * pick holds the edition's contents in the session for the reader to look over and edit, and starting
- * makes the book from them. No book exists before that. Contents too coarse to write from, or ones the
+ * pick holds the edition's contents in the session for the reader to look over, and starting makes
+ * the book from them. No book exists before that. Contents too coarse to write from, or ones the
  * reader asks to replace, are looked for on the web. The source is asked between transactions, so a
  * slow answer holds no connection and no lock.
  */
@@ -111,77 +107,6 @@ class SetupSessionService(
         }
 
     /**
-     * Contents the reader typed in, held as a pick's are: for an edition this session found without
-     * contents, or for a book of their own, which with no session yet starts one.
-     */
-    fun type(
-        accountId: UUID,
-        sessionId: UUID?,
-        request: SetupTypedRequest,
-    ): SetupSessionResponse {
-        val items = ContentsReader.read(request.toc).size
-        val ref = request.ref
-        // An edition is one a session's search found, so without a session there is none to type for.
-        if (ref != null && sessionId == null) throw GlossException(SetupError.BOOK_NOT_OFFERED)
-        if (sessionId != null && request.revision == null) throw GlossException(CommonError.INVALID_INPUT)
-        val edition =
-            ref?.let {
-                offered(accountId = accountId, sessionId = checkNotNull(sessionId), ref = it, withContents = false)
-                bookSourceService.fetch(accountId, it)
-            }
-        val typed = if (edition == null) TypedBook.of(request.title.orEmpty(), request.authors, request.toc) else null
-        val title = edition?.title ?: checkNotNull(typed).title
-        val brought = ContentsBrought(ref = ref, title = title, items = items, typed = true)
-        val id =
-            write {
-                val now = clock.instant()
-                val session =
-                    if (sessionId == null) {
-                        SetupSession.start(accountId = accountId, now = now)
-                    } else {
-                        held(
-                            accountId = accountId,
-                            sessionId = sessionId,
-                            step = SetupPolicy.Step.PICK,
-                            revision = checkNotNull(request.revision),
-                        )
-                    }
-                if (typed == null) {
-                    session.choose(editionRef = checkNotNull(ref), title = title, contents = request.toc, at = now)
-                } else {
-                    session.type(title = typed.title, authors = typed.authors, contents = typed.toc, at = now)
-                }
-                setupSessionRepository.saveAndFlush(session)
-                jdbcSetupMessages.append(session, ReaderTyped(title), now)
-                jdbcSetupMessages.append(session, brought, now)
-                session.id
-            }
-        return get(accountId, id)
-    }
-
-    /** Checked as a book's contents are, so what is held can always be made into one. */
-    fun edit(
-        accountId: UUID,
-        sessionId: UUID,
-        request: SetupContentsRequest,
-    ): SetupSessionResponse {
-        ContentsReader.read(request.toc)
-        write {
-            // Another tab's edit or pick since: saving would overwrite what the reader never saw.
-            val session =
-                held(
-                    accountId = accountId,
-                    sessionId = sessionId,
-                    step = SetupPolicy.Step.EDIT,
-                    revision = request.revision,
-                )
-            session.edit(contents = request.toc, at = clock.instant())
-            setupSessionRepository.saveAndFlush(session)
-        }
-        return get(accountId, sessionId)
-    }
-
-    /**
      * Makes the book from the held contents, written in the level and voice the reader chose, and
      * confirms them through the book's own paths, so the plan is asked for exactly as from the book's
      * page. The edition is read again first; the book is made under the session's lock, so a second
@@ -209,7 +134,7 @@ class SetupSessionService(
             // A second start of the same contents that waited for this lock finds the first one's book.
             if (startedWith(session, request.revision)) return@write
             refuseUnless(session, SetupPolicy.Step.CONFIRM)
-            // Edited or picked again while the source was asked: what the reader saw is not what is held.
+            // Picked again or found anew while the source was asked: what the reader saw is not what is held.
             refuseChanged(session, request.revision)
             // Contents being looked for may replace these at any moment.
             refuseWhileSearching(session, now = clock.instant())
@@ -218,6 +143,7 @@ class SetupSessionService(
                 if (edition != null) {
                     bookSourceService.keep(accountId = accountId, edition = edition, contents = contents, style = style)
                 } else {
+                    // Only a session held before typing in went away holds a typed book; it still starts.
                     val typed =
                         TypedBook.of(
                             checkNotNull(session.heldTitle),
@@ -296,9 +222,8 @@ class SetupSessionService(
                 ?: throw GlossException(SetupError.SESSION_NOT_FOUND)
         refuseUnless(session, step)
         refuseChanged(session, revision)
-        // A pick or typed contents while a message is answered would land between the question and
-        // its answer, and would outlive the message that dropped it; an edit while contents are looked
-        // for would be replaced by them.
+        // A pick while a message is answered would land between the question and its answer, and would
+        // outlive the message that dropped it.
         refuseWhileSearching(session, clock.instant())
         return session
     }

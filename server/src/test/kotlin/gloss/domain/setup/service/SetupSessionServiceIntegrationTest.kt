@@ -19,10 +19,8 @@ import gloss.domain.setup.domain.ReaderTyped
 import gloss.domain.setup.domain.SearchFailed
 import gloss.domain.setup.domain.SetupDone
 import gloss.domain.setup.dto.request.SetupConfirmRequest
-import gloss.domain.setup.dto.request.SetupContentsRequest
 import gloss.domain.setup.dto.request.SetupMessageRequest
 import gloss.domain.setup.dto.request.SetupPickRequest
-import gloss.domain.setup.dto.request.SetupTypedRequest
 import gloss.domain.setup.dto.response.SetupSessionResponse
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -153,7 +151,7 @@ class SetupSessionServiceIntegrationTest(
     // Committed, as two tabs' requests are: nothing here is rolled back.
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    fun `a message, a pick or typed contents while a message is answered are refused, so answers keep their order`() {
+    fun `a message or a pick while a message is answered is refused, so answers keep their order`() {
         val account = accountId()
         fakeBookSourceGateway.holds("101")
         val session = setupMessageService.start(account, said("오브젝트"))
@@ -166,13 +164,6 @@ class SetupSessionServiceIntegrationTest(
         assertFails(SetupError.STILL_SEARCHING) { say(account, session.id, "둘째") }
         assertFails(SetupError.STILL_SEARCHING) {
             pickRef(account, session.id, "101")
-        }
-        assertFails(SetupError.STILL_SEARCHING) {
-            setupSessionService.type(
-                account,
-                session.id,
-                SetupTypedRequest(title = "나의 노트", toc = "1장 시작", revision = rev(account, session.id)),
-            )
         }
         assertThat(setupSessionService.get(account, session.id).searching).isTrue()
         gate.countDown()
@@ -188,7 +179,7 @@ class SetupSessionServiceIntegrationTest(
     // Committed, as two tabs' requests are: nothing here is rolled back.
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    fun `contents edited in another tab while a start reads the source are not the ones started with`() {
+    fun `contents another tab changed while a start reads the source are not the ones started with`() {
         val account = accountId()
         val chosen = picked(account)
         val before = seen(account, chosen.id)
@@ -202,11 +193,7 @@ class SetupSessionServiceIntegrationTest(
             }
         fakeBookSourceGateway.calling.await(5, TimeUnit.SECONDS)
 
-        setupSessionService.edit(
-            account,
-            chosen.id,
-            SetupContentsRequest("1장 객체", revision = rev(account, chosen.id)),
-        )
+        changeHeld(chosen.id, "1장 객체")
         gate.countDown()
 
         assertThat(start.get(10, TimeUnit.SECONDS)).isEqualTo(SetupError.SESSION_CHANGED.code)
@@ -237,7 +224,7 @@ class SetupSessionServiceIntegrationTest(
             }
         fakeBookSourceGateway.calling.await(5, TimeUnit.SECONDS)
 
-        setupSessionService.edit(account, chosen.id, SetupContentsRequest("1장 다른 탭", revision = chosen.revision))
+        changeHeld(chosen.id, "1장 다른 탭")
         gate.countDown()
 
         assertThat(late.get(10, TimeUnit.SECONDS)).isEqualTo(SetupError.SESSION_CHANGED.code)
@@ -246,4 +233,15 @@ class SetupSessionServiceIntegrationTest(
         assertThat(held?.raw).isEqualTo("1장 다른 탭")
         pool.shutdown()
     }
+
+    // Another tab's change to the held contents, as a pick makes, landing while a request waits on the
+    // source; every source call waits at the gate, so a real one could not land meanwhile.
+    private fun changeHeld(
+        sessionId: UUID,
+        contents: String,
+    ) = jdbc
+        .sql("update setup_session set contents = :contents, revision = revision + 1 where id = :id")
+        .param("contents", contents)
+        .param("id", sessionId)
+        .update()
 }

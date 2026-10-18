@@ -3,11 +3,9 @@ package gloss.domain.setup.presentation
 import gloss.common.security.CurrentAccount
 import gloss.common.security.SessionAccount
 import gloss.domain.setup.dto.request.SetupConfirmRequest
-import gloss.domain.setup.dto.request.SetupContentsRequest
 import gloss.domain.setup.dto.request.SetupMessageRequest
 import gloss.domain.setup.dto.request.SetupPickRequest
 import gloss.domain.setup.dto.request.SetupSeekRequest
-import gloss.domain.setup.dto.request.SetupTypedRequest
 import gloss.domain.setup.dto.response.SetupEditionResponse
 import gloss.domain.setup.dto.response.SetupSessionResponse
 import gloss.domain.setup.service.SetupEditionsService
@@ -18,7 +16,6 @@ import org.springframework.http.HttpStatus
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
-import org.springframework.web.bind.annotation.PutMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.ResponseStatus
@@ -38,14 +35,6 @@ class SetupSessionController(
         @CurrentAccount account: SessionAccount,
         @Valid @RequestBody request: SetupMessageRequest,
     ): SetupSessionResponse = setupMessageService.start(account.id, request)
-
-    // A book of the reader's own may be the first thing they say.
-    @PostMapping("/typed-contents")
-    @ResponseStatus(HttpStatus.CREATED)
-    fun startTyped(
-        @CurrentAccount account: SessionAccount,
-        @Valid @RequestBody request: SetupTypedRequest,
-    ): SetupSessionResponse = setupSessionService.type(account.id, null, request)
 
     @GetMapping("/{sessionId}")
     fun get(
@@ -73,20 +62,6 @@ class SetupSessionController(
         @PathVariable sessionId: UUID,
         @Valid @RequestBody request: SetupPickRequest,
     ): SetupSessionResponse = setupMessageService.pick(account.id, sessionId, request)
-
-    @PostMapping("/{sessionId}/typed-contents")
-    fun type(
-        @CurrentAccount account: SessionAccount,
-        @PathVariable sessionId: UUID,
-        @Valid @RequestBody request: SetupTypedRequest,
-    ): SetupSessionResponse = setupSessionService.type(account.id, sessionId, request)
-
-    @PutMapping("/{sessionId}/contents")
-    fun edit(
-        @CurrentAccount account: SessionAccount,
-        @PathVariable sessionId: UUID,
-        @Valid @RequestBody request: SetupContentsRequest,
-    ): SetupSessionResponse = setupSessionService.edit(account.id, sessionId, request)
 
     @PostMapping("/{sessionId}/contents-search")
     fun seek(
