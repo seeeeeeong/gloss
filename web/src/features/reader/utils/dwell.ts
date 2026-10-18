@@ -1,3 +1,6 @@
+// A post is asked for only once the reader has stayed on its item this long: each is paid for.
+export const REST_MS = 1500
+
 type Timers = {
   set: (run: () => void, ms: number) => ReturnType<typeof setTimeout>
   clear: (timer: ReturnType<typeof setTimeout>) => void
