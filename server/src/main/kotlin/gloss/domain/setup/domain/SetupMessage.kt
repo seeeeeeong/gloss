@@ -32,7 +32,10 @@ data class ReaderTyped(
     val title: String,
 ) : SetupContent
 
-/** The reader asked for the held edition's contents from another source than the bookshop's. */
+/**
+ * The reader asked for the held edition's contents from another site. Nothing writes one now; older
+ * sessions hold them, so they are still read.
+ */
 data class ReaderSought(
     val ref: String,
 ) : SetupContent
@@ -114,9 +117,8 @@ data class SearchFailed(
 /**
  * The contents held for the reader to look over before any book is made: an edition's, named by
  * [ref], as the source gave them or as the reader [typed] them, or a book of their own. [title] is
- * kept as the book made from them would keep it. [thin] contents are too coarse to write from, so a
- * search for detailed ones starts with them; contents found on the web name the page they came from
- * by its [sourceUrl] and [sourceTitle].
+ * kept as the book made from them would keep it. [thin] marks contents an older session started a
+ * search on other sites with; none is written now.
  */
 data class ContentsBrought(
     val ref: String?,
@@ -124,8 +126,6 @@ data class ContentsBrought(
     val items: Int,
     val typed: Boolean,
     val thin: Boolean = false,
-    val sourceUrl: String? = null,
-    val sourceTitle: String? = null,
 ) : SetupContent
 
 /** The book is made and its contents confirmed, [items] of them, none counted before the plan was shown. */
@@ -157,10 +157,7 @@ data class WebSearched(
     val results: Int,
 ) : SetupContent
 
-/**
- * A page the model read while looking for contents: its address, title and length. Its text is not
- * kept: the page's terms grant no right to store it, so it is read only within the turn that asked.
- */
+/** A page the model read while looking for contents on other sites, as older sessions hold it. */
 data class PageFetched(
     val callId: String,
     val url: String,

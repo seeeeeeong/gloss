@@ -33,9 +33,6 @@ object SetupPolicy {
         /** An edition picked from what this session's searches found, its contents held for the reader. */
         PICK,
 
-        /** A look on the web for a held edition's detailed contents, which replace the held ones when found. */
-        SEEK,
-
         /** The book made from the held contents and confirmed: it is ready to be written from. */
         CONFIRM,
     }
@@ -50,14 +47,14 @@ object SetupPolicy {
                 when (step) {
                     Step.SAY -> State.SEARCHING
                     Step.PICK -> State.BOOK_CHOSEN
-                    Step.SEEK, Step.CONFIRM -> null
+                    Step.CONFIRM -> null
                 }
             }
 
             State.BOOK_CHOSEN -> {
                 when (step) {
                     Step.SAY -> State.SEARCHING
-                    Step.PICK, Step.SEEK -> State.BOOK_CHOSEN
+                    Step.PICK -> State.BOOK_CHOSEN
                     Step.CONFIRM -> State.CONFIRMED
                 }
             }

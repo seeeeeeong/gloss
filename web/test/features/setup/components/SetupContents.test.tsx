@@ -27,7 +27,6 @@ const held: HeldContents = {
     cover: 'https://image.yes24.com/goods/101/L',
     hasContents: true,
   },
-  found: null,
   raw: '1 서론\n  1.1 운영체제가 할 일',
   items: [
     { ord: 0, parent: null, depth: 0, number: '1', title: '서론' },
@@ -43,10 +42,8 @@ const contents = (more: Partial<ShownContents> = {}): ShownContents => ({
   choosing: false,
   waiting: false,
   starting: null,
-  searching: false,
   notice: null,
   onReview: noop,
-  onSeek: noop,
   onChoose: noop,
   onStart: noop,
   ...more,
@@ -117,12 +114,13 @@ describe('ContentsPanel', () => {
 
     expect(out).toContain('<h2 class="p-title" id="panel-title">목차 확인</h2>')
     expect(out).toContain('<div class="p-cover"><img src="https://image.yes24.com/goods/101/L"')
-    expect(out).toContain('<span class="p-label">선택한 책</span>')
+    expect(out).not.toContain('선택한 책')
     expect(out).toContain(
       '<p class="p-book-title"><a class="dl" href="https://www.yes24.com/product/goods/101"',
     )
-    expect(out).toContain('<li>저자: Silberschatz</li><li>판본: 퍼스트북 2020</li>')
-    expect(out).toContain('<span>출처 YES24</span>')
+    expect(out).toContain(
+      '<li>저자: Silberschatz</li><li>판본: 퍼스트북 2020</li><li>구성: 2개 항목</li>',
+    )
     expect(out).toContain('<h3 class="p-sub">목차<span>2</span></h3>')
     expect(out).toContain('<li class="d0"><span class="no">1</span><span>서론</span></li>')
     expect(out).toContain(
@@ -133,30 +131,15 @@ describe('ContentsPanel', () => {
     expect(out).not.toContain('수정')
   })
 
-  it('offers another source for an edition, held while a look or a message is on its way', () => {
-    expect(panel(contents())).toContain(
-      '<button type="button" class="tbtn" aria-disabled="false" aria-busy="false">다른 출처 찾기</button>',
-    )
-    expect(panel(contents({ searching: true, waiting: true }))).toContain(
-      'aria-disabled="true" aria-busy="true">다른 출처 찾기</button>',
-    )
-    expect(panel(contents({ waiting: true }))).toContain(
-      'aria-disabled="true" aria-busy="false">다른 출처 찾기</button>',
+  it("credits the bookshop as the last fact, linked to the book's page", () => {
+    const out = panel(contents())
+
+    expect(out).toMatch(
+      /<li>구성: 2개 항목<\/li><li><a class="dl" href="https:\/\/www\.yes24\.com\/product\/goods\/101" target="_blank" rel="noopener noreferrer"><span>출처 YES24<\/span><svg.*?<\/svg><\/a><\/li><\/ul>/,
     )
   })
 
-  it('names the page contents were found on, its host, and still credits the bookshop', () => {
-    const found = { url: 'https://github.com/notes/os-toc', title: 'operating-system-concepts' }
-    const out = panel(contents({ held: { ...held, found } }))
-
-    expect(out).toContain(
-      '<a class="dl found" href="https://github.com/notes/os-toc" target="_blank" rel="noopener noreferrer" title="operating-system-concepts"><span>operating-system-concepts</span>',
-    )
-    expect(out).toContain('>github.com</a>')
-    expect(out).toContain('<span>출처 YES24</span>')
-  })
-
-  it('draws a jacket for a book with no cover, with no link, credit or other source', () => {
+  it('draws a jacket for a book with no cover, with no link or credit', () => {
     const out = panel(
       contents({ held: { ...held, ref: null, source: null, sourceUrl: null, book: null } }),
     )
@@ -164,6 +147,5 @@ describe('ContentsPanel', () => {
     expect(out).toMatch(/<div class="p-cover"><div class="jacket tone-/)
     expect(out).toContain('<p class="p-book-title">운영체제</p>')
     expect(out).not.toContain('YES24')
-    expect(out).not.toContain('다른 출처 찾기')
   })
 })

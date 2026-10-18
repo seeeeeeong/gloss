@@ -1005,10 +1005,6 @@ svg {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* A found page's title runs long: one line, cut, so the pill, the credit and the actions keep their row. */
-.bk-src .dl.found {
-  max-width: min(18em, 100%);
-}
 .bk-src svg {
   flex: none;
   color: var(--tx2);
@@ -2373,11 +2369,6 @@ button.tcard[aria-expanded="true"] {
 .facts li {
   padding-left: 6px;
 }
-.tacts {
-  display: inline-flex;
-  gap: 2px;
-  margin-left: auto;
-}
 .tbtn[aria-disabled="true"] {
   opacity: 0.5;
 }
@@ -2486,17 +2477,18 @@ button.tcard[aria-expanded="true"] {
   overflow-y: auto;
   padding: 28px 24px 24px;
 }
-/* The book picked: its cover, a label, the title, the facts and where the contents came from */
+/* The book picked: its cover, the title and the facts, the source last */
 .p-book {
   display: flex;
+  align-items: flex-start;
   gap: 18px;
   padding-bottom: 22px;
   border-bottom: 1px solid var(--b-light);
 }
 .p-cover {
   flex: none;
-  width: 78px;
-  height: 106px;
+  width: 96px;
+  height: 136px;
   overflow: hidden;
   border-radius: 2px;
 }
@@ -2506,25 +2498,20 @@ button.tcard[aria-expanded="true"] {
   object-fit: cover;
 }
 .p-cover .jacket {
-  transform: scale(0.527);
+  transform: scale(0.649);
   transform-origin: top left;
 }
 .p-book-body {
   min-width: 0;
 }
-.p-label {
-  font: 400 11px / 16px var(--font);
-  color: var(--tx3);
-}
 .p-book-title {
-  margin-top: 6px;
   font: 590 17px / 24px var(--font);
 }
 .p-book .facts {
   margin-top: 6px;
   padding: 0;
   list-style: none;
-  font: 400 12px / 18px var(--font);
+  font: 400 12px / 20px var(--font);
   color: var(--tx3);
 }
 .p-book .facts li {
@@ -2533,8 +2520,10 @@ button.tcard[aria-expanded="true"] {
 .p-book .facts li::marker {
   content: none;
 }
-.p-book .bk-src {
-  margin-top: 8px;
+.p-book .facts .dl {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
 }
 .p-sub {
   display: flex;

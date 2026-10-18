@@ -9,7 +9,6 @@ import {
   readerLine,
   SESSION_PARAM,
   type SetupSession,
-  seekingContents,
   showsTurn,
 } from '@/features/setup/api/setup'
 import { Composer } from '@/features/setup/components/Composer'
@@ -151,7 +150,7 @@ function Turns({ session, pending, contents, onPick }: TurnsProps) {
       {!pending && session?.searching && (
         <div className="turn gloss">
           <p className="think pulse" role="status">
-            {seekingContents(session) ? '목차 찾는 중' : '찾는 중'}
+            찾는 중
           </p>
         </div>
       )}

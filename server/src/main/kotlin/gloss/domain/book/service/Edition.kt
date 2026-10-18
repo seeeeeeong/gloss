@@ -54,10 +54,4 @@ class SourcedEdition internal constructor(
     val ref: String get() = book.ref
 
     val title: String get() = book.title
-
-    val authors: List<String> get() = book.authors
-
-    val publisher: String? get() = book.publisher
-
-    val publishedOn: LocalDate? get() = book.publishedOn
 }

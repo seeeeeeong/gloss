@@ -53,10 +53,6 @@ class SetupSession private constructor(
     var contents: String? = null
         protected set
 
-    /** The page the held contents were found on, when a search on the web found them. */
-    var contentsSourceId: UUID? = null
-        protected set
-
     /** The book made when the reader started, and the version of its contents confirmed. */
     var bookId: UUID? = null
         protected set
@@ -90,32 +86,6 @@ class SetupSession private constructor(
         revision++
     }
 
-    /**
-     * Looks on the web for the held edition's detailed contents: the hold stays as it is until they are
-     * found, and nothing else may change it meanwhile. Timed as [say] is, so the same turn rules apply.
-     */
-    fun seek(at: Instant) {
-        check(!searching(at)) { "A search waits for the answer to the one before it" }
-        checkNotNull(editionRef) { "Only an edition's contents are looked for" }
-        state = advanced(state, SetupPolicy.Step.SEEK)
-        searchingSince = at.truncatedTo(ChronoUnit.MICROS)
-        updatedAt = at
-    }
-
-    /** The held edition's contents, as found on the page [sourceId] names, replace the held ones. */
-    fun found(
-        contents: String,
-        sourceId: UUID,
-        at: Instant,
-    ) {
-        checkNotNull(editionRef) { "Only an edition's contents are found" }
-        state = advanced(state, SetupPolicy.Step.SEEK)
-        this.contents = contents
-        contentsSourceId = sourceId
-        revision++
-        updatedAt = at
-    }
-
     fun choose(
         editionRef: String,
         title: String,
@@ -132,7 +102,6 @@ class SetupSession private constructor(
         heldTitle = held?.title
         typedAuthors = held?.typedAuthors?.toTypedArray()
         contents = held?.contents
-        contentsSourceId = null
         revision++
     }
 

@@ -461,6 +461,44 @@ class SetupSessionServiceTest(
     }
 
     @Test
+    fun `a session that looked for contents on other sites still opens, holds what was found and starts`() {
+        val account = accountId()
+        val chosen = picked(account)
+        // As the search on other sites kept it: the reader's ask, a page read, then the contents found.
+        listOf(
+            "reader" to "seek" to """{"ref":"101"}""",
+            "gloss" to "page_fetched" to
+                """{"callId":"c1","url":"https://example.com/toc","title":"목차","characters":900}""",
+            "gloss" to "contents" to
+                """{"ref":"101","title":"오브젝트","items":3,"typed":false,"thin":false,""" +
+                """"sourceUrl":"https://example.com/toc","sourceTitle":"목차"}""",
+        ).forEach { (kind, payload) ->
+            jdbc
+                .sql(
+                    """
+                    insert into setup_message (id, session_id, account_id, seq, role, kind, payload, created_at)
+                    select :id, :session, :account, max(seq) + 1, :role, :kind, cast(:payload as jsonb), now()
+                    from setup_message where session_id = :session
+                    """.trimIndent(),
+                ).param("id", UUID.randomUUID())
+                .param("session", chosen.id)
+                .param("account", account)
+                .param("role", kind.first)
+                .param("kind", kind.second)
+                .param("payload", payload)
+                .update()
+        }
+
+        val opened = setupSessionService.get(account, chosen.id)
+        val started = setupSessionService.confirm(account, chosen.id, seen(account, chosen.id))
+
+        assertThat(kinds(opened))
+            .containsExactly("text", "books", "pick", "contents", "seek", "page_fetched", "contents")
+        assertThat(opened.held?.raw).isEqualTo(source)
+        assertThat(started.state).isEqualTo("confirmed")
+    }
+
+    @Test
     fun `a message left unanswered past its time no longer holds the next one back`() {
         val account = accountId()
         val session = setupMessageService.start(account, said("오브젝트"))

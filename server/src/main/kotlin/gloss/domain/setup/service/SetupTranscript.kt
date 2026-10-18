@@ -26,8 +26,8 @@ import tools.jackson.databind.ObjectMapper
  * A session's conversation as the model reads it, rebuilt from what was kept, the same bytes every
  * time, so a later turn's prompt starts with an earlier one's. What a tool found is told in full only
  * within the turn that asked: afterwards a book search is its refs and a web search its count, since
- * neither source's details are kept. A look for an edition's contents is a conversation of its own and
- * is never read here.
+ * neither source's details are kept. A look for an edition's contents on other sites, which older
+ * sessions hold, was a conversation of its own and is never read here.
  */
 internal class SetupTranscript(
     private val objectMapper: ObjectMapper,
@@ -155,8 +155,8 @@ internal class SetupTranscript(
 }
 
 // Each reader message opens a turn, and each pick or typed contents a unit of its own, so a pick
-// after a failed turn is still read; so does a look for contents, which is never read. What came
-// before the first opens none.
+// after a failed turn is still read; so does an older session's look for contents, which is never
+// read. What came before the first opens none.
 private fun unitsOf(contents: List<SetupContent>): List<List<SetupContent>> {
     val units = mutableListOf<MutableList<SetupContent>>()
     for (content in contents) {
