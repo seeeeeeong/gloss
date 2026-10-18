@@ -10,7 +10,6 @@ import {
   type SetupSession,
   sessionPath,
   startMayHaveLanded,
-  type TypedContents,
 } from '@/lib/setup'
 
 // The model answers in a few seconds to a minute; looking every two is quick enough and light.
@@ -74,30 +73,6 @@ export function useSetupSession(initial: SetupSession | null) {
     setSession(result.data)
   }
 
-  /** Contents the reader typed in, held as a pick's are; a book of their own may start the session. */
-  async function type(typed: TypedContents) {
-    const path = session
-      ? sessionPath(session.id, 'typed-contents')
-      : `${SETUP_PATH}/typed-contents`
-    const result = await send<SetupSession>('POST', path, { ...typed, revision: session?.revision })
-    await catchUp(result)
-    if (!result.ok) return result
-    if (!session) window.history.replaceState(null, '', `?${SESSION_PARAM}=${result.data.id}`)
-    setError(null)
-    setSession(result.data)
-    return result
-  }
-
-  /** The held contents, as the reader edited them; the book is still not made. */
-  async function edit(toc: string) {
-    if (!session) return null
-    const path = sessionPath(session.id, 'contents')
-    const result = await send<SetupSession>('PUT', path, { toc, revision: session.revision })
-    if (result.ok) setSession(result.data)
-    else await catchUp(result)
-    return result
-  }
-
   /** Looks for the held edition's contents on another source; the page looks again until it ends. */
   async function seek() {
     if (!session) return null
@@ -137,5 +112,5 @@ export function useSetupSession(initial: SetupSession | null) {
     setError(null)
   }, [])
 
-  return { session, pending, error, say, pick, type, edit, seek, start, reset }
+  return { session, pending, error, say, pick, seek, start, reset }
 }

@@ -1,27 +1,22 @@
 'use client'
 
-import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { Icon } from '@/components/Icon'
+import { Cover as Jacket } from '@/components/Library'
 import { SetupStyle } from '@/components/SetupStyle'
-import type { ApiResult } from '@/lib/api'
 import { creditOf } from '@/lib/books'
 import {
   type ChosenStyle,
-  contentsHeading,
   contentsIntro,
-  type DocItem,
-  docOf,
   factsOf,
   type HeldContents,
   hostOf,
   itemsCount,
-  keepsEditing,
   SEEK_LABEL,
 } from '@/lib/setup'
 import type { Voice } from '@/lib/styles'
 
-/** The 수정 button of the live contents, where focus goes back when the editor closes. */
-export const EDIT_BUTTON = 'contents-edit'
+/** The live contents' card, where focus goes back when their panel closes. */
+export const CONTENTS_CARD = 'contents-card'
 
 /** Contents Gloss brought, as its answer shows them, and what the reader may do with them. */
 export type ShownContents = {
@@ -29,16 +24,17 @@ export type ShownContents = {
   held: HeldContents
   /** The contents a book would be made from now; earlier ones, and those started with, are read only. */
   live: boolean
-  editing: boolean
+  /** Their panel is open beside the thread. */
+  reviewing: boolean
   /** A message or a pick is on its way: the contents may be about to change, so nothing starts. */
   waiting: boolean
   /** The voice a start is on its way with. */
   starting: Voice | null
   /** Detailed contents are being looked for: these wait for them. */
   searching: boolean
-  /** Why the last start, save or look did not go through, said as Gloss would. */
+  /** Why the last start or look did not go through, said as Gloss would. */
   notice: string | null
-  onEdit: () => void
+  onReview: () => void
   onSeek: () => void
   onStart: (style: ChosenStyle) => void
 }
@@ -46,43 +42,131 @@ export type ShownContents = {
 type Props = { contents: ShownContents; typed: boolean }
 
 /**
- * The contents as a document in Gloss's answer: the book's header with its facts, the sources, 수정
- * and 다른 출처 찾기, then every item, parts and chapters as headings and sections as lists, then the
+ * The contents in Gloss's answer: a line, their card, which opens them whole in the panel, then the
  * question of how the posts are written, whose answer starts with them.
  */
 export function SetupContents({ contents, typed }: Props) {
-  const { held, live, editing, waiting, starting, notice, onStart } = contents
+  const { held, live, reviewing, waiting, starting, notice, onReview, onStart } = contents
   return (
     <>
-      <h1>{contentsHeading(held)}</h1>
-      <BookHeader contents={contents} />
       <p>{contentsIntro(typed, held.found !== null)}</p>
-      <div className="doc">
-        {docOf(held.items).map((block) => {
-          if (block.kind === 'list') return <DocList key={block.key} items={block.items} />
-          if (block.kind === 'part') return <h3 key={block.key}>{block.label}</h3>
-          return <h4 key={block.key}>{block.label}</h4>
-        })}
-      </div>
-      <SetupStyle live={live} starting={starting} blocked={editing || waiting} onStart={onStart} />
+      <ContentsCard
+        title={held.title}
+        items={held.items.length}
+        open={live ? { reviewing, onReview } : undefined}
+      />
+      <SetupStyle live={live} starting={starting} blocked={waiting} onStart={onStart} />
       {notice && <p role="alert">{notice}</p>}
     </>
   )
 }
 
-/** The cover, the title linked to its page, the facts, then the sources, 수정 and 다른 출처 찾기. */
+type CardProps = {
+  title: string
+  items: number
+  /** The live contents open their panel from the card. */
+  open?: { reviewing: boolean; onReview: () => void }
+}
+
+/** Contents by their title and how many items they have; the live ones are a way into the panel. */
+export function ContentsCard({ title, items, open }: CardProps) {
+  const text = (
+    <>
+      <Icon name="list" />
+      <span className="tcard-text">
+        <span className="tcard-title">{title}</span>
+        <span className="tcard-meta">{itemsCount(items)}</span>
+      </span>
+    </>
+  )
+  if (!open) return <div className="tcard">{text}</div>
+  return (
+    <button
+      type="button"
+      id={CONTENTS_CARD}
+      className="tcard"
+      aria-expanded={open.reviewing}
+      onClick={open.onReview}
+    >
+      {text}
+      <Icon name="arrowR" size={18} />
+    </button>
+  )
+}
+
+type PanelProps = {
+  contents: ShownContents
+  onClose: () => void
+  /** Back to the thread to say more, the panel closed. */
+  onTalk: () => void
+  /** Back to the thread to pick how the posts are written, which starts with these contents. */
+  onChoose: () => void
+}
+
+/** 목차 확인 beside the thread: the book picked, where its contents came from and every item. */
+export function ContentsPanel({ contents, onClose, onTalk, onChoose }: PanelProps) {
+  const { held } = contents
+  return (
+    <>
+      <div className="p-head">
+        <h2 className="p-title" id="panel-title">
+          목차 확인
+        </h2>
+        <button
+          type="button"
+          className="ibtn close"
+          aria-label="닫기"
+          data-tip="닫기"
+          onClick={onClose}
+        >
+          <Icon name="x" />
+        </button>
+      </div>
+      <div className="p-body">
+        <BookHeader contents={contents} />
+        <h3 className="p-sub">
+          목차<span>{held.items.length}</span>
+        </h3>
+        <ol className="p-items">
+          {held.items.map((item) => (
+            <li key={item.ord} className={`d${Math.min(item.depth, 3)}`}>
+              {item.number && <span className="no">{item.number}</span>}
+              <span>{item.title}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+      <div className="p-foot">
+        <div className="actions">
+          <button type="button" className="btn sec" onClick={onTalk}>
+            대화 더 이어가기
+          </button>
+          <button type="button" className="btn primary" onClick={onChoose}>
+            이 목차로 시작
+            <Icon name="arrowR" size={16} />
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+/** The book picked: its cover, the title linked to its page, the facts, then the sources. */
 function BookHeader({ contents }: { contents: ShownContents }) {
   const { held } = contents
   const href = held.book?.url ?? held.sourceUrl
   return (
-    <div className="tb">
-      {held.book?.cover && (
-        <div className="tb-cover">
+    <div className="p-book">
+      <div className="p-cover">
+        {held.book?.cover ? (
           <Cover src={held.book.cover} />
-        </div>
-      )}
-      <div className="tb-body">
-        <p className="tb-title">
+        ) : (
+          <Jacket book={{ id: held.ref ?? held.title, title: held.title, authors: held.authors }} />
+        )}
+      </div>
+      <div className="p-book-body">
+        <span className="p-label">선택한 책</span>
+        <p className="p-book-title">
           {href ? (
             <a className="dl" href={href} target="_blank" rel="noopener noreferrer">
               {held.title}
@@ -104,10 +188,10 @@ function BookHeader({ contents }: { contents: ShownContents }) {
 
 /**
  * Where the contents came from: the page they were found on, as a recommendation cites one, then the
- * bookshop whose details the header shows, as its terms ask.
+ * bookshop whose details the header shows, as its terms ask, and a look on another source.
  */
 function SourceRow({ contents }: { contents: ShownContents }) {
-  const { held, live, editing, waiting, starting, searching, onEdit, onSeek } = contents
+  const { held, live, waiting, starting, searching, onSeek } = contents
   const credit = held.source && held.sourceUrl ? creditOf(held.source) : null
   const found = held.found
   const busy = starting !== null || searching
@@ -137,154 +221,22 @@ function SourceRow({ contents }: { contents: ShownContents }) {
           <Icon name="upRight" size={14} />
         </a>
       )}
-      {live && (
+      {live && held.ref !== null && (
         <span className="tacts">
           <button
             type="button"
-            id={EDIT_BUTTON}
             className="tbtn"
-            aria-expanded={editing}
-            aria-disabled={busy}
+            aria-disabled={busy || waiting}
+            aria-busy={searching}
             onClick={() => {
-              if (!busy) onEdit()
+              if (!busy && !waiting) onSeek()
             }}
           >
-            수정
+            {SEEK_LABEL}
           </button>
-          {held.ref !== null && (
-            <button
-              type="button"
-              className="tbtn"
-              aria-disabled={busy || editing || waiting}
-              aria-busy={searching}
-              onClick={() => {
-                if (!busy && !editing && !waiting) onSeek()
-              }}
-            >
-              {SEEK_LABEL}
-            </button>
-          )}
         </span>
       )}
     </p>
-  )
-}
-
-function DocList({ items }: { items: DocItem[] }) {
-  return (
-    <ul>
-      {items.map((item) => (
-        <li key={item.key}>
-          {item.label}
-          {item.children.length > 0 && <DocList items={item.children} />}
-        </li>
-      ))}
-    </ul>
-  )
-}
-
-type EditorProps = {
-  held: HeldContents
-  /** The panel is shown: only then can the field take focus. */
-  open: boolean
-  onSave: (toc: string) => Promise<ApiResult<unknown> | null>
-  onClose: () => void
-}
-
-/** The held contents as text in the side panel, saved back to the session; the book is still not made. */
-export function SetupContentsEditor({ held, open, onSave, onClose }: EditorProps) {
-  const [value, setValue] = useState(held.raw)
-  const [error, setError] = useState<string | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
-  const field = useRef<HTMLTextAreaElement>(null)
-  const unchanged = value === held.raw
-
-  useEffect(() => {
-    if (open) field.current?.focus({ preventScroll: true })
-  }, [open])
-
-  // Escape closes only while nothing typed would be lost; with an edit it does nothing.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !event.isComposing && unchanged && !saving) onClose()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [unchanged, saving, onClose])
-
-  async function save(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (saving) return
-    setSaving(true)
-    setError(null)
-    const result = await onSave(value)
-    setSaving(false)
-    if (!result) return
-    if (result.ok) onClose()
-    else if (keepsEditing(result)) setError(result.message)
-  }
-
-  const close = () => {
-    if (!saving) onClose()
-  }
-  return (
-    <>
-      <div className={scrolled ? 'p-head scrolled' : 'p-head'}>
-        <button type="button" className="ibtn back" aria-label="뒤로" onClick={close}>
-          <Icon name="chevL" />
-        </button>
-        <h2 className="p-title" id="panel-title">
-          {contentsHeading(held)}
-        </h2>
-        <span className="p-count">{itemsCount(held.items.length)}</span>
-        <button
-          type="button"
-          className="ibtn close"
-          aria-label="닫기"
-          data-tip="닫기"
-          onClick={close}
-        >
-          <Icon name="x" />
-        </button>
-      </div>
-      <form
-        id="toc-edit"
-        className="p-body"
-        onSubmit={save}
-        onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}
-      >
-        <div className="p-col">
-          <textarea
-            ref={field}
-            className="raw"
-            aria-labelledby="panel-title"
-            spellCheck={false}
-            readOnly={saving}
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            required
-          />
-        </div>
-      </form>
-      <div className="p-foot">
-        <div>
-          {error && (
-            <p className="f-err" role="alert">
-              {error}
-            </p>
-          )}
-          <div className="actions">
-            <button type="submit" form="toc-edit" className="btn primary" aria-disabled={saving}>
-              {saving ? '저장 중' : '저장'}
-            </button>
-            <button type="button" className="btn sec" aria-disabled={saving} onClick={close}>
-              취소
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
   )
 }
 

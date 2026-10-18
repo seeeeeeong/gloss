@@ -1,5 +1,4 @@
-import { authorsLine, type BookCandidate, editionOf, isBookId, type TocNode, treeOf } from './books'
-import { headingOf } from './posts'
+import { authorsLine, type BookCandidate, editionOf, isBookId } from './books'
 import { type Level, levelLabel, type Voice, voiceLabel } from './styles'
 
 /** An edition a search in a setup session found, as the source describes it now: none of it is kept. */
@@ -101,11 +100,6 @@ export type HeldContents = {
   /** The page the contents were found on, when a look on the web found them. */
   found: CitedPage | null
 }
-
-/** Contents the reader types in: for an edition found without any, or for a book of their own. */
-export type TypedContents =
-  | { ref: string; toc: string }
-  | { title: string; authors: string[]; toc: string }
 
 /** A reader adding a book by talking it through, as GET /api/me/setup-sessions/{id} answers. */
 export type SetupSession = {
@@ -318,44 +312,19 @@ export function startMayHaveLanded(result: {
   return status === 0 || status >= 500 || result.code === 'setup.already_confirmed'
 }
 
-/**
- * Whether the editor stays open after a save. A save refused because the contents moved on in another
- * tab closes it, so the next save starts from the contents as they are now instead of overwriting them.
- */
-export function keepsEditing(result: { ok: boolean; status?: number }): boolean {
-  return !result.ok && result.status !== 409
-}
-
 /** Editions the reader may pick from any list in the thread, until a book is made: those with contents. */
 export const canPick = (state: SetupState, book: OfferedBook) =>
   state !== 'confirmed' && book.hasContents
 
-/** The held items as the tree the book's own contents are shown in. */
-export function heldTree(items: HeldItem[]): TocNode[] {
-  return treeOf(
-    items.map((item) => ({
-      id: String(item.ord),
-      parentId: item.parent === null ? null : String(item.parent),
-      depth: item.depth,
-      number: item.number,
-      title: item.title,
-      itemKey: String(item.ord),
-    })),
-  )
-}
-
 /**
- * The latest contents Gloss brought: the only ones edited or started with while a book is chosen. A
- * new hold is a new message, so this also names the hold, and the editor starts over for each one.
+ * The latest contents Gloss brought: the only ones started with while a book is chosen. A new hold is
+ * a new message, so this also names the hold, and its panel starts over for each one.
  */
 export function liveContents(session: SetupSession): number | null {
   if (session.state !== 'book_chosen') return null
   const last = session.messages.findLast((message) => message.kind === 'contents')
   return last?.seq ?? null
 }
-
-/** The heading the contents read under, in the thread and in the editor. */
-export const contentsHeading = (held: Pick<HeldContents, 'title'>) => `${held.title} 전체 목차`
 
 export const contentsIntro = (typed: boolean, found = false) => {
   const lead = found
@@ -379,43 +348,6 @@ export function factsOf(held: HeldContents): string[] {
     edition && `판본: ${edition}`,
     `구성: ${itemsCount(held.items.length)}`,
   ].filter((fact) => fact.length > 0)
-}
-
-/** An item of a list in the contents document, with the items under it. */
-export type DocItem = { key: string; label: string; children: DocItem[] }
-
-/** The contents as a document: parts and chapters as headings, what sits under a chapter as a list. */
-export type DocBlock =
-  | { kind: 'part' | 'chapter'; key: string; label: string }
-  | { kind: 'list'; key: string; items: DocItem[] }
-
-const depthOf = (nodes: TocNode[]): number =>
-  nodes.reduce((most, node) => Math.max(most, 1 + depthOf(node.children)), 0)
-
-const docItem = (node: TocNode): DocItem => ({
-  key: node.id,
-  label: headingOf(node),
-  children: node.children.map(docItem),
-})
-
-/**
- * Three levels or more read as parts, chapters and lists of sections; two as chapters and their
- * sections; one as a single list.
- */
-export function docOf(items: HeldItem[]): DocBlock[] {
-  const roots = heldTree(items)
-  const headings = Math.min(depthOf(roots) - 1, 2)
-  const walk = (nodes: TocNode[], level: number): DocBlock[] => {
-    const [first] = nodes
-    if (!first) return []
-    if (level >= headings) return [{ kind: 'list', key: first.id, items: nodes.map(docItem) }]
-    const kind = headings - level === 2 ? 'part' : 'chapter'
-    return nodes.flatMap((node): DocBlock[] => [
-      { kind, key: node.id, label: headingOf(node) },
-      ...walk(node.children, level + 1),
-    ])
-  }
-  return walk(roots, 0)
 }
 
 /** The kind (도서, eBook) only where it alone tells two editions of one list apart. */
@@ -443,10 +375,10 @@ export function shownHold(session: SetupSession | null, kept: ShownHold | null):
   return session?.state === 'confirmed' ? kept : null
 }
 
-/** What the reader is doing with one hold: editing it, starting with it, why the last try failed. */
+/** What the reader is doing with one hold: reading it in the panel, starting with it, why the last try failed. */
 export type HoldStep = {
   seq: number | null
-  editing: boolean
+  reviewing: boolean
   /** The voice a start is on its way with. */
   starting: Voice | null
   notice: string | null
@@ -458,7 +390,7 @@ export type HoldStep = {
  */
 export function stepOn(step: HoldStep, live: number | null): HoldStep {
   if (step.seq !== null && step.seq === live) return step
-  return { seq: live, editing: false, starting: null, notice: null }
+  return { seq: live, reviewing: false, starting: null, notice: null }
 }
 
 /** How far a book's plan has come, as GET /api/me/books/{id}/plan answers. */

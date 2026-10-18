@@ -9,11 +9,9 @@ import {
   type CitedPage,
   canPick,
   cardItems,
-  contentsHeading,
   contentsIntro,
   failureLink,
   hostOf,
-  itemsCount,
   kindTells,
   latestBooks,
   listOf,
@@ -27,7 +25,7 @@ import {
 } from '../lib/setup'
 import { Icon } from './Icon'
 import { ListFailed } from './ListFailed'
-import { Cover, SetupContents, type ShownContents } from './SetupContents'
+import { ContentsCard, Cover, SetupContents, type ShownContents } from './SetupContents'
 import { SetupPlan } from './SetupPlan'
 import { useDismiss } from './useDismiss'
 
@@ -38,14 +36,13 @@ type TurnProps = {
   /** The contents shown whole: the live ones, or those just started with. */
   contents: ShownContents | null
   onPick: (book: OfferedBook) => void
-  onType: (book: OfferedBook) => void
 }
 
 /**
  * What Gloss says: the model's answer (recommended books, the editions of a book named, or words) after
  * the steps it took, what stopped it, the contents brought, or how the started book's plan comes along.
  */
-export function GlossTurn({ message, session, busy, contents, onPick, onType }: TurnProps) {
+export function GlossTurn({ message, session, busy, contents, onPick }: TurnProps) {
   const turn = turnOf(session.messages, message.seq)
   const think = turn && <ThinkLine steps={turn.steps} seconds={turn.seconds} />
   const list = listOf(session.messages, message)
@@ -55,7 +52,6 @@ export function GlossTurn({ message, session, busy, contents, onPick, onType }: 
     state: session.state,
     busy,
     onPick,
-    onType,
   }
   switch (message.kind) {
     case 'books':
@@ -201,18 +197,6 @@ function stepLine(step: TurnStep) {
   }
 }
 
-/** Contents brought earlier, or before a reload: their title and size, never the whole list again. */
-function ContentsCard({ title, items }: { title: string; items: number }) {
-  return (
-    <div className="tcard">
-      <span className="tcard-text">
-        <span className="tcard-title">{contentsHeading({ title })}</span>
-        <span className="tcard-meta">{itemsCount(items)}</span>
-      </span>
-    </div>
-  )
-}
-
 type ListProps = {
   sessionId: string
   seq: number
@@ -221,7 +205,6 @@ type ListProps = {
   state: SetupState
   busy: boolean
   onPick: (book: OfferedBook) => void
-  onType: (book: OfferedBook) => void
 }
 
 /** The editions a search found, every one, to pick from. */
@@ -347,7 +330,6 @@ type RowProps = {
   state: SetupState
   busy: boolean
   onPick: (book: OfferedBook) => void
-  onType: (book: OfferedBook) => void
   /** Whether the kind (도서, eBook) is needed to tell this edition from another in its list. */
   showKind?: boolean
   /** A recommendation's place, its reason and the pages it cited. */
@@ -357,12 +339,11 @@ type RowProps = {
 }
 
 export function BookRow(props: RowProps) {
-  const { book, state, busy, onPick, onType, showKind = false, rank, reason, sources } = props
+  const { book, state, busy, onPick, showKind = false, rank, reason, sources } = props
   const meta = [editionOf(book, showKind), book.hasContents ? '' : '목차 없음']
     .filter(Boolean)
     .join(' · ')
   const pickable = canPick(state, book)
-  const typable = state !== 'confirmed' && !book.hasContents
   return (
     <article className="bk">
       <div className="bk-in">
@@ -388,17 +369,6 @@ export function BookRow(props: RowProps) {
                 onClick={() => onPick(book)}
               >
                 이 책으로 학습
-              </button>
-            )}
-            {typable && (
-              <button
-                type="button"
-                className="pick"
-                disabled={busy}
-                aria-label={`${book.title}, 직접 입력`}
-                onClick={() => onType(book)}
-              >
-                직접 입력
               </button>
             )}
           </div>
