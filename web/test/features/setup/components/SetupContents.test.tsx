@@ -40,12 +40,14 @@ const contents = (more: Partial<ShownContents> = {}): ShownContents => ({
   held,
   live: true,
   reviewing: false,
+  choosing: false,
   waiting: false,
   starting: null,
   searching: false,
   notice: null,
   onReview: noop,
   onSeek: noop,
+  onChoose: noop,
   onStart: noop,
   ...more,
 })
@@ -59,18 +61,24 @@ const panel = (shown: ShownContents) =>
   )
 
 describe('SetupContents', () => {
-  it('brings the contents as a card that opens them in the panel, then asks how posts are written', () => {
+  it('brings the contents as a card that opens them in the panel, and a way to start with them', () => {
     const out = render(contents())
 
-    expect(out).toContain(
-      '<p>목차를 가져왔어요. 살펴보시고 괜찮으면 문체를 골라 시작해 주세요.</p>',
-    )
+    expect(out).toContain('<p>목차를 가져왔어요. 살펴보시고 괜찮으면 이 목차로 시작해 주세요.</p>')
     expect(out).toMatch(
       /<button type="button" id="contents-card" class="tcard" aria-expanded="false">.*?<span class="tcard-title">운영체제<\/span><span class="tcard-meta">2개 항목<\/span>/,
     )
+    expect(out).toMatch(/<button type="button" class="btn primary">이 목차로 시작/)
+    expect(out).not.toContain('어떤 문체로')
+    expect(out).not.toContain('운영체제가 할 일')
+  })
+
+  it('asks how posts are written only once the contents are chosen', () => {
+    const out = render(contents({ choosing: true }))
+
     expect(out).toContain('<p>글은 어떤 문체로 쓸까요?</p>')
     expect(out.match(/이 문체로 시작<\/button>/g)).toHaveLength(3)
-    expect(out).not.toContain('운영체제가 할 일')
+    expect(out).not.toContain('class="btn primary"')
   })
 
   it('marks the card while its panel is open', () => {
@@ -82,12 +90,14 @@ describe('SetupContents', () => {
 
     expect(out).toContain('<div class="tcard">')
     expect(out).not.toContain('contents-card')
-    expect(out).not.toContain('radio')
-    expect(out).toContain('<span class="v-l">교과서체</span>')
+    expect(out).not.toContain('<button')
+    expect(out).not.toContain('어떤 문체로')
   })
 
   it('says why a start did not go through as a plain sentence, and holds the voices while one starts', () => {
-    const out = render(contents({ starting: 'note', notice: '이미 시작한 목차예요.' }))
+    const out = render(
+      contents({ choosing: true, starting: 'note', notice: '이미 시작한 목차예요.' }),
+    )
 
     expect(out).toContain('<p role="alert">이미 시작한 목차예요.</p>')
     expect(out).toContain('aria-disabled="true" aria-busy="true">시작하는 중</button>')
@@ -95,7 +105,7 @@ describe('SetupContents', () => {
   })
 
   it('holds the voices while a message or another pick is on its way', () => {
-    const out = render(contents({ waiting: true }))
+    const out = render(contents({ choosing: true, waiting: true }))
 
     expect(out.match(/aria-disabled="true" aria-busy="false">이 문체로 시작/g)).toHaveLength(3)
   })

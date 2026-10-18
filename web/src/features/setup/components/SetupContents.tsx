@@ -26,6 +26,8 @@ export type ShownContents = {
   live: boolean
   /** Their panel is open beside the thread. */
   reviewing: boolean
+  /** Chosen to start with: how the posts are written is asked next. */
+  choosing: boolean
   /** A message or a pick is on its way: the contents may be about to change, so nothing starts. */
   waiting: boolean
   /** The voice a start is on its way with. */
@@ -36,26 +38,37 @@ export type ShownContents = {
   notice: string | null
   onReview: () => void
   onSeek: () => void
+  onChoose: () => void
   onStart: (style: ChosenStyle) => void
 }
 
 type Props = { contents: ShownContents; typed: boolean }
 
 /**
- * The contents in Gloss's answer: a line, their card, which opens them whole in the panel, then the
- * question of how the posts are written, whose answer starts with them.
+ * The contents in Gloss's answer: a line and their card, which opens them whole in the panel. Chosen,
+ * they are followed by the question of how the posts are written, whose answer starts with them.
  */
 export function SetupContents({ contents, typed }: Props) {
-  const { held, live, reviewing, waiting, starting, notice, onReview, onStart } = contents
+  const { held, live, reviewing, choosing, waiting, starting, notice } = contents
   return (
     <>
       <p>{contentsIntro(typed, held.found !== null)}</p>
       <ContentsCard
         title={held.title}
         items={held.items.length}
-        open={live ? { reviewing, onReview } : undefined}
+        open={live ? { reviewing, onReview: contents.onReview } : undefined}
       />
-      <SetupStyle live={live} starting={starting} blocked={waiting} onStart={onStart} />
+      {live && !choosing && (
+        <div className="actions">
+          <button type="button" className="btn primary" onClick={contents.onChoose}>
+            이 목차로 시작
+            <Icon name="arrowR" size={16} />
+          </button>
+        </div>
+      )}
+      {live && choosing && (
+        <SetupStyle starting={starting} blocked={waiting} onStart={contents.onStart} />
+      )}
       {notice && <p role="alert">{notice}</p>}
     </>
   )

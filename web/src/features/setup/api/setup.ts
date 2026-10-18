@@ -332,7 +332,7 @@ export const contentsIntro = (typed: boolean, found = false) => {
     : typed
       ? '목차를 받았어요.'
       : '목차를 가져왔어요.'
-  return `${lead} 살펴보시고 괜찮으면 문체를 골라 시작해 주세요.`
+  return `${lead} 살펴보시고 괜찮으면 이 목차로 시작해 주세요.`
 }
 
 export const itemsCount = (count: number) => `${count}개 항목`
@@ -379,6 +379,8 @@ export function shownHold(session: SetupSession | null, kept: ShownHold | null):
 export type HoldStep = {
   seq: number | null
   reviewing: boolean
+  /** The reader chose these contents and is asked how the posts are written. */
+  choosing: boolean
   /** The voice a start is on its way with. */
   starting: Voice | null
   notice: string | null
@@ -390,7 +392,7 @@ export type HoldStep = {
  */
 export function stepOn(step: HoldStep, live: number | null): HoldStep {
   if (step.seq !== null && step.seq === live) return step
-  return { seq: live, reviewing: false, starting: null, notice: null }
+  return { seq: live, reviewing: false, choosing: false, starting: null, notice: null }
 }
 
 /** How far a book's plan has come, as GET /api/me/books/{id}/plan answers. */

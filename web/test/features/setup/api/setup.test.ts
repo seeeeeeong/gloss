@@ -401,10 +401,10 @@ describe('a look for contents', () => {
 
   it('introduces contents found elsewhere as found', () => {
     expect(contentsIntro(false, true)).toBe(
-      '다른 출처에서 목차를 찾았어요. 살펴보시고 괜찮으면 문체를 골라 시작해 주세요.',
+      '다른 출처에서 목차를 찾았어요. 살펴보시고 괜찮으면 이 목차로 시작해 주세요.',
     )
     expect(contentsIntro(false)).toBe(
-      '목차를 가져왔어요. 살펴보시고 괜찮으면 문체를 골라 시작해 주세요.',
+      '목차를 가져왔어요. 살펴보시고 괜찮으면 이 목차로 시작해 주세요.',
     )
   })
 })
@@ -608,14 +608,20 @@ describe('shownHold', () => {
 })
 
 describe('stepOn', () => {
-  const step: HoldStep = { seq: 2, reviewing: true, starting: 'note', notice: '시작하지 못했어요.' }
+  const step: HoldStep = {
+    seq: 2,
+    reviewing: true,
+    choosing: true,
+    starting: 'note',
+    notice: '시작하지 못했어요.',
+  }
 
   it('keeps the step taken on the contents still held', () => {
     expect(stepOn(step, 2)).toBe(step)
   })
 
   it('drops the editor, a start with its voice and a notice once another book is picked or the hold is let go', () => {
-    const none = { reviewing: false, starting: null, notice: null }
+    const none = { reviewing: false, choosing: false, starting: null, notice: null }
     expect(stepOn(step, 4)).toEqual({ seq: 4, ...none })
     expect(stepOn(step, null)).toEqual({ seq: null, ...none })
   })

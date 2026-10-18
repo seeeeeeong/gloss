@@ -4,12 +4,12 @@ import { SetupStyle } from '@/features/setup/components/SetupStyle'
 
 const noop = () => {}
 
-const render = (live: boolean, blocked = false) =>
-  renderToStaticMarkup(<SetupStyle live={live} starting={null} blocked={blocked} onStart={noop} />)
+const render = (blocked = false) =>
+  renderToStaticMarkup(<SetupStyle starting={null} blocked={blocked} onStart={noop} />)
 
 describe('SetupStyle', () => {
   it('asks the level, 전공 picked until another is, then shows the three voices with their samples', () => {
-    const out = render(true)
+    const out = render()
 
     expect(out).toContain('<p>글은 어떤 문체로 쓸까요?</p>')
     expect(out).toMatch(/<span class="lv-l" id="[^"]+">수준<\/span>/)
@@ -27,15 +27,7 @@ describe('SetupStyle', () => {
   })
 
   it('holds every voice while the contents are being edited', () => {
-    expect(render(true, true).match(/aria-disabled="true"/g)).toHaveLength(3)
-    expect(render(true).match(/aria-disabled="false"/g)).toHaveLength(3)
-  })
-
-  it('shows the voices alone once started with', () => {
-    const out = render(false)
-
-    expect(out).not.toContain('radio')
-    expect(out).not.toContain('<button')
-    expect(out.match(/class="vb"/g)).toHaveLength(3)
+    expect(render(true).match(/aria-disabled="true"/g)).toHaveLength(3)
+    expect(render().match(/aria-disabled="false"/g)).toHaveLength(3)
   })
 })

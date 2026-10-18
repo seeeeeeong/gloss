@@ -23,7 +23,13 @@ import type { useSetupSession } from './useSetupSession'
 
 type Setup = ReturnType<typeof useSetupSession>
 
-const NO_STEP: HoldStep = { seq: null, reviewing: false, starting: null, notice: null }
+const NO_STEP: HoldStep = {
+  seq: null,
+  reviewing: false,
+  choosing: false,
+  starting: null,
+  notice: null,
+}
 
 // Wide enough to keep the thread beside the panel, so new contents open in it unasked.
 const BESIDE = '(min-width: 1024px)'
@@ -85,14 +91,16 @@ export function useHeldContents(setup: Setup) {
     if (matchMedia(BESIDE).matches) change(live, { reviewing: true, notice: null })
   }, [live, change])
 
-  // Only once the panel is gone and the thread is wide again does the place to go back to stay put.
+  // Only once the panel is gone and the thread is wide again does the place to go back to stay put;
+  // the voices are there only once the contents are chosen.
+  const choosing = now.choosing
   useEffect(() => {
-    if (open || !back.current) return
+    if (open || !back.current || (back.current === 'voices' && !choosing)) return
     const target = document.querySelector<HTMLElement>(BACK_TO[back.current])
     back.current = null
     target?.focus({ preventScroll: true })
     target?.scrollIntoView({ block: 'center' })
-  }, [open])
+  }, [open, choosing])
 
   const confirmed = session?.state === 'confirmed'
   useEffect(() => {
@@ -104,6 +112,11 @@ export function useHeldContents(setup: Setup) {
   const close = useCallback((to: Back) => {
     back.current = to
     setStep((prev) => ({ ...prev, reviewing: false }))
+  }, [])
+
+  const choose = useCallback(() => {
+    back.current = 'voices'
+    setStep((prev) => ({ ...prev, reviewing: false, choosing: true }))
   }, [])
 
   // Refused, as when another tab moved on or no search is set up: said under the contents. A second
@@ -132,11 +145,13 @@ export function useHeldContents(setup: Setup) {
     live: shown.seq === live,
     reviewing,
     waiting: setup.pending !== null || session?.searching === true,
+    choosing,
     starting: now.starting,
     searching: seekingContents(session),
     notice: now.notice,
     onReview: () => (reviewing ? close('card') : change(live, { reviewing: true, notice: null })),
     onSeek: seek,
+    onChoose: choose,
     onStart: start,
   }
 
@@ -147,7 +162,7 @@ export function useHeldContents(setup: Setup) {
             contents={contents}
             onClose={() => close('card')}
             onTalk={() => close('composer')}
-            onChoose={() => close('voices')}
+            onChoose={choose}
           />,
           slot,
         )
