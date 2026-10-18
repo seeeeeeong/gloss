@@ -1,30 +1,26 @@
 import type { Metadata } from 'next'
-import { cookies } from 'next/headers'
 import { ApiKeyForm } from '@/components/ApiKeyForm'
 import { Page } from '@/components/Page'
 import { PasswordSetting } from '@/components/PasswordChangeForm'
 import { ProfileForm } from '@/components/ProfileForm'
 import { RecentCalls } from '@/components/RecentCalls'
 import { SignOutButton } from '@/components/SignOutButton'
-import { ThemeSelect } from '@/components/ThemeSelect'
+import { ThemeSwitch } from '@/components/ThemeSwitch'
 import { UsageLimitForm } from '@/components/UsageLimitForm'
 import { formatDateTime } from '@/lib/accounts'
 import type { ApiKey } from '@/lib/apiKey'
 import { requireReader, serverFind, serverGet } from '@/lib/server-session'
-import { THEME_COOKIE, themeFrom } from '@/lib/theme'
 import type { Usage, UsageCall } from '@/lib/usage'
 
 export const metadata: Metadata = { title: '마이페이지' }
 
 export default async function MePage() {
   const me = await requireReader('/me')
-  const [apiKey, usage, calls, jar] = await Promise.all([
+  const [apiKey, usage, calls] = await Promise.all([
     serverFind<ApiKey>('/api/me/api-key'),
     serverGet<Usage>('/api/me/usage'),
     serverGet<UsageCall[]>('/api/me/usage/calls'),
-    cookies(),
   ])
-  const theme = themeFrom(jar.get(THEME_COOKIE)?.value)
   return (
     <Page>
       <div className="p-row">
@@ -74,10 +70,10 @@ export default async function MePage() {
         </h2>
         <div className="srow">
           <div className="s-line">
-            <span className="s-k" id="theme-label">
-              테마
+            <span className="s-k" id="dark-label">
+              다크 모드
             </span>
-            <ThemeSelect initial={theme} />
+            <ThemeSwitch labelledBy="dark-label" />
           </div>
         </div>
       </section>

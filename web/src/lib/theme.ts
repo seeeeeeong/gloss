@@ -29,9 +29,3 @@ export function themeColors(theme: Theme): { media: string; color: string }[] {
     color: CANVAS[theme === 'system' ? scheme : theme],
   }))
 }
-
-export const THEME_LABELS: Record<Theme, string> = {
-  system: '시스템',
-  light: '라이트',
-  dark: '다크',
-}

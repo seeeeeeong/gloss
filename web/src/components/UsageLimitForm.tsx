@@ -91,7 +91,7 @@ export function UsageLimitForm({ usage }: { usage: Usage }) {
       )}
       <div className="srow">
         {editing ? (
-          <form className="s-line" onSubmit={save} onKeyDown={holdImeEnter} noValidate>
+          <form className="s-line limit-line" onSubmit={save} onKeyDown={holdImeEnter} noValidate>
             <label className="s-k" htmlFor="limit">
               월 한도
             </label>
@@ -154,7 +154,7 @@ export function UsageLimitForm({ usage }: { usage: Usage }) {
 
 function Figure(props: { swatch: string; label: string; micros: number }) {
   return (
-    <div className="srow">
+    <div className="srow fig">
       <div className="s-line">
         <span className="s-k">
           <span className={`sw ${props.swatch}`} aria-hidden="true" />

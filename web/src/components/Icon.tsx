@@ -103,6 +103,12 @@ const SHAPES = {
   ),
   bookmark: <path d="M5 3.25h10v14.25l-5-3.25-5 3.25z" />,
   moon: <path d="M16.75 11.75A6.85 6.85 0 0 1 8.25 3.25a7.1 7.1 0 1 0 8.5 8.5Z" />,
+  clock: (
+    <>
+      <circle cx="10" cy="10" r="7.1" />
+      <path d="M10 5.75V10l2.5 1.75" />
+    </>
+  ),
   sun: (
     <>
       <circle cx="10" cy="10" r="3.25" />

@@ -71,11 +71,9 @@ export function ApiKeyForm({ apiKey }: { apiKey: ApiKey | null }) {
     <>
       <KeyStatus apiKey={apiKey} />
       <div className="srow">
-        <div className="s-line">
+        <form className="s-line" onSubmit={save} onKeyDown={holdImeEnter} noValidate>
           <span className="s-k">{apiKey ? '새 키로 바꾸기' : '키 등록'}</span>
-        </div>
-        <form className="s-form" onSubmit={save} onKeyDown={holdImeEnter} noValidate>
-          <span className="inl">
+          <span className="inl grow">
             <input
               ref={field}
               id="api-key"
@@ -91,24 +89,24 @@ export function ApiKeyForm({ apiKey }: { apiKey: ApiKey | null }) {
               value={value}
               onChange={(event) => setValue(event.target.value)}
             />
-            <button type="submit" className="btn primary sm" disabled={pending !== null}>
+            <button type="submit" className="btn sec sm" disabled={pending !== null}>
               {pending === 'save' ? '확인 중…' : '저장'}
             </button>
           </span>
-          {error && (
-            <p className="f-err" id="api-key-error" role="alert">
-              {error}
-            </p>
-          )}
-          {done && (
-            <p className="f-ok" role="status">
-              {done}
-            </p>
-          )}
-          <span className="sr-only" role="status">
-            {removed ? 'API 키를 삭제했습니다.' : ''}
-          </span>
         </form>
+        {error && (
+          <p className="f-err s-msg" id="api-key-error" role="alert">
+            {error}
+          </p>
+        )}
+        {done && (
+          <p className="f-ok s-msg" role="status">
+            {done}
+          </p>
+        )}
+        <span className="sr-only" role="status">
+          {removed ? 'API 키를 삭제했습니다.' : ''}
+        </span>
       </div>
       {apiKey && (
         <div className="srow">
@@ -117,7 +115,7 @@ export function ApiKeyForm({ apiKey }: { apiKey: ApiKey | null }) {
             <button
               ref={removeButton}
               type="button"
-              className="btn danger-t"
+              className="btn sec sm destroy"
               disabled={pending !== null}
               onClick={() => setAsking(true)}
             >
@@ -139,20 +137,20 @@ function KeyStatus({ apiKey }: { apiKey: ApiKey | null }) {
   return (
     <div className="srow">
       <div className="s-line">
-        <span className="s-k">
-          DeepSeek API 키
-          {apiKey && (
-            <span className={tone ? `s-sub s-state ${tone}` : 's-sub s-state'}>
-              <Icon name={tone ? 'alert' : 'check'} size={14} />
-              {keyStatusLabel(apiKey.status)}
-            </span>
-          )}
-          {apiKey?.validatedAt && (
-            <span className="s-sub">{formatDateTime(apiKey.validatedAt)} 확인</span>
-          )}
-        </span>
+        <span className="s-k">DeepSeek API 키</span>
         {apiKey ? (
-          <span className="s-v">{`····${apiKey.last4}`}</span>
+          <>
+            <span className="s-v">
+              <span className={tone ? `s-state ${tone}` : 's-state'}>
+                <Icon name={tone ? 'alert' : 'check'} size={14} />
+                {keyStatusLabel(apiKey.status)}
+              </span>
+              {apiKey.validatedAt && (
+                <span className="s-sub">{formatDateTime(apiKey.validatedAt)} 확인</span>
+              )}
+            </span>
+            <span className="s-end">{`····${apiKey.last4}`}</span>
+          </>
         ) : (
           <span className="s-v s-state warn">
             <Icon name="alert" size={14} />
