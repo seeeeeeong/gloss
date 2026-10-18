@@ -95,6 +95,34 @@ const SHAPES = {
       <path d="M10 6.5v4.25M10 13.6h.01" />
     </>
   ),
+  library: (
+    <>
+      <path d="M3.25 3.25v13.5M7.5 3.25v13.5M11.75 3.25l4.25 13.5" />
+      <path d="M2.5 5.75h2.25M6.75 5.75h2.25M11.75 5.75l2.5-.75" />
+    </>
+  ),
+  bookmark: <path d="M5 3.25h10v14.25l-5-3.25-5 3.25z" />,
+  moon: <path d="M16.75 11.75A6.85 6.85 0 0 1 8.25 3.25a7.1 7.1 0 1 0 8.5 8.5Z" />,
+  sun: (
+    <>
+      <circle cx="10" cy="10" r="3.25" />
+      <path d="M10 1.75v1.5m0 13.5v1.5M1.75 10h1.5m13.5 0h1.5M4.25 4.25l1.25 1.25m9 9 1.25 1.25M4.25 15.75l1.25-1.25m9-9 1.25-1.25" />
+    </>
+  ),
+  grid: (
+    <>
+      <rect x="3.25" y="3.25" width="5" height="5" rx="1" />
+      <rect x="11.75" y="3.25" width="5" height="5" rx="1" />
+      <rect x="3.25" y="11.75" width="5" height="5" rx="1" />
+      <rect x="11.75" y="11.75" width="5" height="5" rx="1" />
+    </>
+  ),
+  list: (
+    <>
+      <path d="M7.5 4.25h9.25M7.5 10h9.25M7.5 15.75h9.25" />
+      <path d="M3.25 4.25h.01M3.25 10h.01M3.25 15.75h.01" strokeWidth="2.5" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>
 
 export type IconName = keyof typeof SHAPES
