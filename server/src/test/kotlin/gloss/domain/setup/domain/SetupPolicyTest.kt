@@ -19,13 +19,6 @@ class SetupPolicyTest {
     }
 
     @Test
-    fun `detailed contents are looked for only while a book is chosen, and keep it chosen`() {
-        assertThat(SetupPolicy.next(State.SEARCHING, Step.SEEK)).isNull()
-        assertThat(SetupPolicy.next(State.BOOK_CHOSEN, Step.SEEK)).isEqualTo(State.BOOK_CHOSEN)
-        assertThat(SetupPolicy.next(State.CONFIRMED, Step.SEEK)).isNull()
-    }
-
-    @Test
     fun `with a book chosen, a message searches again and a pick replaces it`() {
         assertThat(SetupPolicy.next(State.BOOK_CHOSEN, Step.SAY)).isEqualTo(State.SEARCHING)
         assertThat(SetupPolicy.next(State.BOOK_CHOSEN, Step.PICK)).isEqualTo(State.BOOK_CHOSEN)

@@ -7,9 +7,7 @@ import {
   contentsIntro,
   factsOf,
   type HeldContents,
-  hostOf,
   itemsCount,
-  SEEK_LABEL,
 } from '@/features/setup/api/setup'
 import { creditOf } from '@/lib/books'
 import type { Voice } from '@/lib/styles'
@@ -32,12 +30,9 @@ export type ShownContents = {
   waiting: boolean
   /** The voice a start is on its way with. */
   starting: Voice | null
-  /** Detailed contents are being looked for: these wait for them. */
-  searching: boolean
-  /** Why the last start or look did not go through, said as Gloss would. */
+  /** Why the last start did not go through, said as Gloss would. */
   notice: string | null
   onReview: () => void
-  onSeek: () => void
   onChoose: () => void
   onStart: (style: ChosenStyle) => void
 }
@@ -52,7 +47,7 @@ export function SetupContents({ contents, typed }: Props) {
   const { held, live, reviewing, choosing, waiting, starting, notice } = contents
   return (
     <>
-      <p>{contentsIntro(typed, held.found !== null)}</p>
+      <p>{contentsIntro(typed)}</p>
       <ContentsCard
         title={held.title}
         items={held.items.length}
@@ -164,10 +159,12 @@ export function ContentsPanel({ contents, onClose, onTalk, onChoose }: PanelProp
   )
 }
 
-/** The book picked: its cover, the title linked to its page, the facts, then the sources. */
+/** The book picked: its cover, the title linked to its page, then the facts, the source last. */
 function BookHeader({ contents }: { contents: ShownContents }) {
   const { held } = contents
   const href = held.book?.url ?? held.sourceUrl
+  // The source's terms ask for its name and a link wherever its details show.
+  const credit = held.source ? creditOf(held.source) : null
   return (
     <div className="p-book">
       <div className="p-cover">
@@ -178,7 +175,6 @@ function BookHeader({ contents }: { contents: ShownContents }) {
         )}
       </div>
       <div className="p-book-body">
-        <span className="p-label">선택한 책</span>
         <p className="p-book-title">
           {href ? (
             <a className="dl" href={href} target="_blank" rel="noopener noreferrer">
@@ -192,64 +188,17 @@ function BookHeader({ contents }: { contents: ShownContents }) {
           {factsOf(held).map((fact) => (
             <li key={fact}>{fact}</li>
           ))}
+          {credit && held.sourceUrl && (
+            <li>
+              <a className="dl" href={held.sourceUrl} target="_blank" rel="noopener noreferrer">
+                <span>{credit}</span>
+                <Icon name="upRight" size={14} />
+              </a>
+            </li>
+          )}
         </ul>
-        <SourceRow contents={contents} />
       </div>
     </div>
-  )
-}
-
-/**
- * Where the contents came from: the page they were found on, as a recommendation cites one, then the
- * bookshop whose details the header shows, as its terms ask, and a look on another source.
- */
-function SourceRow({ contents }: { contents: ShownContents }) {
-  const { held, live, waiting, starting, searching, onSeek } = contents
-  const credit = held.source && held.sourceUrl ? creditOf(held.source) : null
-  const found = held.found
-  const busy = starting !== null || searching
-  if (!credit && !found && !live) return null
-  return (
-    <p className="bk-src">
-      {found && (
-        <>
-          <a
-            className="dl found"
-            href={found.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={found.title}
-          >
-            <span>{found.title}</span>
-            <Icon name="upRight" size={14} />
-          </a>
-          <a className="spill" href={found.url} target="_blank" rel="noopener noreferrer">
-            {hostOf(found.url)}
-          </a>
-        </>
-      )}
-      {credit && held.sourceUrl && (
-        <a className="dl" href={held.sourceUrl} target="_blank" rel="noopener noreferrer">
-          <span>{credit}</span>
-          <Icon name="upRight" size={14} />
-        </a>
-      )}
-      {live && held.ref !== null && (
-        <span className="tacts">
-          <button
-            type="button"
-            className="tbtn"
-            aria-disabled={busy || waiting}
-            aria-busy={searching}
-            onClick={() => {
-              if (!busy && !waiting) onSeek()
-            }}
-          >
-            {SEEK_LABEL}
-          </button>
-        </span>
-      )}
-    </p>
   )
 }
 

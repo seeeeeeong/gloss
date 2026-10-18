@@ -8,11 +8,9 @@ import gloss.domain.book.service.ContentsReader
 import gloss.domain.book.service.OutlineItem
 import gloss.domain.book.service.TypedBook
 import gloss.domain.setup.domain.ContentsBrought
-import gloss.domain.setup.domain.ContentsDetailPolicy
 import gloss.domain.setup.domain.FoundEdition
 import gloss.domain.setup.domain.ReaderConfirmed
 import gloss.domain.setup.domain.ReaderPicked
-import gloss.domain.setup.domain.ReaderSought
 import gloss.domain.setup.domain.SetupDone
 import gloss.domain.setup.domain.SetupMessage
 import gloss.domain.setup.domain.SetupPolicy
@@ -24,7 +22,6 @@ import gloss.domain.setup.dto.request.SetupPickRequest
 import gloss.domain.setup.dto.response.SetupContentsItemResponse
 import gloss.domain.setup.dto.response.SetupContentsResponse
 import gloss.domain.setup.dto.response.SetupSessionResponse
-import gloss.domain.setup.dto.response.SetupSourcePageResponse
 import gloss.domain.setup.infrastructure.JdbcSetupMessages
 import org.springframework.stereotype.Service
 import org.springframework.transaction.TransactionDefinition
@@ -36,8 +33,7 @@ import java.util.UUID
 /**
  * A reader adds a book by talking it through: the model answers each message (SetupMessageService), a
  * pick holds the edition's contents in the session for the reader to look over, and starting makes
- * the book from them. No book exists before that. Contents too coarse to write from, or ones the
- * reader asks to replace, are looked for on the web. The source is asked between transactions, so a
+ * the book from them. No book exists before that. The source is asked between transactions, so a
  * slow answer holds no connection and no lock.
  */
 @Service
@@ -51,22 +47,24 @@ class SetupSessionService(
 ) {
     /**
      * Only an edition with contents that one of this session's searches found, so what the reader saw
-     * is what is held. A later pick replaces an earlier one. With [seekThin], contents too coarse to
-     * write from start a look on the web, the first time this edition is picked in the session; the
-     * caller runs it.
+     * is what is held. A later pick replaces an earlier one.
      */
     fun pick(
         accountId: UUID,
         sessionId: UUID,
         request: SetupPickRequest,
-        seekThin: Boolean = false,
     ): SetupSessionResponse {
         val offered = offered(accountId = accountId, sessionId = sessionId, ref = request.ref, withContents = true)
         val edition = bookSourceService.fetch(accountId, offered.ref)
         // Offered with contents, but the source has none now: picked as offered or not at all.
         val contents = edition.contents ?: throw GlossException(SetupError.CONTENTS_GONE)
-        val items = ContentsReader.read(contents)
-        val thin = seekThin && ContentsDetailPolicy.thin(items.map { it.depth })
+        val brought =
+            ContentsBrought(
+                ref = offered.ref,
+                title = edition.title,
+                items = ContentsReader.read(contents).size,
+                typed = false,
+            )
         write {
             // Another tab's pick that landed while this one asked the source is not undone.
             val session =
@@ -78,33 +76,12 @@ class SetupSessionService(
                 )
             val now = clock.instant()
             session.choose(editionRef = edition.ref, title = edition.title, contents = contents, at = now)
-            // Looked for once: picked again, the bookshop's contents are what the reader went back to.
-            val seek = thin && !sought(session, offered.ref)
-            if (seek) session.seek(now)
             setupSessionRepository.saveAndFlush(session)
-            val brought =
-                ContentsBrought(
-                    ref = offered.ref,
-                    title = edition.title,
-                    items = items.size,
-                    typed = false,
-                    thin = seek,
-                )
             jdbcSetupMessages.append(session, ReaderPicked(offered.ref, edition.title), now)
             jdbcSetupMessages.append(session, brought, now)
         }
         return get(accountId, sessionId)
     }
-
-    private fun sought(
-        session: SetupSession,
-        ref: String,
-    ): Boolean =
-        jdbcSetupMessages.list(session.id, session.accountId).any { message ->
-            val content = message.content
-            (content is ReaderSought && content.ref == ref) ||
-                (content is ContentsBrought && content.ref == ref && content.thin)
-        }
 
     /**
      * Makes the book from the held contents, written in the level and voice the reader chose, and
@@ -125,7 +102,6 @@ class SetupSessionService(
         if (startedWith(seen, request.revision)) return get(accountId, sessionId)
         refuseUnless(seen, SetupPolicy.Step.CONFIRM)
         refuseChanged(seen, request.revision)
-        refuseWhileSearching(seen, clock.instant())
         val edition = seen.editionRef?.let { bookSourceService.fetch(accountId, it) }
         write {
             val session =
@@ -134,10 +110,8 @@ class SetupSessionService(
             // A second start of the same contents that waited for this lock finds the first one's book.
             if (startedWith(session, request.revision)) return@write
             refuseUnless(session, SetupPolicy.Step.CONFIRM)
-            // Picked again or found anew while the source was asked: what the reader saw is not what is held.
+            // Picked again while the source was asked: what the reader saw is not what is held.
             refuseChanged(session, request.revision)
-            // Contents being looked for may replace these at any moment.
-            refuseWhileSearching(session, now = clock.instant())
             val contents = checkNotNull(session.contents) { "A chosen book's contents are held" }
             val confirmed =
                 if (edition != null) {
@@ -309,15 +283,7 @@ private fun heldOf(
             },
         raw = raw,
         items = ContentsReader.read(raw).map(::itemOf),
-        found = if (session.contentsSourceId == null) null else foundOf(messages),
     )
-}
-
-// Kept with the contents it brought, so it is read with them and never from the page's own record.
-private fun foundOf(messages: List<SetupMessage>): SetupSourcePageResponse? {
-    val brought = messages.map { it.content }.filterIsInstance<ContentsBrought>().lastOrNull()
-    val url = brought?.sourceUrl ?: return null
-    return SetupSourcePageResponse(url = url, title = brought.sourceTitle ?: url)
 }
 
 private fun itemOf(item: OutlineItem) =

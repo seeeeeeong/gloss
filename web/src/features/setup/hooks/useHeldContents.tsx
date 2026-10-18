@@ -7,9 +7,7 @@ import {
   type ChosenStyle,
   type HoldStep,
   liveContents,
-  once,
   type ShownHold,
-  seekingContents,
   shownHold,
   stepOn,
 } from '@/features/setup/api/setup'
@@ -59,7 +57,6 @@ export function useHeldContents(setup: Setup) {
   const back = useRef<Back | null>(null)
   const opened = useRef<number | null>(null)
   const toPlan = useRef(false)
-  const seeking = useRef(false)
 
   const live = session ? liveContents(session) : null
   const held = live === null ? null : (session?.held ?? null)
@@ -119,17 +116,6 @@ export function useHeldContents(setup: Setup) {
     setStep((prev) => ({ ...prev, reviewing: false, choosing: true }))
   }, [])
 
-  // Refused, as when another tab moved on or no search is set up: said under the contents. A second
-  // press while the first is on its way is not sent.
-  async function seek() {
-    const seq = live
-    const result = await once(seeking, () => {
-      change(seq, { notice: null })
-      return setup.seek()
-    })
-    if (result && !result.ok) change(seq, { notice: result.message })
-  }
-
   async function start(style: ChosenStyle) {
     const seq = live
     change(seq, { starting: style.voice, notice: null })
@@ -147,10 +133,8 @@ export function useHeldContents(setup: Setup) {
     waiting: setup.pending !== null || session?.searching === true,
     choosing,
     starting: now.starting,
-    searching: seekingContents(session),
     notice: now.notice,
     onReview: () => (reviewing ? close('card') : change(live, { reviewing: true, notice: null })),
-    onSeek: seek,
     onChoose: choose,
     onStart: start,
   }

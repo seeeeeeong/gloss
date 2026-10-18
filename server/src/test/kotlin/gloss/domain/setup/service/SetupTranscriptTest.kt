@@ -97,19 +97,13 @@ class SetupTranscriptTest {
     }
 
     @Test
-    fun `a look for contents, started by a coarse pick or asked for, is never read by a later turn`() {
+    fun `an older session's look for contents on other sites is never read by a later turn`() {
         fun look(callId: String) =
             listOf(
-                ToolsCalled("", listOf(CalledTool(id = callId, name = "search_web", arguments = "{}"))),
+                ToolsCalled("", listOf(CalledTool(id = callId, name = "fetch_page", arguments = "{}"))),
                 WebSearched(callId = callId, query = "운영체제 목차", results = 3),
                 PageFetched(callId = callId, url = "https://example.com/toc", title = "목차", characters = 900),
-                ContentsBrought(
-                    ref = "101",
-                    title = "운영체제",
-                    items = 206,
-                    typed = false,
-                    sourceUrl = "https://example.com/toc",
-                ),
+                ContentsBrought(ref = "101", title = "운영체제", items = 206, typed = false),
             )
         val contents =
             listOf(ReaderPicked(ref = "101", title = "운영체제")) +

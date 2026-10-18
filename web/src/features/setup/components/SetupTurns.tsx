@@ -111,7 +111,7 @@ export function GlossTurn({ message, session, busy, contents, onPick }: TurnProp
       return (
         <>
           {think}
-          <p>{contentsIntro(message.payload.typed, Boolean(message.payload.sourceUrl))}</p>
+          <p>{contentsIntro(message.payload.typed)}</p>
           <ContentsCard
             title={message.payload.title}
             items={cardItems(session, message.seq, message.payload.items)}
@@ -185,13 +185,6 @@ function stepLine(step: TurnStep) {
         <>
           <b>YES24</b>
           {step.query} · 판본 {step.found}개
-        </>
-      )
-    case 'read':
-      return (
-        <>
-          <b>읽기</b>
-          {step.query}
         </>
       )
   }

@@ -37,23 +37,14 @@ export type SetupMessage =
   | Message<'reader', 'pick', { ref: string; title: string }>
   | Message<'reader', 'typed', { title: string }>
   | Message<'reader', 'confirm', { tocId: string; level?: string | null; voice?: string | null }>
+  // Only older sessions hold this and page_fetched, from a search for contents on other sites.
   | Message<'reader', 'seek', { ref: string }>
   | Message<'gloss', 'books', { query: string; books: FoundRef[]; callId?: string | null }>
   | Message<'gloss', 'search_failed', { code: string; message: string }>
   | Message<
       'gloss',
       'contents',
-      {
-        ref: string | null
-        title: string
-        items: number
-        typed: boolean
-        /** Too coarse to write from: a look for detailed contents started with them. */
-        thin?: boolean
-        /** Found on the web, on this page. */
-        sourceUrl?: string | null
-        sourceTitle?: string | null
-      }
+      { ref: string | null; title: string; items: number; typed: boolean }
     >
   | Message<'gloss', 'done', { bookId: string; items?: number | null }>
   | Message<
@@ -97,8 +88,6 @@ export type HeldContents = {
   book: OfferedBook | null
   raw: string
   items: HeldItem[]
-  /** The page the contents were found on, when a look on the web found them. */
-  found: CitedPage | null
 }
 
 /** A reader adding a book by talking it through, as GET /api/me/setup-sessions/{id} answers. */
@@ -118,7 +107,7 @@ export const SETUP_PATH = '/api/me/setup-sessions'
 
 export const sessionPath = (
   id: string,
-  step?: 'messages' | 'pick' | 'typed-contents' | 'contents' | 'contents-search' | 'confirm',
+  step?: 'messages' | 'pick' | 'typed-contents' | 'contents' | 'confirm',
 ) => `${SETUP_PATH}/${id}${step ? `/${step}` : ''}`
 
 /** The page keeps the session in its address, so a reload or a link comes back to the same thread. */
@@ -139,36 +128,10 @@ export function readerLine(message: SetupMessage): string | null {
       return '목차를 직접 입력했어요'
     case 'confirm':
       return styleLine(message.payload) ?? '이 목차로 시작할게요'
-    case 'seek':
-      return SEEK_LABEL
     default:
       return null
   }
 }
-
-/** The action that looks for an edition's contents elsewhere, and the reader's bubble once pressed. */
-export const SEEK_LABEL = '다른 출처 찾기'
-
-/**
- * Runs [ask] unless one is still on its way, as for a second press before the first answer: that
- * press sends nothing, so no refusal of it is ever shown. [flight] is the caller's own ref.
- */
-export async function once<T>(
-  flight: { current: boolean },
-  ask: () => Promise<T>,
-): Promise<T | null> {
-  if (flight.current) return null
-  flight.current = true
-  try {
-    return await ask()
-  } finally {
-    flight.current = false
-  }
-}
-
-/** A look for the held edition's detailed contents is under way: the held ones wait for it. */
-export const seekingContents = (session: SetupSession | null) =>
-  session?.state === 'book_chosen' && session.searching
 
 /** The level and voice a start chose, as the reader's bubble says them; none before the choice. */
 function styleLine(chosen: { level?: string | null; voice?: string | null }): string | null {
@@ -220,13 +183,17 @@ export function listOf(messages: SetupMessage[], message: SetupMessage): number 
   }
 }
 
-/** The model's own steps are shown inside the answer they led to, never as turns of their own. */
+/**
+ * The model's own steps are shown inside the answer they led to, never as turns of their own; an older
+ * session's ask for contents on other sites is not shown at all.
+ */
 export function showsTurn(message: SetupMessage): boolean {
   switch (message.kind) {
     case 'tool_calls':
     case 'web_searched':
     case 'page_fetched':
     case 'tool_refused':
+    case 'seek':
       return false
     case 'books':
       return !message.payload.callId
@@ -235,16 +202,8 @@ export function showsTurn(message: SetupMessage): boolean {
   }
 }
 
-/**
- * A search the model ran on the way to an answer, or a page it read; [seq] is the message that keeps
- * it. A read's [query] is the page's title.
- */
-export type TurnStep = {
-  seq: number
-  kind: 'search' | 'books' | 'read'
-  query: string
-  found: number
-}
+/** A search the model ran on the way to an answer; [seq] is the message that keeps it. */
+export type TurnStep = { seq: number; kind: 'search' | 'books'; query: string; found: number }
 
 /** What the model did between the reader's message and the answer at [seq], and how long it took. */
 export function turnOf(
@@ -259,8 +218,6 @@ export function turnOf(
     const { seq } = message
     if (message.kind === 'web_searched')
       return [{ seq, kind: 'search', query: message.payload.query, found: message.payload.results }]
-    if (message.kind === 'page_fetched')
-      return [{ seq, kind: 'read', query: message.payload.title, found: 1 }]
     if (message.kind === 'books' && message.payload.callId)
       return [
         { seq, kind: 'books', query: message.payload.query, found: message.payload.books.length },
@@ -326,14 +283,8 @@ export function liveContents(session: SetupSession): number | null {
   return last?.seq ?? null
 }
 
-export const contentsIntro = (typed: boolean, found = false) => {
-  const lead = found
-    ? '다른 출처에서 목차를 찾았어요.'
-    : typed
-      ? '목차를 받았어요.'
-      : '목차를 가져왔어요.'
-  return `${lead} 살펴보시고 괜찮으면 이 목차로 시작해 주세요.`
-}
+export const contentsIntro = (typed: boolean) =>
+  `${typed ? '목차를 받았어요.' : '목차를 가져왔어요.'} 살펴보시고 괜찮으면 이 목차로 시작해 주세요.`
 
 export const itemsCount = (count: number) => `${count}개 항목`
 

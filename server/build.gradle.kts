@@ -42,7 +42,6 @@ dependencies {
     implementation(libs.flyway.database.postgresql)
     implementation(libs.commonmark)
     implementation(libs.commonmark.ext.gfm.tables)
-    implementation(libs.jsoup)
     runtimeOnly(libs.postgresql)
 
     testImplementation(platform(libs.spring.boot.dependencies))
