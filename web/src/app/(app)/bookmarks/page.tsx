@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import { Bookmarks } from '@/components/Bookmarks'
-import { bookmarksOf } from '@/lib/server-books'
+import { bookmarksOf } from '@/features/books/api/server-books'
+import { Bookmarks } from '@/features/books/views/Bookmarks'
 
 export const metadata: Metadata = { title: '책갈피' }
 

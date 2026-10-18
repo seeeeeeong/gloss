@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { LoginForm } from '@/components/LoginForm'
+import { LoginForm } from '@/features/auth/components/LoginForm'
 import { guard } from '@/lib/server-session'
 
 export const metadata: Metadata = { title: '로그인' }

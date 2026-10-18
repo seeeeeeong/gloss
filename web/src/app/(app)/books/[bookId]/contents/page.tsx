@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { BookContents } from '@/components/BookContents'
-import { bookOf, tocInUse } from '@/lib/server-books'
+import { bookOf, tocInUse } from '@/features/books/api/server-books'
+import { BookContents } from '@/features/books/views/BookContents'
 
 type Props = PageProps<'/books/[bookId]/contents'>
 

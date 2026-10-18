@@ -1,7 +1,13 @@
 import type { Metadata } from 'next'
-import { SetupChat } from '@/components/SetupChat'
+import {
+  chatKey,
+  isSessionId,
+  SESSION_PARAM,
+  type SetupSession,
+  sessionPath,
+} from '@/features/setup/api/setup'
+import { SetupChat } from '@/features/setup/views/SetupChat'
 import { serverFind } from '@/lib/server-session'
-import { chatKey, isSessionId, SESSION_PARAM, type SetupSession, sessionPath } from '@/lib/setup'
 
 export const metadata: Metadata = { title: '새 책' }
 
