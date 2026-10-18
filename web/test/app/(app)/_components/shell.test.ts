@@ -6,7 +6,6 @@ describe('crumbOf', () => {
     expect(crumbOf('/')).toEqual({ shelf: true, name: '내 서재' })
     expect(crumbOf('/books/new')).toEqual({ shelf: true, name: '책 추가' })
     expect(crumbOf('/bookmarks')).toEqual({ shelf: true, name: '책갈피' })
-    expect(crumbOf('/books/0199a3b2/contents')).toEqual({ shelf: true, name: '목차' })
     expect(crumbOf('/me')).toEqual({ shelf: false, name: '마이페이지' })
     expect(crumbOf('/admin/accounts')).toEqual({ shelf: false, name: '계정 관리' })
   })

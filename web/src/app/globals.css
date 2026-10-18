@@ -2023,7 +2023,7 @@ button.think-head:focus-visible svg,
   margin-top: 16px;
 }
 
-/* A book: its contents, to review and to read from */
+/* A section's heading */
 .sub-h {
   display: flex;
   flex-wrap: wrap;
@@ -2031,75 +2031,6 @@ button.think-head:focus-visible svg,
   gap: 8px;
   font: 600 20px / 28px var(--font);
 }
-.toc-sec {
-  margin-top: 32px;
-}
-.toc-facts {
-  margin-top: 4px;
-  font: 400 14px / 20px var(--font);
-  color: var(--tx3);
-}
-.toc-acts {
-  margin-top: 16px;
-}
-.toc-msg {
-  margin-top: 12px;
-}
-.toc {
-  margin-top: 16px;
-}
-.toc-tree {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.toc-tree .toc-tree {
-  padding-left: 32px;
-}
-.toc-item {
-  display: flex;
-  gap: 12px;
-  padding: 3px 0;
-  font: 400 16px / 26px var(--font);
-}
-.toc > .toc-tree > li > .toc-item {
-  font-weight: 600;
-}
-.toc > .toc-tree > li + li {
-  margin-top: 12px;
-}
-.toc-number {
-  flex: none;
-  color: var(--tx2);
-  font-variant-numeric: tabular-nums;
-}
-.toc-title {
-  flex: 1;
-  min-width: 0;
-}
-.raw {
-  display: block;
-  width: 100%;
-  min-height: 18rem;
-  padding: 16px;
-  border: 1px solid var(--b-field);
-  border-radius: 16px;
-  background: var(--bg-primary);
-  font: 400 14px / 22px var(--font-mono);
-  color: var(--tx);
-  resize: vertical;
-  tab-size: 4;
-  white-space: pre;
-  overflow-x: auto;
-}
-.raw:focus {
-  outline: none;
-  border-color: var(--focus);
-}
-.raw::placeholder {
-  color: var(--tx3);
-}
-
 /* Post Markdown, ChatGPT's answer rhythm */
 .prose {
   font: 400 16px / 26px var(--font);
