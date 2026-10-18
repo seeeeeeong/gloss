@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   align,
+  ancestorsOf,
   anchorAt,
   CONTENTS,
   COVER,
@@ -8,6 +9,7 @@ import {
   currentUnit,
   geometryOf,
   type ItemView,
+  itemOfSearch,
   itemsAround,
   itemViewOf,
   type Layout,
@@ -302,6 +304,25 @@ describe('menuRowsOf', () => {
       ['c2', true],
       ['s21', false],
     ])
+  })
+})
+
+describe('ancestorsOf', () => {
+  it('lists the items an item sits under, outermost first', () => {
+    const at = (key: string) => BOOK.find((it) => it.itemKey === key) as TocItem
+    expect(ancestorsOf(BOOK, at('s12')).map((up) => up.itemKey)).toEqual(['p1', 'c1'])
+    expect(ancestorsOf(BOOK, at('pre'))).toEqual([])
+  })
+})
+
+describe('itemOfSearch', () => {
+  it('reads the item the address names, if the book has it', () => {
+    expect(itemOfSearch('?item=s21', BOOK)).toBe('s21')
+    expect(itemOfSearch(`?item=${encodeURIComponent('a/b')}`, [item('a/b', null, null, 'x')])).toBe(
+      'a/b',
+    )
+    expect(itemOfSearch('?item=gone', BOOK)).toBeNull()
+    expect(itemOfSearch('', BOOK)).toBeNull()
   })
 })
 

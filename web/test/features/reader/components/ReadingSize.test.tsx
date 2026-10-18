@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { ReadingSizeDialog, SizeStepper } from '@/features/reader/components/ReadingSize'
+import { SizeMenu, SizeStepper } from '@/features/reader/components/ReadingSize'
 
 describe('SizeStepper', () => {
   it('shows the size with a step down and a step up around it', () => {
@@ -10,15 +10,20 @@ describe('SizeStepper', () => {
     expect(out).toContain('<span aria-live="polite">18</span>')
     expect(out).toContain('aria-label="글자 크게"')
   })
+
+  it('sets 가 at the size beside its number when asked to', () => {
+    const out = renderToStaticMarkup(<SizeStepper labelledBy="size" sample />)
+    expect(out).toContain(
+      '<span class="cur" aria-live="polite"><b aria-hidden="true" style="font-size:18px">가</b>18</span>',
+    )
+  })
 })
 
-describe('ReadingSizeDialog', () => {
-  it('offers the three sizes with the one in use pressed, and a line of the book set in it', () => {
-    const out = renderToStaticMarkup(<ReadingSizeDialog onClose={() => {}} />)
-    expect(out.match(/aria-pressed="true"/g)).toHaveLength(1)
-    expect(out).toMatch(/aria-pressed="true"[^>]*>.*?보통<\/button>/)
-    expect(out).toContain('작게')
-    expect(out).toContain('크게')
-    expect(out).toContain('class="size-sample" style="font-size:18px;line-height:32px"')
+describe('SizeMenu', () => {
+  it('starts as a closed 가 button naming what it sets', () => {
+    const out = renderToStaticMarkup(<SizeMenu />)
+    expect(out).toMatch(/<button [^>]*class="ibtn ga" aria-expanded="false" aria-label="글자 크기"/)
+    expect(out).toContain('>가</button>')
+    expect(out).not.toContain('stepper')
   })
 })

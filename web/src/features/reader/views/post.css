@@ -1,0 +1,168 @@
+/* The post view: one item down the page, on the page's own ground rather than the desk */
+.main:has(> .reader.post) .top.reading {
+  background: var(--page);
+  border-bottom-color: var(--b-light);
+}
+.reader.post {
+  background: var(--page);
+}
+.reader.post .post-scroll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 52px;
+  bottom: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.reader.post .post-col {
+  max-width: 752px;
+  margin: 0 auto;
+  padding: 56px 40px 104px;
+}
+
+/* Where the item sits: the book, then the items it is under */
+.reader.post .post-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font: 400 13px / 20px var(--font);
+  color: var(--tx3);
+}
+.reader.post .post-path > span {
+  display: inline-flex;
+  gap: 8px;
+}
+.reader.post .post-path [aria-hidden] {
+  opacity: 0.55;
+}
+.reader.post .post-path a:hover {
+  color: var(--tx);
+  text-decoration: underline dotted var(--tx3);
+  text-underline-offset: 4px;
+}
+
+/* The item: its number in vermilion over its title, then the post in the book's type */
+.reader.post .post-text {
+  margin-top: 18px;
+  font-family: var(--font-book);
+  color: var(--tx);
+}
+.reader.post .item > h1 {
+  display: block;
+  font: 700 34px / 46px var(--font-book);
+  letter-spacing: -0.01em;
+}
+.reader.post .item > h1 .no {
+  display: block;
+  margin-bottom: 6px;
+  font: 500 13px / 20px var(--font);
+  font-variant-numeric: tabular-nums;
+}
+.reader.post .item > h1 + * {
+  margin-top: 36px;
+}
+.reader.post .item > .stale + h1 {
+  margin-top: 12px;
+}
+.reader.post .prose h2 {
+  margin-top: 48px;
+}
+.reader.post .prose :is(h3, h4) {
+  margin-top: 32px;
+}
+.reader.post .prose ::selection {
+  color: var(--tx);
+  background: var(--highlight);
+}
+
+/* The items before and after */
+.reader.post .post-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--b-light);
+}
+.reader.post .nav-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--b-light);
+  border-radius: 12px;
+  transition:
+    background-color 120ms var(--ease),
+    border-color 120ms var(--ease);
+}
+.reader.post .nav-card:hover {
+  background: var(--hover);
+  border-color: var(--b-default);
+}
+.reader.post .nav-card .k {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: 400 12px / 16px var(--font);
+  color: var(--tx3);
+}
+.reader.post .nav-card .v {
+  display: flex;
+  gap: 8px;
+  font: 500 15px / 22px var(--font);
+  color: var(--tx);
+}
+.reader.post .nav-card .v .no {
+  flex: none;
+  color: var(--tx3);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+.reader.post .nav-card .spin {
+  align-self: center;
+  width: 12px;
+  height: 12px;
+}
+.reader.post .nav-card.next {
+  align-items: flex-end;
+  text-align: right;
+}
+.reader.post .nav-card.next .k {
+  flex-direction: row-reverse;
+}
+.reader.post .nav-card.next .v {
+  justify-content: flex-end;
+}
+
+@media (max-width: 767px) {
+  .reader.post .post-scroll {
+    top: 56px;
+  }
+  .reader.post .post-col {
+    padding: 28px 20px 96px;
+  }
+  .reader.post .item > h1 {
+    font-size: 27px;
+    line-height: 38px;
+  }
+  .reader.post .post-nav {
+    grid-template-columns: 1fr;
+  }
+  .reader.post .post-nav > span:empty {
+    display: none;
+  }
+  .reader.post .nav-card.next {
+    align-items: flex-start;
+    text-align: left;
+  }
+  .reader.post .nav-card.next .k {
+    flex-direction: row;
+  }
+  .reader.post .nav-card.next .v {
+    justify-content: flex-start;
+  }
+}

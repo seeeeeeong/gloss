@@ -6,10 +6,8 @@ export const DEFAULT_SIZE: ReadingSize = 18
 
 // A line about 1.8 times the text, in whole pixels, so a page holds whole lines at every size.
 const LINES: Record<ReadingSize, number> = { 16: 28, 18: 32, 20: 36 }
-const LABELS: Record<ReadingSize, string> = { 16: '작게', 18: '보통', 20: '크게' }
 
 export const lineOf = (size: ReadingSize) => LINES[size]
-export const sizeLabel = (size: ReadingSize) => LABELS[size]
 
 /** The size kept in storage; anything else, or nothing, is the default. */
 export function sizeFrom(stored: string | null): ReadingSize {
@@ -25,3 +23,12 @@ export function stepped(size: ReadingSize, by: -1 | 1): ReadingSize {
 
 // As in globals.css.
 export const PHONE = '(max-width: 767px)'
+
+/** How the book is read: a spread at a time, or one item a screen, scrolled down. */
+export type ReadingView = 'book' | 'post'
+
+/** The view kept in storage; until the reader chooses, a phone reads posts and a wider screen the book. */
+export function viewFrom(stored: string | null, phone: boolean): ReadingView {
+  if (stored === 'book' || stored === 'post') return stored
+  return phone ? 'post' : 'book'
+}
