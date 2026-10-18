@@ -9,7 +9,7 @@ import { ReaderPost } from '@/features/reader/components/ReaderPost'
 import { ReadingControls } from '@/features/reader/components/ReadingView'
 import { Tutor } from '@/features/reader/components/Tutor'
 import { useBookPosts } from '@/features/reader/hooks/useBookPosts'
-import { lastReadIn, useReadingPlace } from '@/features/reader/hooks/useReadingPlace'
+import { useReadingPlace } from '@/features/reader/hooks/useReadingPlace'
 import { useReadingSize } from '@/features/reader/hooks/useReadingSize'
 import { useStageSize } from '@/features/reader/hooks/useStageSize'
 import { useTutor } from '@/features/reader/hooks/useTutor'
@@ -36,12 +36,8 @@ export function PostReader({ book, items, posts, start, bookmarks }: ReaderProps
   const phone = stage?.phone ?? false
 
   const [current, setCurrent] = useState<string | null>(start)
-  // With no item in the address, the one last read, else the first: there is no cover to open on.
-  useEffect(() => {
-    if (current === null) setCurrent(lastReadIn(book.id, index) ?? items[0]?.itemKey ?? null)
-  }, [current, book.id, index, items])
   const at = current === null ? undefined : index.get(current)
-  useReadingPlace({ bookId: book.id, items, index, start, current: current ?? undefined })
+  useReadingPlace({ bookId: book.id, items, index, current })
 
   // Resting on an item not yet written asks for it; its post and those either side are read.
   const resting = useRef<ReturnType<typeof dwell> | null>(null)

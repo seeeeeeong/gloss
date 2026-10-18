@@ -45,7 +45,7 @@ describe('ReaderPost', () => {
       /<nav class="post-path" aria-label="위치"><span>운영체제<\/span><span><span aria-hidden="true">\/<\/span><a href="\/books\/b1\?item=c1">1 서론<\/a><\/span><\/nav>/,
     )
     expect(out).toContain('style="font-size:20px;line-height:36px"')
-    expect(out).toContain('<article class="item" data-unit="3" aria-busy="false">')
+    expect(out).toContain('<article class="item" data-unit="1" aria-busy="false">')
     expect(out).toContain('<h1 tabindex="-1"><span class="no">1.1 </span>할 일</h1>')
     expect(out).toContain('<h2>학습 목표</h2>')
   })

@@ -3,9 +3,6 @@ import {
   align,
   ancestorsOf,
   anchorAt,
-  CONTENTS,
-  COVER,
-  contentsRowsOf,
   contentsTreeOf,
   currentUnit,
   geometryOf,
@@ -18,8 +15,8 @@ import {
   pageIn,
   pageOfAnchor,
   pagerLabel,
+  readableItems,
   readingItemOf,
-  rowMarkOf,
   runningHeadOf,
   sameLayout,
   turnsPageFrom,
@@ -47,8 +44,8 @@ const BOOK: TocItem[] = [
   item('s21', 'c2', '2.1', '서비스'),
 ]
 
-// cover 0 | 차례 1-3 | item 0 on 4-7 | item 1 on 8 | item 2 on 9-11
-const LAYOUT: Layout = { starts: [0, 1, 4, 8, 9], total: 12 }
+// item 0 on 0-3 | item 1 on 4 | item 2 on 5-7
+const LAYOUT: Layout = { starts: [0, 4, 5], total: 8 }
 
 describe('geometryOf', () => {
   it('lays two pages of the prototype size at 1440 x 900 with the rail', () => {
@@ -80,84 +77,78 @@ describe('geometryOf', () => {
 })
 
 describe('pages and units', () => {
-  it('finds the unit a page belongs to and its number in it', () => {
-    expect(unitAt(LAYOUT, 0)).toBe(COVER)
-    expect(unitAt(LAYOUT, 3)).toBe(CONTENTS)
-    expect(pageIn(LAYOUT, 6)).toEqual({ unit: 2, n: 3, of: 4 })
-    expect(pageIn(LAYOUT, 11)).toEqual({ unit: 4, n: 3, of: 3 })
+  it('finds the item a page belongs to and its number in it', () => {
+    expect(unitAt(LAYOUT, 0)).toBe(0)
+    expect(unitAt(LAYOUT, 4)).toBe(1)
+    expect(pageIn(LAYOUT, 2)).toEqual({ unit: 0, n: 3, of: 4 })
+    expect(pageIn(LAYOUT, 7)).toEqual({ unit: 2, n: 3, of: 3 })
   })
 
   it('opens a spread on its left page, within the book', () => {
-    expect(align(5, 2, 12)).toBe(4)
-    expect(align(99, 2, 12)).toBe(10)
-    expect(align(-3, 2, 12)).toBe(0)
-    expect(align(5, 1, 12)).toBe(5)
+    expect(align(5, 2, 8)).toBe(4)
+    expect(align(99, 2, 8)).toBe(6)
+    expect(align(-3, 2, 8)).toBe(0)
+    expect(align(5, 1, 8)).toBe(5)
   })
 
-  it('keeps the reader on the same page of an item when the 차례 grows a page', () => {
-    const anchor = anchorAt(LAYOUT, 10)
-    expect(anchor).toEqual({ unit: 4, offset: 1 })
-    const grown: Layout = { starts: [0, 1, 5, 9, 10], total: 13 }
-    expect(pageOfAnchor(grown, anchor)).toBe(11)
+  it('keeps the reader on the same page of an item when one before it grows a page', () => {
+    const anchor = anchorAt(LAYOUT, 6)
+    expect(anchor).toEqual({ unit: 2, offset: 1 })
+    const grown: Layout = { starts: [0, 5, 6], total: 9 }
+    expect(pageOfAnchor(grown, anchor)).toBe(7)
   })
 
   it('stops at the last page of an item that came out shorter', () => {
-    const shrunk: Layout = { starts: [0, 1, 4, 8, 9], total: 10 }
-    expect(pageOfAnchor(shrunk, { unit: 4, offset: 2 })).toBe(9)
+    const shrunk: Layout = { starts: [0, 4, 5], total: 6 }
+    expect(pageOfAnchor(shrunk, { unit: 2, offset: 2 })).toBe(5)
   })
 
   it('compares layouts by every start', () => {
     expect(sameLayout(null, LAYOUT)).toBe(false)
-    expect(sameLayout(LAYOUT, { starts: [0, 1, 4, 8, 9], total: 12 })).toBe(true)
-    expect(sameLayout(LAYOUT, { starts: [0, 1, 4, 8, 10], total: 12 })).toBe(false)
+    expect(sameLayout(LAYOUT, { starts: [0, 4, 5], total: 8 })).toBe(true)
+    expect(sameLayout(LAYOUT, { starts: [0, 4, 6], total: 8 })).toBe(false)
   })
 })
 
 describe('the open spread', () => {
-  it('lists the units on it once each', () => {
-    expect(visibleUnits(LAYOUT, 0, 2)).toEqual([COVER, CONTENTS])
-    expect(visibleUnits(LAYOUT, 8, 2)).toEqual([3, 4])
-    expect(visibleUnits(LAYOUT, 4, 2)).toEqual([2])
-    expect(visibleUnits(LAYOUT, 11, 1)).toEqual([4])
+  it('lists the items on it once each', () => {
+    expect(visibleUnits(LAYOUT, 0, 2)).toEqual([0])
+    expect(visibleUnits(LAYOUT, 4, 2)).toEqual([1, 2])
+    expect(visibleUnits(LAYOUT, 7, 1)).toEqual([2])
   })
 
-  it('names the item the reader went to, else the item beside the 차례, else the left page', () => {
-    expect(currentUnit([3, 4], 4)).toBe(4)
-    expect(currentUnit([3, 4], null)).toBe(3)
-    expect(currentUnit([CONTENTS, 2], null)).toBe(2)
-    expect(currentUnit([COVER, CONTENTS], 2)).toBe(COVER)
+  it('names the item the reader went to while it shows, else the left page', () => {
+    expect(currentUnit([1, 2], 2)).toBe(2)
+    expect(currentUnit([1, 2], null)).toBe(1)
+    expect(currentUnit([1, 2], 0)).toBe(1)
   })
 
-  it('reads "n / of" for an item and "차례" on the front spreads, by the left page', () => {
-    expect(pagerLabel(LAYOUT, 0)).toBe('차례')
-    expect(pagerLabel(LAYOUT, 2)).toBe('차례')
-    expect(pagerLabel(LAYOUT, 4)).toBe('1 / 4')
-    expect(pagerLabel(LAYOUT, 6)).toBe('3 / 4')
-    expect(pagerLabel(LAYOUT, 8)).toBe('1 / 1')
+  it('reads the left page against the whole book', () => {
+    expect(pagerLabel(LAYOUT, 0)).toBe('1 / 8')
+    expect(pagerLabel(LAYOUT, 4)).toBe('5 / 8')
+    expect(pagerLabel({ starts: [0, 4, 9], total: 12 }, 4)).toBe('5 / 12')
   })
 
-  it('gives the item open, or the one gone to before any layout', () => {
+  it('gives the item open, or the one gone to before any layout, else the first', () => {
     const items = BOOK.slice(0, 3)
-    expect(openItemOf({ items, layout: LAYOUT, first: 0, cols: 2, focus: null })).toBeNull()
-    expect(openItemOf({ items, layout: LAYOUT, first: 8, cols: 2, focus: 'c1' })).toBe('c1')
-    expect(openItemOf({ items, layout: LAYOUT, first: 8, cols: 2, focus: null })).toBe('p1')
+    expect(openItemOf({ items, layout: LAYOUT, first: 0, cols: 2, focus: null })).toBe('pre')
+    expect(openItemOf({ items, layout: LAYOUT, first: 4, cols: 2, focus: 'c1' })).toBe('c1')
+    expect(openItemOf({ items, layout: LAYOUT, first: 4, cols: 2, focus: null })).toBe('p1')
     expect(openItemOf({ items, layout: null, first: 0, cols: 2, focus: 'p1' })).toBe('p1')
+    expect(openItemOf({ items, layout: null, first: 0, cols: 2, focus: null })).toBe('pre')
   })
 
   it('reads the posts on the spread and one either side', () => {
-    expect(itemsAround([COVER, CONTENTS], 7)).toEqual([0])
-    expect(itemsAround([3, 4], 7)).toEqual([0, 1, 2, 3])
-    expect(itemsAround([8], 7)).toEqual([5, 6])
+    expect(itemsAround([0], 7)).toEqual([0, 1])
+    expect(itemsAround([1, 2], 7)).toEqual([0, 1, 2, 3])
+    expect(itemsAround([6], 7)).toEqual([5, 6])
   })
 
-  it('runs the chapter on the left, the item on the right and "차례" after its first page', () => {
+  it('runs the chapter on the left page and the item on the right', () => {
     const items = BOOK.slice(0, 3)
-    expect(runningHeadOf(LAYOUT, 0, items)).toBeNull()
-    expect(runningHeadOf(LAYOUT, 1, items)).toBeNull()
-    expect(runningHeadOf(LAYOUT, 2, items)).toBe('차례')
-    expect(runningHeadOf(LAYOUT, 10, items)).toBe('Part 1 개관')
-    expect(runningHeadOf(LAYOUT, 11, items)).toBe('1 서론')
-    expect(runningHeadOf(LAYOUT, 4, items)).toBe('들어가며')
+    expect(runningHeadOf(LAYOUT, 0, items)).toBe('들어가며')
+    expect(runningHeadOf(LAYOUT, 6, items)).toBe('Part 1 개관')
+    expect(runningHeadOf(LAYOUT, 7, items)).toBe('1 서론')
   })
 })
 
@@ -230,69 +221,6 @@ describe('itemViewOf', () => {
   })
 })
 
-describe('contentsRowsOf', () => {
-  it('lists parts and chapters, and the sections only of the chapter being read', () => {
-    const rows = contentsRowsOf(BOOK, 's12')
-    expect(rows.map((row) => [row.kind, row.label])).toEqual([
-      ['chapter', '들어가며'],
-      ['part', 'Part 1 개관'],
-      ['chapter', '1 서론'],
-      ['section', '1.1 운영체제가 할 일'],
-      ['section', '1.2 컴퓨터 시스템의 구성'],
-      ['chapter', '2 구조'],
-    ])
-  })
-
-  it('folds a chapter into one row that stands for all its items', () => {
-    const rows = contentsRowsOf(BOOK, null)
-    expect(rows.find((row) => row.key === 'c1')?.keys).toEqual(['c1', 's11', 's12'])
-    expect(rows.some((row) => row.kind === 'section')).toBe(false)
-  })
-
-  it('takes the first level for chapters in a book of two levels', () => {
-    const flat = [
-      item('a', null, '1', '가'),
-      item('a1', 'a', '1.1', '나'),
-      item('b', null, '2', '다'),
-    ]
-    const rows = contentsRowsOf(flat, 'a1')
-    expect(rows.map((row) => [row.kind, row.key])).toEqual([
-      ['chapter', 'a'],
-      ['section', 'a1'],
-      ['chapter', 'b'],
-    ])
-  })
-})
-
-describe('rowMarkOf', () => {
-  const views: Record<string, ItemView> = {
-    c1: { kind: 'written', stale: false },
-    s11: { kind: 'written', stale: false },
-    s12: { kind: 'writing' },
-    s21: { kind: 'todo' },
-  }
-  const viewOf = (key: string): ItemView => views[key] ?? { kind: 'todo' }
-  const isRead = (key: string) => key === 's11'
-  const rows = contentsRowsOf(BOOK, 's11')
-  const markOf = (key: string) => {
-    const row = rows.find((r) => r.key === key)
-    if (!row) throw new Error(key)
-    return rowMarkOf(row, viewOf, isRead)
-  }
-
-  it('checks a read item, spins for one being written and quiets one with nothing written', () => {
-    expect(markOf('s11')).toEqual({ live: false, todo: false, read: true })
-    expect(markOf('s12')).toEqual({ live: true, todo: false, read: false })
-    expect(markOf('c2')).toEqual({ live: false, todo: true, read: false })
-  })
-
-  it('never checks a folded chapter, which stands for more than one item', () => {
-    const folded = contentsRowsOf(BOOK, null).find((row) => row.key === 'c1')
-    if (!folded) throw new Error('c1')
-    expect(rowMarkOf(folded, viewOf, () => true)).toEqual({ live: true, todo: false, read: false })
-  })
-})
-
 describe('contentsTreeOf', () => {
   const shape = (nodes: ReturnType<typeof contentsTreeOf>): unknown[] =>
     nodes.map((node) => [node.item.itemKey, node.kind, ...shape(node.children)])
@@ -336,6 +264,49 @@ describe('itemOfSearch', () => {
   })
 })
 
+describe('readableItems', () => {
+  it('leaves out the unnumbered items before the first numbered one and after the last, with what is under them', () => {
+    const book = [
+      item('rec', null, null, '추천사'),
+      item('pre', null, null, '들어가며'),
+      item('pre1', 'pre', null, '이 책의 구성'),
+      item('c1', null, '1', '서론'),
+      item('s11', 'c1', '1.1', '할 일'),
+      item('end', null, null, '마치며'),
+    ]
+    expect(readableItems(book).map((it) => it.itemKey)).toEqual(['c1', 's11'])
+  })
+
+  it('leaves out the unnumbered items after the last numbered one, keeping the sections in it', () => {
+    const book = [
+      item('c1', null, '1', '서론'),
+      item('s11', 'c1', null, '정리'),
+      item('words', null, null, '용어집'),
+      item('notes', null, null, '미주'),
+      item('index', null, null, '찾아보기'),
+    ]
+    expect(readableItems(book).map((it) => it.itemKey)).toEqual(['c1', 's11'])
+  })
+
+  it('keeps an unnumbered part that holds the first numbered chapter', () => {
+    expect(readableItems(BOOK).map((it) => it.itemKey)).toEqual([
+      'p1',
+      'c1',
+      's11',
+      's12',
+      'c2',
+      's21',
+    ])
+  })
+
+  it('keeps every item of a book that numbers nothing, or opens on a numbered one', () => {
+    const plain = [item('a', null, null, '하나'), item('b', null, null, '둘')]
+    expect(readableItems(plain)).toBe(plain)
+    const numbered = BOOK.slice(1)
+    expect(readableItems(numbered)).toBe(numbered)
+  })
+})
+
 describe('readingItemOf', () => {
   const written = (): ItemView => ({ kind: 'written', stale: false })
   const todo = (): ItemView => ({ kind: 'todo' })
@@ -347,36 +318,30 @@ describe('readingItemOf', () => {
   ) => readingItemOf({ layout: LAYOUT, first, cols, focus, viewOf })
 
   it("is the left page's item while it goes on", () => {
-    expect(read(4, 2, written)).toBe(0)
-    expect(read(6, 2, todo)).toBe(0)
+    expect(read(0, 2, written)).toBe(0)
+    expect(read(2, 2, todo)).toBe(0)
   })
 
   it('is the item starting on the right once a written item ends on the left', () => {
-    // item 1 is page 8 alone; the unwritten item 2 starts on page 9 and a turn skips to page 10
+    // item 1 is page 4 alone; the unwritten item 2 starts on page 5 and a turn skips to page 6
     const views = (i: number): ItemView => (i === 2 ? todo() : written())
-    expect(read(8, 2, views)).toBe(2)
-    expect(read(8, 2, (i) => (i === 1 ? { kind: 'none' } : todo()))).toBe(2)
+    expect(read(4, 2, views)).toBe(2)
+    expect(read(4, 2, (i) => (i === 1 ? { kind: 'none' } : todo()))).toBe(2)
   })
 
   it('stays on an item still to come that ends on the left, never the one peeking in', () => {
-    expect(read(8, 2, todo)).toBe(1)
-    expect(read(8, 2, (i) => (i === 1 ? { kind: 'writing' } : todo()))).toBe(1)
-  })
-
-  it("is the right page's item when the left is the 차례", () => {
-    const layout: Layout = { starts: [0, 1, 3, 5], total: 7 }
-    expect(readingItemOf({ layout, first: 2, cols: 2, focus: null, viewOf: written })).toBe(0)
-    expect(readingItemOf({ layout, first: 0, cols: 2, focus: null, viewOf: written })).toBeNull()
+    expect(read(4, 2, todo)).toBe(1)
+    expect(read(4, 2, (i) => (i === 1 ? { kind: 'writing' } : todo()))).toBe(1)
   })
 
   it('is the item gone to by name while it is on the spread', () => {
-    expect(read(8, 2, todo, 2)).toBe(2)
-    expect(read(4, 2, todo, 2)).toBe(0)
+    expect(read(4, 2, todo, 2)).toBe(2)
+    expect(read(0, 2, todo, 2)).toBe(0)
   })
 
   it('is only the page shown on a phone', () => {
-    expect(read(3, 1, written)).toBeNull()
-    expect(read(8, 1, written)).toBe(1)
+    expect(read(3, 1, written)).toBe(0)
+    expect(read(4, 1, written)).toBe(1)
   })
 })
 

@@ -16,12 +16,7 @@ import {
 import { BookmarkButton } from '@/features/reader/components/BookmarkButton'
 import { Edges, PageChrome, Pager } from '@/features/reader/components/ReaderChrome'
 import { ReaderContents } from '@/features/reader/components/ReaderContents'
-import {
-  Contents,
-  Cover,
-  ItemArticle,
-  type ReaderBook,
-} from '@/features/reader/components/ReaderPages'
+import { ItemArticle, type ReaderBook } from '@/features/reader/components/ReaderPages'
 import { ReadingControls } from '@/features/reader/components/ReadingView'
 import { Tutor } from '@/features/reader/components/Tutor'
 import { useBookPosts } from '@/features/reader/hooks/useBookPosts'
@@ -32,17 +27,12 @@ import { useStageGeometry } from '@/features/reader/hooks/useStageGeometry'
 import { useTutor } from '@/features/reader/hooks/useTutor'
 import { dwell, REST_MS } from '@/features/reader/utils/dwell'
 import {
-  COVER,
-  type ContentsRow,
-  contentsRowsOf,
   type Geometry,
   type ItemView,
   itemsAround,
   openItemOf,
   readingItemOf,
-  rowMarkOf,
   turnsPageFrom,
-  unitOfItem,
   visibleUnits,
 } from '@/features/reader/utils/reader'
 import { lineOf } from '@/features/reader/utils/reading'
@@ -71,8 +61,8 @@ export type ReaderProps = {
 }
 
 /**
- * A book read page by page: the cover, the 차례 and every item flow through one multi-column
- * box, a column a page, turned a spread at a time. Pages are counted inside their item, since a
+ * A book read page by page: every item flows through one multi-column box, a column a page,
+ * turned a spread at a time. Pages are counted inside their item, since a
  * resize or a newly written item moves every page after it.
  */
 export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
@@ -90,7 +80,7 @@ export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
 
   const [focus, setFocus] = useState<string | null>(start)
   const spreads = useSpreads(flow, geo, {
-    unit: start ? unitOfItem(index.get(start) ?? 0) : COVER,
+    unit: index.get(start ?? '') ?? 0,
     offset: 0,
   })
   const { layout, first, cols, settled } = spreads
@@ -115,16 +105,15 @@ export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
       focus: at ?? null,
       viewOf: (i) => viewOf(keyAt(i)),
     })
-    resting.current?.at(reading === null ? null : keyAt(reading))
+    resting.current?.at(keyAt(reading))
     prefetch(itemsAround(visibleUnits(layout, first, cols), items.length).map(keyAt))
   })
 
   const ready = layout !== null
-  const lastRead = useReadingPlace({
+  useReadingPlace({
     bookId: book.id,
     items,
     index,
-    start,
     current: ready ? currentKey : undefined,
   })
 
@@ -136,7 +125,7 @@ export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
     const at = index.get(key)
     if (at === undefined) return
     setFocus(key)
-    spreads.open(unitOfItem(at))
+    spreads.open(at)
     // Going to an item by name is reading it: no wait.
     arrive(key)
   }
@@ -154,19 +143,6 @@ export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
   const latest = useRef({ turn, goItem, arrive })
   useEffect(() => {
     latest.current = { turn, goItem, arrive }
-  })
-  // From a 차례 row, the item's heading takes focus, so Tab goes on in the item, not the 차례.
-  const heading = useRef<string | null>(null)
-  const onGo = useCallback((key: string) => {
-    heading.current = key
-    latest.current.goItem(key)
-  }, [])
-  useEffect(() => {
-    const at = heading.current === null ? undefined : index.get(heading.current)
-    if (!settled.current || at === undefined) return
-    heading.current = null
-    const el = flow.current?.querySelector<HTMLElement>(`[data-unit="${unitOfItem(at)}"] > h1`)
-    el?.focus({ preventScroll: true })
   })
   // From the tutor, a divider goes to its item and leaves focus where it was.
   const onJump = useCallback((key: string) => latest.current.goItem(key), [])
@@ -199,16 +175,7 @@ export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
             style={{ transform: `translateX(${-first * (geo?.pw ?? 0) + spreads.drag}px)` }}
           >
             <div ref={flow} className="flow" style={flowStyle(geo, size, line)}>
-              <BookPages
-                book={book}
-                items={items}
-                index={index}
-                lastRead={lastRead}
-                viewOf={viewOf}
-                texts={texts}
-                onGo={onGo}
-                onRetry={retry}
-              />
+              <BookPages items={items} viewOf={viewOf} texts={texts} onRetry={retry} />
             </div>
             {geo && layout && (
               <PageChrome
@@ -261,32 +228,20 @@ export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
 }
 
 type BookPagesProps = {
-  book: ReaderBook
   items: TocItem[]
-  index: ReadonlyMap<string, number>
-  lastRead: string | null
   viewOf: (key: string) => ItemView
   texts: ReadonlyMap<string, string>
-  onGo: (key: string) => void
   onRetry: (key: string) => void
 }
 
-/** The flow's units in order; rendered again only when what they show changes, not on a turn. */
-const BookPages = memo(function BookPages(props: BookPagesProps) {
-  const { book, items, index, lastRead, viewOf, texts, onGo, onRetry } = props
-  const rows = useMemo(() => contentsRowsOf(items, lastRead), [items, lastRead])
-  const through = lastRead === null ? -1 : (index.get(lastRead) ?? -1)
-  const isRead = (key: string) =>
-    viewOf(key).kind === 'written' && (index.get(key) ?? Number.POSITIVE_INFINITY) <= through
-  const markOf = (row: ContentsRow) => rowMarkOf(row, viewOf, isRead)
+/** The flow's items in order; rendered again only when what they show changes, not on a turn. */
+const BookPages = memo(function BookPages({ items, viewOf, texts, onRetry }: BookPagesProps) {
   return (
     <>
-      <Cover book={book} />
-      <Contents bookId={book.id} rows={rows} markOf={markOf} onGo={onGo} />
       {items.map((item, i) => (
         <ItemArticle
           key={item.itemKey}
-          unit={unitOfItem(i)}
+          unit={i}
           number={item.number}
           title={item.title}
           view={viewOf(item.itemKey)}

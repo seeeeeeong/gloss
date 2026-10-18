@@ -1,10 +1,7 @@
 import { Icon } from '@/components/ui/Icon'
 import {
-  COVER,
   type Geometry,
   type ItemView,
-  isItemUnit,
-  itemOfUnit,
   type Layout,
   pageIn,
   pagerLabel,
@@ -32,10 +29,10 @@ export function PageChrome({ geo, layout, first, book, items, viewOf }: ChromePr
   return (
     <div aria-hidden="true">
       {pages.map((page) => {
-        const { unit, n } = pageIn(layout, page)
+        const { unit } = pageIn(layout, page)
         const right = page % 2 === 1
         const head = runningHeadOf(layout, page, items)
-        const key = isItemUnit(unit) ? items[itemOfUnit(unit)]?.itemKey : undefined
+        const key = items[unit]?.itemKey
         const live = key !== undefined && viewOf(key).kind === 'writing'
         return (
           <div key={page} className="pgc" style={{ left: page * geo.pw, width: geo.pw }}>
@@ -47,14 +44,12 @@ export function PageChrome({ geo, layout, first, book, items, viewOf }: ChromePr
                 {live && <span>쓰는 중</span>}
               </div>
             )}
-            {unit !== COVER && (
-              <div
-                className="pn"
-                style={{ bottom: geo.hd, ...(right ? { right: geo.px } : { left: geo.px }) }}
-              >
-                {n}
-              </div>
-            )}
+            <div
+              className="pn"
+              style={{ bottom: geo.hd, ...(right ? { right: geo.px } : { left: geo.px }) }}
+            >
+              {page + 1}
+            </div>
           </div>
         )
       })}
@@ -101,7 +96,7 @@ export function Edges({ geo, layout, first, onTurn }: Omit<TurnProps, 'phone'>) 
   )
 }
 
-/** Under the book: the left page's number in its item, "차례" on the front spreads. */
+/** Under the book: the left page against the whole book. */
 export function Pager({ geo, layout, first, phone, onTurn }: TurnProps) {
   return (
     <div className="pager" style={{ top: geo.top + geo.ph + (phone ? 4 : 6) }}>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import type { TocItem } from '@/lib/books'
 import { readerHref } from '@/lib/posts'
 import { RECENT_KEY, readsFrom, withRead } from '@/lib/shelf'
@@ -21,42 +21,20 @@ type PlaceArgs = {
   bookId: string
   items: TocItem[]
   index: ReadonlyMap<string, number>
-  start: string | null
-  /** The item open once the pages are laid out, null on the front spreads; undefined before. */
+  /** The item open once it is laid out; undefined before. */
   current: string | null | undefined
 }
 
-/**
- * The item last read: the address names it, and the 차례 opens at its chapter and checks what
- * came before it, here and the next time the book opens.
- */
-export function useReadingPlace({
-  bookId,
-  items,
-  index,
-  start,
-  current,
-}: PlaceArgs): string | null {
-  const [lastRead, setLastRead] = useState<string | null>(start)
-
+/** The item open is the one the address names, and the one the book opens at the next time. */
+export function useReadingPlace({ bookId, items, index, current }: PlaceArgs) {
   useEffect(() => {
-    if (start) return
-    const stored = lastReadIn(bookId, index)
-    if (stored) setLastRead(stored)
-  }, [bookId, index, start])
-
-  useEffect(() => {
-    if (current === undefined) return
-    history.replaceState(null, '', current ? readerHref(bookId, current) : `/books/${bookId}`)
     if (!current) return
-    setLastRead(current)
+    history.replaceState(null, '', readerHref(bookId, current))
     try {
       localStorage.setItem(lastReadKey(bookId), current)
       keepRecentRead(bookId, items, index.get(current))
     } catch {}
   }, [bookId, items, index, current])
-
-  return lastRead
 }
 
 /** Puts the item at [at] in front of the reads the shelf offers again. */

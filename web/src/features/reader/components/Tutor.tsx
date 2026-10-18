@@ -18,7 +18,6 @@ import { useShellTitle } from '@/components/layouts/ShellTitle'
 import { Icon } from '@/components/ui/Icon'
 import { itemKeyFor, type Quote, quoteOf } from '@/features/reader/api/chat'
 import type { useTutor } from '@/features/reader/hooks/useTutor'
-import { itemOfUnit } from '@/features/reader/utils/reader'
 import {
   holdOthers,
   narrowAt,
@@ -149,7 +148,7 @@ export function Tutor(props: Props) {
     onGo(itemKey)
   }
 
-  const keyOfUnit = useCallback((unit: number) => items[itemOfUnit(unit)]?.itemKey ?? null, [items])
+  const keyOfUnit = useCallback((unit: number) => items[unit]?.itemKey ?? null, [items])
 
   function closeDocked() {
     docking.choose(false)

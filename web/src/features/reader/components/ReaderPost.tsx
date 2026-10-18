@@ -1,6 +1,6 @@
 import type { MouseEvent, RefObject } from 'react'
 import { Icon } from '@/components/ui/Icon'
-import { ancestorsOf, type ItemView, unitOfItem } from '@/features/reader/utils/reader'
+import { ancestorsOf, type ItemView } from '@/features/reader/utils/reader'
 import { lineOf, type ReadingSize } from '@/features/reader/utils/reading'
 import type { TocItem } from '@/lib/books'
 import { headingOf, readerHref } from '@/lib/posts'
@@ -54,7 +54,7 @@ export function ReaderPost(props: Props) {
         style={{ fontSize: size, lineHeight: `${lineOf(size)}px` }}
       >
         <ItemArticle
-          unit={unitOfItem(at)}
+          unit={at}
           number={item.number}
           title={item.title}
           view={viewOf(item.itemKey)}
