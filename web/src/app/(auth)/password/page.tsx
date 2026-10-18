@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
-import { PasswordChangeForm } from '@/components/PasswordChangeForm'
-import { SignOutButton } from '@/components/SignOutButton'
+import { PasswordChangeForm } from '@/features/auth/components/PasswordChangeForm'
+import { SignOutButton } from '@/features/auth/components/SignOutButton'
 import { guard } from '@/lib/server-session'
 
 export const metadata: Metadata = { title: '비밀번호 바꾸기' }

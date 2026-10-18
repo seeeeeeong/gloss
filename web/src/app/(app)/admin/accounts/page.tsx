@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
-import { AdminAccounts } from '@/components/AdminAccounts'
-import { Page } from '@/components/Page'
-import type { AdminAccount } from '@/lib/accounts'
+import { Page } from '@/components/ui/Page'
+import type { AdminAccount } from '@/features/admin/api/accounts'
+import { AdminAccounts } from '@/features/admin/views/AdminAccounts'
 import { requireReader, serverGet } from '@/lib/server-session'
 
 export const metadata: Metadata = { title: '계정' }

@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { BookContents } from '@/components/BookContents'
-import { Reader } from '@/components/Reader'
+import { bookmarksBeside, bookOf, tocInUse } from '@/features/books/api/server-books'
+import { BookContents } from '@/features/books/views/BookContents'
+import { Reader } from '@/features/reader/views/Reader'
 import { landingOf } from '@/lib/books'
 import type { PostSummary } from '@/lib/posts'
-import { bookmarksBeside, bookOf, tocInUse } from '@/lib/server-books'
 import { serverGet } from '@/lib/server-session'
 
 type Props = PageProps<'/books/[bookId]'>
