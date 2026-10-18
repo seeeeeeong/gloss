@@ -4,7 +4,7 @@ import { BookContents } from '@/components/BookContents'
 import { Reader } from '@/components/Reader'
 import { landingOf } from '@/lib/books'
 import type { PostSummary } from '@/lib/posts'
-import { bookOf, tocInUse } from '@/lib/server-books'
+import { bookmarksBeside, bookOf, tocInUse } from '@/lib/server-books'
 import { serverGet } from '@/lib/server-session'
 
 type Props = PageProps<'/books/[bookId]'>
@@ -20,8 +20,9 @@ export default async function BookPage({ params, searchParams }: Props) {
   if (!book) notFound()
   const toc = landingOf(book) === 'reader' ? await tocInUse(book) : null
   if (!toc) return <BookContents book={book} inUse={null} />
-  const [posts, { item }] = await Promise.all([
+  const [posts, bookmarks, { item }] = await Promise.all([
     serverGet<PostSummary[]>(`/api/me/books/${book.id}/posts`),
+    bookmarksBeside(),
     searchParams,
   ])
   const start = toc.items.find((it) => it.itemKey === item)?.itemKey ?? null
@@ -36,5 +37,15 @@ export default async function BookPage({ params, searchParams }: Props) {
     voice,
     tocVersionNo: toc.versionNo,
   }
-  return <Reader book={shown} items={toc.items} posts={posts} start={start} />
+  return (
+    // Another book starts the reader over: nothing of the last one, such as its bookmarks, carries across.
+    <Reader
+      key={book.id}
+      book={shown}
+      items={toc.items}
+      posts={posts}
+      start={start}
+      bookmarks={bookmarks.filter((bookmark) => bookmark.bookId === book.id)}
+    />
+  )
 }

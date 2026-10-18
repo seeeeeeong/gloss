@@ -15,6 +15,7 @@ import {
   useState,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { type Bookmark, itemMarkOf } from '@/lib/bookmarks'
 import type { TocItem } from '@/lib/books'
 import { dwell } from '@/lib/dwell'
 import { headingOf, type PostSummary, readerHref } from '@/lib/posts'
@@ -42,6 +43,7 @@ import { Contents, Cover, ItemArticle, type ReaderBook } from './ReaderPages'
 import { ReadingSizeDialog } from './ReadingSize'
 import { useShellTitle } from './ShellTitle'
 import { Tutor } from './Tutor'
+import { useBookmarks } from './useBookmarks'
 import { useBookPosts } from './useBookPosts'
 import { useReadingSize } from './useReadingSize'
 import { useSpreads } from './useSpreads'
@@ -58,7 +60,14 @@ const TURN_KEYS: Record<string, -1 | 1> = {
   PageDown: 1,
 }
 
-type Props = { book: ReaderBook; items: TocItem[]; posts: PostSummary[]; start: string | null }
+type Props = {
+  book: ReaderBook
+  items: TocItem[]
+  posts: PostSummary[]
+  start: string | null
+  /** The bookmarks the reader keeps in this book. */
+  bookmarks: Bookmark[]
+}
 
 const lastReadKey = (bookId: string) => `gloss.reader.${bookId}.lastRead`
 
@@ -67,12 +76,13 @@ const lastReadKey = (bookId: string) => `gloss.reader.${bookId}.lastRead`
  * box, a column a page, turned a spread at a time. Pages are counted inside their item, since a
  * resize or a newly written item moves every page after it.
  */
-export function Reader({ book, items, posts, start }: Props) {
+export function Reader({ book, items, posts, start, bookmarks }: Props) {
   const index = useMemo(() => new Map(items.map((item, i) => [item.itemKey, i])), [items])
   const { viewOf, texts, versions, arrive, prefetch, retry } = useBookPosts(book.id, posts)
   const stage = useRef<HTMLDivElement>(null)
   const flow = useRef<HTMLDivElement>(null)
   const [size] = useReadingSize()
+  const marks = useBookmarks(bookmarks)
   const line = lineOf(size)
   const { geo, phone, width } = useStageGeometry(stage, line)
 
@@ -219,7 +229,16 @@ export function Reader({ book, items, posts, start }: Props) {
       <div className="sr-only" role="status">
         {spreads.announced}
       </div>
+      <BookmarkButton
+        current={ready ? currentKey : null}
+        marks={marks.marks}
+        onSave={(key) => void marks.save(book.id, key, null)}
+        onRemove={(mark) => void marks.remove(mark)}
+      />
       <SizeButton />
+      <div className={marks.said ? 'toast shown' : 'toast'} role="status">
+        {marks.said}
+      </div>
       <Tutor
         key={book.id}
         bookId={book.id}
@@ -230,6 +249,9 @@ export function Reader({ book, items, posts, start }: Props) {
         versions={versions}
         flow={flow}
         onGo={onJump}
+        onKeep={(quote) => {
+          if (quote.itemKey) void marks.save(book.id, quote.itemKey, quote.text)
+        }}
       />
     </div>
   )
@@ -498,6 +520,38 @@ function SizeButton() {
       </button>
       {open && <ReadingSizeDialog onClose={() => setOpen(false)} />}
     </>,
+    shell.acts,
+  )
+}
+
+type MarkProps = {
+  current: string | null
+  marks: Bookmark[]
+  onSave: (itemKey: string) => void
+  onRemove: (mark: Bookmark) => void
+}
+
+/** The item open kept whole as a bookmark, or let go, from the header; nothing to keep on the front pages. */
+function BookmarkButton({ current, marks, onSave, onRemove }: MarkProps) {
+  const shell = useShellTitle()
+  if (!shell.acts) return null
+  const own = itemMarkOf(marks, current)
+  const label = own ? '책갈피 지우기' : '이 글 책갈피에 저장'
+  return createPortal(
+    <button
+      type="button"
+      className={own ? 'ibtn saved' : 'ibtn'}
+      aria-pressed={own !== undefined}
+      aria-label={label}
+      data-tip={label}
+      disabled={current === null}
+      onClick={() => {
+        if (own) onRemove(own)
+        else if (current) onSave(current)
+      }}
+    >
+      <Icon name="bookmark" />
+    </button>,
     shell.acts,
   )
 }

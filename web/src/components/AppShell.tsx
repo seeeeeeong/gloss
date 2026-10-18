@@ -20,15 +20,22 @@ export type ShelfBook = { id: string; title: string }
 const PHONE = '(max-width: 767px)'
 
 const SHELF = '/'
+const BOOKMARKS = '/bookmarks'
 const NEW_BOOK = '/books/new'
 const OPERATOR = '/admin/accounts'
 const ACCOUNT = '/me'
 // A book's own page, where the reader puts its title and tools in the header.
 const READING = /^\/books\/(?!new$)[^/]+$/
 
-type Props = { me: Me; books: ShelfBook[]; children: ReactNode }
+type Props = {
+  me: Me
+  books: ShelfBook[]
+  /** How many bookmarks the reader keeps. */
+  marks: number
+  children: ReactNode
+}
 
-export function AppShell({ me, books, children }: Props) {
+export function AppShell({ me, books, marks, children }: Props) {
   const path = usePathname()
   const [drawer, setDrawer] = useState(false)
   const [search, setSearch] = useState(false)
@@ -142,6 +149,16 @@ export function AppShell({ me, books, children }: Props) {
               >
                 <Icon name="library" />
                 <span className="lbl-t">내 서재</span>
+              </Link>
+              <Link
+                className="row"
+                href={BOOKMARKS}
+                aria-current={current(BOOKMARKS)}
+                onClick={leave}
+              >
+                <Icon name="bookmark" />
+                <span className="lbl-t">책갈피</span>
+                <small>{marks}</small>
               </Link>
               <Link
                 className="row"
@@ -269,6 +286,9 @@ function Rail({ operator, within, onSearch }: RailProps) {
       >
         <Icon name="search" />
       </button>
+      <Link className="ibtn" href={BOOKMARKS} aria-label="책갈피" data-tip="책갈피">
+        <Icon name="bookmark" />
+      </Link>
       <span className="rail-gap" />
       <button
         type="button"
