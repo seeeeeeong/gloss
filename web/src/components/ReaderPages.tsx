@@ -92,14 +92,15 @@ export function Contents({ bookId, rows, markOf, onGo }: ContentsProps) {
 
 type ItemProps = {
   unit: number
-  heading: string
+  number: string | null
+  title: string
   view: ItemView
   markdown: string | null
   onRetry: () => void
 }
 
 /** One item of the book: its heading, then its post or how the post stands. */
-export function ItemArticle({ unit, heading, view, markdown, onRetry }: ItemProps) {
+export function ItemArticle({ unit, number, title, view, markdown, onRetry }: ItemProps) {
   return (
     <article className="item" data-unit={unit} aria-busy={view.kind === 'writing'}>
       {view.kind === 'written' && view.stale && (
@@ -110,13 +111,17 @@ export function ItemArticle({ unit, heading, view, markdown, onRetry }: ItemProp
           </button>
         </p>
       )}
-      <h1 tabIndex={-1}>{heading}</h1>
+      <h1 tabIndex={-1}>
+        {/* The space keeps the number apart from the title in copied text and read aloud. */}
+        {number && <span className="no">{number} </span>}
+        {title}
+      </h1>
       <ItemBody view={view} markdown={markdown} onRetry={onRetry} />
     </article>
   )
 }
 
-function ItemBody({ view, markdown, onRetry }: Omit<ItemProps, 'unit' | 'heading'>) {
+function ItemBody({ view, markdown, onRetry }: Omit<ItemProps, 'unit' | 'number' | 'title'>) {
   const retry = (
     <div className="actions">
       <button type="button" className="btn sec sm" onClick={onRetry}>

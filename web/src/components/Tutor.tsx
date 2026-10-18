@@ -187,7 +187,7 @@ export function Tutor(props: Props) {
             data-tip={toggleLabel}
             onClick={() => docking.choose(!open)}
           >
-            <Icon name="panelR" />
+            <Icon name="chat" />
           </button>,
           shell.acts,
         )}

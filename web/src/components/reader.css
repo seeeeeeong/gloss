@@ -1,30 +1,48 @@
-/* The reader (v4 reader.html): one multi-column flow, a column a page, turned a spread at a time */
+/* The reader: one multi-column flow, a column a page, turned a spread at a time, on a desk */
 :root {
   --code-block: #eef2fa;
+  --desk: #e6eaf2;
+  --sheet: #ffffff;
+  --rule: #dce0e8;
+  --sheet-shadow: 0 1px 2px rgba(24, 29, 39, 0.05), 0 14px 36px -18px rgba(24, 29, 39, 0.3);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --code-block: #1f2430;
+    --desk: #0a0c11;
+    --sheet: #161920;
+    --rule: rgba(255, 255, 255, 0.09);
+    --sheet-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -16px rgba(0, 0, 0, 0.73);
   }
 }
 :root[data-theme="dark"] {
   --code-block: #1f2430;
+  --desk: #0a0c11;
+  --sheet: #161920;
+  --rule: rgba(255, 255, 255, 0.09);
+  --sheet-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -16px rgba(0, 0, 0, 0.73);
 }
 :is(.top-conv, .tp-row, .tp-ch, .reader .tc-row):focus-visible {
   box-shadow: inset 0 0 0 2px var(--focus);
 }
 
-/* Header: "<book> · <item>" opens the contents */
+/* Header: a bar on the desk; the item open opens the contents */
+.top.reading {
+  padding: 0 14px 0 18px;
+  background: var(--desk);
+  border-bottom: 1px solid var(--rule);
+  pointer-events: auto;
+}
 .top-conv {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 9px;
   min-width: 0;
-  max-width: calc(100% - 96px);
-  height: 36px;
-  padding: 4px 8px 4px 10px;
-  border-radius: 8px;
-  font: 400 18px / 28px var(--font);
+  max-width: calc(100% - 140px);
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font: 510 13px / 20px var(--font);
   color: var(--tx);
   transition: background-color 150ms var(--ease);
 }
@@ -128,6 +146,7 @@
 .reader {
   position: absolute;
   inset: 0;
+  background: var(--desk);
 }
 .reader .stage {
   position: absolute;
@@ -140,6 +159,11 @@
   position: absolute;
   overflow: clip;
   touch-action: pan-y;
+  border-radius: 2px;
+  background: var(--sheet);
+  box-shadow:
+    0 0 0 1px var(--rule),
+    var(--sheet-shadow);
 }
 .reader .track {
   position: absolute;
@@ -156,15 +180,21 @@
   position: absolute;
   column-fill: auto;
   font: 400 16px / 28px var(--font-book);
+  text-align: justify;
+  overflow-wrap: anywhere;
   orphans: 2;
   widows: 2;
+}
+.reader .flow ::selection {
+  color: var(--tx);
+  background: var(--highlight);
 }
 .reader .gutter {
   position: absolute;
   top: 0;
   bottom: 0;
   width: 1px;
-  background: var(--divider);
+  background: var(--rule);
   pointer-events: none;
 }
 .reader .pgc {
@@ -173,22 +203,25 @@
   height: 100%;
   pointer-events: none;
 }
+/* The book on the left of a page's head, the item on the right */
 .reader .rh {
   position: absolute;
   display: flex;
   align-items: center;
   gap: 6px;
-  font: 400 12px / 16px var(--font);
-  color: var(--tx2);
+  font: 400 11px / 16px var(--font);
+  color: var(--tx3);
   white-space: nowrap;
 }
-.reader .rh.r {
-  justify-content: flex-end;
-}
+.reader .rh .b,
 .reader .rh .t {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  max-width: 55%;
+}
+.reader .rh .t {
+  margin-left: auto;
 }
 .reader .rh .spin {
   width: 12px;
@@ -196,8 +229,8 @@
 }
 .reader .pn {
   position: absolute;
-  font: 400 12px / 16px var(--font);
-  color: var(--tx2);
+  font: 400 11px / 16px var(--font);
+  color: var(--tx3);
   font-variant-numeric: tabular-nums;
 }
 .reader .edge {
@@ -223,7 +256,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 12px;
   height: 36px;
   padding: 0 48px;
   font: 400 12px / 16px var(--font);
@@ -240,7 +273,7 @@
 .reader .pg-t {
   display: flex;
   justify-content: center;
-  min-width: 48px;
+  min-width: 72px;
   white-space: pre;
 }
 .reader .spin {
@@ -379,7 +412,7 @@
   }
 }
 
-/* Pages: an item, its Markdown on the 28px line */
+/* Pages: an item, its heading in the book's type with its number in vermilion, its Markdown under it */
 .reader .item {
   break-before: column;
 }
@@ -387,8 +420,17 @@
   margin: 0;
 }
 .reader .item > h1 {
-  font: 600 24px / 32px var(--font);
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  font: 700 25px / 36px var(--font-book);
+  text-align: left;
   break-after: avoid;
+}
+.reader .item > h1 .no {
+  flex: none;
+  color: var(--mark);
+  font: 500 13px / 1.5 var(--font);
 }
 .reader .item > h1 + * {
   margin-top: 20px;
@@ -420,8 +462,22 @@
 .reader .prose {
   font: inherit;
 }
+.reader .prose > * + * {
+  margin-top: 14px;
+}
 .reader .prose h2 {
+  margin-top: 26px;
+  font: 700 19px / 28px var(--font-book);
+  text-align: left;
   break-after: avoid;
+}
+.reader .prose :is(h3, h4) {
+  margin-top: 22px;
+  font: 700 16px / 28px var(--font-book);
+  text-align: left;
+}
+.reader .prose :is(h2, h3, h4) + * {
+  margin-top: 10px;
 }
 .reader .prose hr {
   border-top: 0;

@@ -59,13 +59,13 @@ export const placeOf = (read: Pick<RecentRead, 'position' | 'total'>) =>
   `${String(read.position).padStart(2, '0')} / ${String(read.total).padStart(2, '0')}`
 
 /** Books whose title or authors hold [query], ignoring case and the spaces around it. */
-export function matching<T extends { title: string; authors: string[] }>(
+export function matching<T extends { title: string; authors?: string[] }>(
   books: T[],
   query: string,
 ): T[] {
   const wanted = query.trim().toLowerCase()
   if (!wanted) return books
   return books.filter((book) =>
-    `${book.title} ${book.authors.join(' ')}`.toLowerCase().includes(wanted),
+    `${book.title} ${(book.authors ?? []).join(' ')}`.toLowerCase().includes(wanted),
   )
 }

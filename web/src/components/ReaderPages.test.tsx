@@ -8,7 +8,8 @@ const article = (view: ItemView, markdown: string | null = null) =>
   renderToStaticMarkup(
     <ItemArticle
       unit={3}
-      heading="1.1 운영체제가 할 일"
+      number="1.1"
+      title="운영체제가 할 일"
       view={view}
       markdown={markdown}
       onRetry={noop}
@@ -19,7 +20,7 @@ describe('ItemArticle', () => {
   it('shows a written post under its heading, as a unit of the flow', () => {
     const out = article({ kind: 'written', stale: false }, '## 학습 목표\n\n- 하나')
     expect(out).toMatch(/^<article class="item" data-unit="3" aria-busy="false">/)
-    expect(out).toContain('<h1 tabindex="-1">1.1 운영체제가 할 일</h1>')
+    expect(out).toContain('<h1 tabindex="-1"><span class="no">1.1 </span>운영체제가 할 일</h1>')
     expect(out).toContain('<h2>학습 목표</h2>')
     expect(out).not.toContain('이전 목차')
   })
@@ -60,7 +61,7 @@ describe('ItemArticle', () => {
   })
 
   it('shows only the heading for an item nothing has been asked for yet', () => {
-    expect(article({ kind: 'todo' })).toMatch(/<h1 tabindex="-1">[^<]+<\/h1><\/article>$/)
+    expect(article({ kind: 'todo' })).toMatch(/<h1 tabindex="-1">.+?<\/h1><\/article>$/)
   })
 })
 

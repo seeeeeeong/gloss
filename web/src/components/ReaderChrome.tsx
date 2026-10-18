@@ -16,12 +16,16 @@ type ChromeProps = {
   geo: Geometry
   layout: Layout
   first: number
+  book: string
   items: TocItem[]
   viewOf: (key: string) => ItemView
 }
 
-/** Running heads and page numbers for the spread and the ones either side, which a turn slides in. */
-export function PageChrome({ geo, layout, first, items, viewOf }: ChromeProps) {
+/**
+ * Running heads, the book on the left and the item on the right, and page numbers for the spread and
+ * the ones either side, which a turn slides in.
+ */
+export function PageChrome({ geo, layout, first, book, items, viewOf }: ChromeProps) {
   const from = Math.max(0, first - geo.cols)
   const to = Math.min(layout.total, first + 2 * geo.cols)
   const pages = Array.from({ length: Math.max(0, to - from) }, (_, i) => from + i)
@@ -36,10 +40,8 @@ export function PageChrome({ geo, layout, first, items, viewOf }: ChromeProps) {
         return (
           <div key={page} className="pgc" style={{ left: page * geo.pw, width: geo.pw }}>
             {head && (
-              <div
-                className={right ? 'rh r' : 'rh'}
-                style={{ top: geo.hd, left: geo.px, right: geo.px }}
-              >
+              <div className="rh" style={{ top: geo.hd, left: geo.px, right: geo.px }}>
+                <span className="b">{book}</span>
                 <span className="t">{head}</span>
                 {live && <span className="spin" />}
                 {live && <span>쓰는 중</span>}
@@ -110,7 +112,7 @@ export function Pager({ geo, layout, first, phone, onTurn }: TurnProps) {
         disabled={first === 0}
         onClick={() => onTurn(-1)}
       >
-        <Icon name="chevL" />
+        <Icon name="arrowL" size={18} />
       </button>
       <span className="pg-t">{pagerLabel(layout, first)}</span>
       <button
@@ -120,7 +122,7 @@ export function Pager({ geo, layout, first, phone, onTurn }: TurnProps) {
         disabled={first + geo.cols >= layout.total}
         onClick={() => onTurn(1)}
       >
-        <Icon name="chevR" />
+        <Icon name="arrowR" size={18} />
       </button>
     </div>
   )
