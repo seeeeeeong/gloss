@@ -192,7 +192,14 @@ export function Reader({ book, items, posts, start }: Props) {
               />
             </div>
             {geo && layout && (
-              <PageChrome geo={geo} layout={layout} first={first} items={items} viewOf={viewOf} />
+              <PageChrome
+                geo={geo}
+                layout={layout}
+                first={first}
+                book={book.title}
+                items={items}
+                viewOf={viewOf}
+              />
             )}
           </div>
           {cols === 2 && <div className="gutter" style={{ left: geo?.pw }} />}
@@ -249,7 +256,8 @@ const BookPages = memo(function BookPages(props: BookPagesProps) {
         <ItemArticle
           key={item.itemKey}
           unit={unitOfItem(i)}
-          heading={headingOf(item)}
+          number={item.number}
+          title={item.title}
           view={viewOf(item.itemKey)}
           markdown={texts.get(item.itemKey) ?? null}
           onRetry={() => onRetry(item.itemKey)}
@@ -397,7 +405,7 @@ type TitleProps = {
   onGo: (key: string) => void
 }
 
-/** "<book> · <item>" in the shell's header, opening the contents under it. */
+/** The item open, or the book on its front pages, in the shell's header; it opens the contents. */
 function ReaderTitle({ book, items, current, phone, viewOf, onGo }: TitleProps) {
   const shell = useShellTitle()
   const bar = useRef<HTMLButtonElement>(null)
@@ -405,7 +413,7 @@ function ReaderTitle({ book, items, current, phone, viewOf, onGo }: TitleProps) 
   const [menu, setMenu] = useState<{ left: number | null; focus: boolean } | null>(null)
   const rows = useMemo(() => menuRowsOf(items), [items])
   const item = items.find((it) => it.itemKey === current)
-  const label = `${book.title} · ${item ? headingOf(item) : '차례'}`
+  const label = item ? headingOf(item) : book.title
 
   const close = useCallback(
     (refocus: boolean) => {

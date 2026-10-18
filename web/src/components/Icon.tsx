@@ -36,6 +36,7 @@ const SHAPES = {
   chevR: <path d="M8 5.5 12.5 10 8 14.5" />,
   upRight: <path d="M6.5 13.5l7-7M8 6.5h5.5V12" />,
   arrowR: <path d="M4.5 10h11M11 5.5l4.5 4.5-4.5 4.5" />,
+  arrowL: <path d="M15.5 10h-11M9 5.5 4.5 10 9 14.5" />,
   search: (
     <>
       <circle cx="9" cy="9" r="5.25" />
@@ -102,6 +103,7 @@ const SHAPES = {
     </>
   ),
   bookmark: <path d="M5 3.25h10v14.25l-5-3.25-5 3.25z" />,
+  text: <path d="m2.5 15.75 5-11.5 5 11.5M4.25 11.75h6.5m2.5-2.5h5m-2.5 0v6.5" />,
   moon: <path d="M16.75 11.75A6.85 6.85 0 0 1 8.25 3.25a7.1 7.1 0 1 0 8.5 8.5Z" />,
   clock: (
     <>

@@ -5,12 +5,14 @@ import { usePathname } from 'next/navigation'
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Me } from '@/lib/session'
 import { toneOf } from '@/lib/shelf'
-import { crumbOf } from '@/lib/shell'
+import { type Crumb, crumbOf } from '@/lib/shell'
 import { Icon } from './Icon'
+import { ShelfSearch } from './ShelfSearch'
 import { ShellActions } from './ShellActions'
 import { type PanelKind, ShellPanelContext } from './ShellPanel'
 import { ShellTitleContext } from './ShellTitle'
 import { Tooltip } from './Tooltip'
+import { useDarkTheme } from './useDarkTheme'
 
 export type ShelfBook = { id: string; title: string }
 
@@ -29,6 +31,7 @@ type Props = { me: Me; books: ShelfBook[]; children: ReactNode }
 export function AppShell({ me, books, children }: Props) {
   const path = usePathname()
   const [drawer, setDrawer] = useState(false)
+  const [search, setSearch] = useState(false)
   const reading = READING.test(path)
   const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null)
   const [panelOpen, setPanelOpen] = useState<PanelKind | null>(null)
@@ -66,7 +69,9 @@ export function AppShell({ me, books, children }: Props) {
     }
     firstRow.current?.focus()
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape') return
+      // Escape in the search over the drawer is the search's, which closes the drawer itself.
+      const inDialog = event.target instanceof Element && event.target.closest('dialog') !== null
+      if (event.key !== 'Escape' || inDialog) return
       returnFocus.current = true
       setDrawer(false)
     }
@@ -90,11 +95,15 @@ export function AppShell({ me, books, children }: Props) {
   }
 
   const leave = () => setDrawer(false)
+  function closeSearch() {
+    setSearch(false)
+    if (drawer) dismiss()
+  }
   const wide = panelOpen === 'panel'
   const crumb = crumbOf(path)
   const frame = [
     'app',
-    wide && 'rail',
+    (wide || reading) && 'rail',
     wide && 'panel-open',
     panelOpen === 'tutor' && 'tutor-open',
     drawer && 'drawer',
@@ -143,6 +152,12 @@ export function AppShell({ me, books, children }: Props) {
                 <Icon name="plus" />
                 <span className="lbl-t">책 추가</span>
               </Link>
+              {reading && (
+                <button type="button" className="row" onClick={() => setSearch(true)}>
+                  <Icon name="search" />
+                  <span className="lbl-t">서재 검색</span>
+                </button>
+              )}
             </nav>
             <div className="sb-sec" id="shelf">
               내 책<span>{books.length}</span>
@@ -164,6 +179,7 @@ export function AppShell({ me, books, children }: Props) {
             </ul>
           </div>
           <div className="sb-foot">
+            {reading && <ThemeRow />}
             {operator && (
               <Link className="row" href={OPERATOR} aria-current={within(OPERATOR)} onClick={leave}>
                 <Icon name="shield" />
@@ -176,32 +192,7 @@ export function AppShell({ me, books, children }: Props) {
             </Link>
           </div>
         </div>
-        <div className="sb-rail">
-          <Link className="brand sm first" href={SHELF} aria-label="Gloss 내 서재">
-            g<span className="brand-mark">.</span>
-          </Link>
-          <Link className="ibtn" href={SHELF} aria-label="내 서재" data-tip="내 서재">
-            <Icon name="library" />
-          </Link>
-          <Link className="ibtn" href={NEW_BOOK} aria-label="책 추가" data-tip="책 추가">
-            <Icon name="plus" />
-          </Link>
-          <span className="rail-gap" />
-          {operator && (
-            <Link
-              className="ibtn round"
-              href={OPERATOR}
-              aria-label="운영자"
-              data-tip="운영자"
-              aria-current={within(OPERATOR)}
-            >
-              <Icon name="shield" />
-            </Link>
-          )}
-          <Link className="ibtn round" href={ACCOUNT} aria-label="마이페이지" data-tip="마이페이지">
-            <Icon name="account" />
-          </Link>
-        </div>
+        <Rail operator={operator} within={within} onSearch={() => setSearch(true)} />
       </nav>
       <button
         type="button"
@@ -230,17 +221,7 @@ export function AppShell({ me, books, children }: Props) {
             </Link>
           </div>
           <span ref={setBarSlot} className="top-slot" />
-          {crumb && (
-            <p className="crumbs">
-              {crumb.shelf && (
-                <>
-                  <span>서재</span>
-                  <span aria-hidden="true">/</span>
-                </>
-              )}
-              <span className="here">{crumb.name}</span>
-            </p>
-          )}
+          {crumb && <Crumbs crumb={crumb} />}
           <div ref={setActsSlot} className="top-acts" />
           {!reading && <ShellActions name={me.displayName} />}
           <Link className="ibtn round top-new" href={NEW_BOOK} aria-label="책 추가">
@@ -252,7 +233,89 @@ export function AppShell({ me, books, children }: Props) {
         </ShellPanelContext>
       </main>
       <aside ref={setPanelSlot} className="panel" hidden={panelOpen === null} />
+      {search && <ShelfSearch books={books} onClose={closeSearch} />}
       <Tooltip />
     </div>
+  )
+}
+
+type RailProps = {
+  operator: boolean
+  within: (href: string) => 'page' | undefined
+  onSearch: () => void
+}
+
+/** The sidebar folded to icons, beside a book or an open panel: the shelf, a search and the theme. */
+function Rail({ operator, within, onSearch }: RailProps) {
+  const { dark, toggle } = useDarkTheme()
+  const themeLabel = dark ? '라이트 모드로 변경' : '다크 모드로 변경'
+  return (
+    <div className="sb-rail">
+      <Link className="brand sm first" href={SHELF} aria-label="Gloss 내 서재">
+        g<span className="brand-mark">.</span>
+      </Link>
+      <Link className="ibtn" href={SHELF} aria-label="내 서재" data-tip="내 서재">
+        <Icon name="library" />
+      </Link>
+      <button
+        type="button"
+        className="ibtn"
+        aria-label="서재 검색"
+        data-tip="검색"
+        onClick={onSearch}
+      >
+        <Icon name="search" />
+      </button>
+      <span className="rail-gap" />
+      <button
+        type="button"
+        className="ibtn"
+        aria-label={themeLabel}
+        data-tip={themeLabel}
+        onClick={toggle}
+      >
+        <Icon name={dark ? 'sun' : 'moon'} />
+      </button>
+      {operator && (
+        <Link
+          className="ibtn round"
+          href={OPERATOR}
+          aria-label="운영자"
+          data-tip="운영자"
+          aria-current={within(OPERATOR)}
+        >
+          <Icon name="shield" />
+        </Link>
+      )}
+      <Link className="ibtn round" href={ACCOUNT} aria-label="마이페이지" data-tip="마이페이지">
+        <Icon name="account" />
+      </Link>
+    </div>
+  )
+}
+
+/** The rail's theme switch as a row, for a phone's drawer beside a book, where the rail is folded away. */
+function ThemeRow() {
+  const { dark, toggle } = useDarkTheme()
+  return (
+    <button type="button" className="row" onClick={toggle}>
+      <Icon name={dark ? 'sun' : 'moon'} />
+      <span className="lbl-t">{dark ? '라이트 모드로 변경' : '다크 모드로 변경'}</span>
+    </button>
+  )
+}
+
+/** Where the screen sits: under the shelf, or on its own. */
+function Crumbs({ crumb }: { crumb: Crumb }) {
+  return (
+    <p className="crumbs">
+      {crumb.shelf && (
+        <>
+          <span>서재</span>
+          <span aria-hidden="true">/</span>
+        </>
+      )}
+      <span className="here">{crumb.name}</span>
+    </p>
   )
 }

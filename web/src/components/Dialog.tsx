@@ -8,8 +8,8 @@ type Props = {
   /** False for a dialog that must be answered: Escape and the backdrop leave it open. */
   dismissible?: boolean
   alert?: boolean
-  /** No close button to leave room for, or a confirmation's narrow, centred box. */
-  look?: 'plain' | 'confirm'
+  /** No close button to leave room for, a confirmation's narrow, centred box, or a wide search. */
+  look?: 'plain' | 'confirm' | 'search'
   children: ReactNode
 }
 

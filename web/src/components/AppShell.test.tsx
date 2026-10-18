@@ -61,12 +61,35 @@ describe('AppShell', () => {
     expect(render('/me')).toContain('<p class="crumbs"><span class="here">마이페이지</span></p>')
   })
 
-  it("leaves a book's header to the reader, transparent and without crumbs or the header's settings", () => {
+  it("leaves a book's header to the reader, without crumbs or the header's settings", () => {
     const out = render(`/books/${books[0]?.id}`)
     expect(out).toContain('<div class="top reading">')
     expect(out).not.toContain('class="crumbs"')
     expect(out).not.toContain('class="avatar"')
     expect(render('/books/new')).toContain('<div class="top">')
+  })
+
+  it('reads a book beside the rail, with the shelf, a search and the theme on it', () => {
+    const out = render(`/books/${books[0]?.id}`)
+    const rail = out.slice(out.indexOf('class="sb-rail"'))
+    expect(out).toMatch(/^<div class="app rail">/)
+    expect(rail).toContain('aria-label="내 서재" data-tip="내 서재"')
+    expect(rail).toContain('aria-label="서재 검색"')
+    expect(rail).toContain('aria-label="다크 모드로 변경"')
+    expect(render('/me')).toMatch(/^<div class="app">/)
+  })
+
+  it("gives a phone's drawer beside a book the rail's search and theme, which its header lacks", () => {
+    const book = render(`/books/${books[0]?.id}`)
+    const drawer = book.slice(0, book.indexOf('class="sb-rail"'))
+    expect(drawer).toMatch(/<button type="button" class="row">.*?서재 검색<\/span><\/button>/)
+    expect(drawer).toMatch(
+      /<button type="button" class="row">.*?다크 모드로 변경<\/span><\/button>/,
+    )
+    const page = render('/me')
+    expect(page.slice(0, page.indexOf('class="sb-rail"'))).not.toContain(
+      '<button type="button" class="row">',
+    )
   })
 
   it("ends the header with the theme switch and the reader's letter", () => {

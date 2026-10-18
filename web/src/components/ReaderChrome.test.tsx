@@ -19,18 +19,25 @@ const GEO = geometryOf(1388, 848, false)
 const written = (): ItemView => ({ kind: 'written', stale: false })
 
 describe('PageChrome', () => {
-  it('numbers each page inside its item and runs chapter left, item right', () => {
+  it('numbers each page inside its item and heads it with the book, then the chapter or the item', () => {
     const out = renderToStaticMarkup(
-      <PageChrome geo={GEO} layout={LAYOUT} first={4} items={ITEMS} viewOf={written} />,
+      <PageChrome
+        geo={GEO}
+        layout={LAYOUT}
+        first={4}
+        book="운영체제"
+        items={ITEMS}
+        viewOf={written}
+      />,
     )
     // the spread 4-5 and one either side: pages 2..7
     expect(out.match(/class="pgc"/g)).toHaveLength(6)
     expect(out).toContain(`left:${4 * GEO.pw}px`)
     expect(out).toMatch(
-      /<div class="rh" [^>]*><span class="t">1 서론<\/span><\/div><div class="pn" [^>]*>1</,
+      /<div class="rh" [^>]*><span class="b">운영체제<\/span><span class="t">1 서론<\/span><\/div><div class="pn" [^>]*>1</,
     )
     expect(out).toMatch(
-      /<div class="rh r" [^>]*><span class="t">1\.1 할 일<\/span><\/div><div class="pn" [^>]*>2</,
+      /<div class="rh" [^>]*><span class="b">운영체제<\/span><span class="t">1\.1 할 일<\/span><\/div><div class="pn" [^>]*>2</,
     )
     expect(out).toContain('<span class="t">차례</span>')
   })
@@ -41,6 +48,7 @@ describe('PageChrome', () => {
         geo={GEO}
         layout={LAYOUT}
         first={4}
+        book="운영체제"
         items={ITEMS}
         viewOf={(key) => (key === 's11' ? { kind: 'writing' } : written())}
       />,
@@ -50,7 +58,14 @@ describe('PageChrome', () => {
 
   it('gives the cover neither a head nor a number', () => {
     const out = renderToStaticMarkup(
-      <PageChrome geo={GEO} layout={LAYOUT} first={0} items={ITEMS} viewOf={written} />,
+      <PageChrome
+        geo={GEO}
+        layout={LAYOUT}
+        first={0}
+        book="운영체제"
+        items={ITEMS}
+        viewOf={written}
+      />,
     )
     expect(out).toMatch(
       /^<div aria-hidden="true"><div class="pgc" style="left:0;width:588px"><\/div>/,
