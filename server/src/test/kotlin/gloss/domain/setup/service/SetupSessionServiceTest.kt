@@ -16,14 +16,11 @@ import gloss.domain.setup.domain.GlossSaid
 import gloss.domain.setup.domain.ReaderConfirmed
 import gloss.domain.setup.domain.ReaderPicked
 import gloss.domain.setup.domain.ReaderSaid
-import gloss.domain.setup.domain.ReaderTyped
 import gloss.domain.setup.domain.SetupDone
 import gloss.domain.setup.domain.ToolRefused
 import gloss.domain.setup.dto.request.SetupConfirmRequest
-import gloss.domain.setup.dto.request.SetupContentsRequest
 import gloss.domain.setup.dto.request.SetupMessageRequest
 import gloss.domain.setup.dto.request.SetupPickRequest
-import gloss.domain.setup.dto.request.SetupTypedRequest
 import gloss.domain.setup.dto.response.SetupSessionResponse
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -254,10 +251,9 @@ class SetupSessionServiceTest(
         val session = setupMessageService.start(account, said("오브젝트"))
         fakeBookSourceGateway.holds(ref = "102", isbn13 = "9788998139766", title = "숨은 판본")
         fakeBookSourceGateway.holds(ref = "103", isbn13 = "9791158391409", title = "추천 판본")
-        fakeBookSourceGateway.holds(ref = "104", isbn13 = "9788966261208", contents = null, title = "목차 없는 숨은 판본")
         val hidden =
             """{"query": "숨은 검색", "callId": "hidden", "books": [{"ref": "102", "hasContents": true},""" +
-                """ {"ref": "103", "hasContents": true}, {"ref": "104", "hasContents": false}]}"""
+                """ {"ref": "103", "hasContents": true}]}"""
         val recommended =
             """{"callId": "rec", "intro": "골랐어요.", "books": [{"ref": "101", "reason": "번역서", "sources": []},""" +
                 """ {"ref": "103", "reason": "추천", "sources": []}]}"""
@@ -265,13 +261,6 @@ class SetupSessionServiceTest(
         keep(account = account, sessionId = session.id, kind = "recommend", payload = recommended)
 
         assertFails(SetupError.BOOK_NOT_OFFERED) { pickRef(account, session.id, "102") }
-        assertFails(SetupError.BOOK_NOT_OFFERED) {
-            setupSessionService.type(
-                account,
-                session.id,
-                SetupTypedRequest(ref = "104", toc = "1장 객체", revision = rev(account, session.id)),
-            )
-        }
         assertThat(pickRef(account, session.id, "103").held?.ref).isEqualTo("103")
     }
 
@@ -313,31 +302,6 @@ class SetupSessionServiceTest(
         assertThat(replaced.held?.raw).isEqualTo("1장 다른 판본")
         val picked = pickRef(account, chosen.id, "101")
         assertThat(picked.held?.ref).isEqualTo("101")
-        assertThat(books(account)).isZero()
-    }
-
-    @Test
-    fun `the held contents are edited as a book's are checked, and still make no book`() {
-        val account = accountId()
-        val chosen = picked(account)
-
-        val edited =
-            setupSessionService.edit(
-                account,
-                chosen.id,
-                SetupContentsRequest("1장 객체\n  1.1 티켓\n2장 설계", revision = rev(account, chosen.id)),
-            )
-
-        assertThat(edited.held?.raw).isEqualTo("1장 객체\n  1.1 티켓\n2장 설계")
-        assertThat(edited.held?.items?.map { it.title }).containsExactly("객체", "티켓", "설계")
-        assertFails(BookError.TOC_TOO_DEEP) {
-            setupSessionService.edit(
-                account,
-                chosen.id,
-                SetupContentsRequest("1.2.3.4.5.6.7 너무 깊은 절", revision = rev(account, chosen.id)),
-            )
-        }
-        assertThat(setupSessionService.get(account, chosen.id).held?.raw).isEqualTo("1장 객체\n  1.1 티켓\n2장 설계")
         assertThat(books(account)).isZero()
     }
 
@@ -417,34 +381,11 @@ class SetupSessionServiceTest(
     }
 
     @Test
-    fun `edited contents are the reader's own version after the source's, and that one is confirmed`() {
-        val account = accountId()
-        val chosen = picked(account)
-        setupSessionService.edit(
-            account,
-            chosen.id,
-            SetupContentsRequest("1장 객체\n2장 설계", revision = rev(account, chosen.id)),
-        )
-
-        val session = setupSessionService.confirm(account, chosen.id, seen(account, chosen.id))
-
-        val book = bookService.get(account, checkNotNull(session.bookId))
-        assertThat(book.toc.versionNo).isEqualTo(2)
-        assertThat(book.toc.origin).isEqualTo("manual")
-        assertThat(book.toc.raw).isEqualTo("1장 객체\n2장 설계")
-        assertThat(book.currentTocId).isEqualTo(book.toc.id)
-    }
-
-    @Test
     fun `starting with contents other than the ones held makes nothing`() {
         val account = accountId()
         val chosen = picked(account)
         val before = seen(account, chosen.id)
-        setupSessionService.edit(
-            account,
-            chosen.id,
-            SetupContentsRequest("1장 객체", revision = rev(account, chosen.id)),
-        )
+        pickRef(account, chosen.id, "101")
 
         assertFails(SetupError.SESSION_CHANGED) { setupSessionService.confirm(account, chosen.id, before) }
         assertThat(books(account)).isZero()
@@ -464,20 +405,7 @@ class SetupSessionServiceTest(
     }
 
     @Test
-    fun `an edit made on contents another tab has changed since is refused, and theirs is kept`() {
-        val account = accountId()
-        val chosen = picked(account)
-        val seen = chosen.revision
-        setupSessionService.edit(account, chosen.id, SetupContentsRequest("1장 탭 A", revision = seen))
-
-        assertFails(SetupError.SESSION_CHANGED) {
-            setupSessionService.edit(account, chosen.id, SetupContentsRequest("1장 탭 B", revision = seen))
-        }
-        assertThat(setupSessionService.get(account, chosen.id).held?.raw).isEqualTo("1장 탭 A")
-    }
-
-    @Test
-    fun `nothing is edited or started before a book is picked`() {
+    fun `nothing is started before a book is picked`() {
         val account = accountId()
         val session = setupMessageService.start(account, said("오브젝트"))
 
@@ -488,82 +416,18 @@ class SetupSessionServiceTest(
                 SetupConfirmRequest(revision = 1, level = "work", voice = "explain"),
             )
         }
-        assertFails(SetupError.NO_BOOK_YET) {
-            setupSessionService.edit(account, session.id, SetupContentsRequest("1장 객체", revision = 1))
-        }
     }
 
     @Test
-    fun `contents typed for an edition the source has none for are held as a pick's, and make the book on start`() {
+    fun `a book typed in whole before typing in went away still makes the book on start`() {
         val account = accountId()
-        fakeBookSourceGateway.holds("101")
-        fakeBookSourceGateway.holds(ref = "102", isbn13 = "9788998139766", contents = null, title = "오브젝트 원서")
-        val session = setupMessageService.start(account, said("오브젝트"))
+        val sessionId = typedSession(account = account, title = "나의 노트", author = "나", toc = "1장 시작\n1.1 준비")
 
-        val held =
-            setupSessionService.type(
-                account,
-                session.id,
-                SetupTypedRequest(ref = "102", toc = "1장 객체\n2장 설계", revision = rev(account, session.id)),
-            )
+        val held = setupSessionService.get(account, sessionId)
+        val started = setupSessionService.confirm(account, sessionId, seen(account, sessionId))
 
-        assertThat(held.state).isEqualTo("book_chosen")
-        assertThat(kinds(held)).containsExactly("text", "books", "typed", "contents")
-        assertThat(payloadOf(held, "typed")).isEqualTo(ReaderTyped("오브젝트 원서"))
-        val brought = payloadOf(held, "contents") as ContentsBrought
-        assertThat(
-            listOf(brought.ref, brought.title, brought.items, brought.typed),
-        ).containsExactly("102", "오브젝트 원서", 2, true)
-        assertThat(held.held?.ref).isEqualTo("102")
-        assertThat(held.held?.book?.ref).isEqualTo("102")
-        assertThat(held.held?.raw).isEqualTo("1장 객체\n2장 설계")
-        assertThat(books(account)).isZero()
-        assertFails(SetupError.BOOK_NOT_OFFERED) {
-            setupSessionService.type(
-                account,
-                session.id,
-                SetupTypedRequest(ref = "101", toc = "1장 객체", revision = rev(account, session.id)),
-            )
-        }
-
-        val started = setupSessionService.confirm(account, session.id, seen(account, session.id))
-
-        val book = bookService.get(account, checkNotNull(started.bookId))
-        assertThat(book.source).isEqualTo("yes24")
-        assertThat(book.toc.versionNo).isEqualTo(1)
-        assertThat(book.toc.origin).isEqualTo("manual")
-        assertThat(book.currentTocId).isEqualTo(book.toc.id)
-        assertThat(books(account)).isEqualTo(1)
-    }
-
-    @Test
-    fun `a book typed in whole starts a session of its own, and is made only on start`() {
-        val account = accountId()
-
-        val held =
-            setupSessionService.type(
-                account,
-                null,
-                SetupTypedRequest(title = " 나의 노트 ", authors = listOf("나", " "), toc = "1장 시작\n1.1 준비"),
-            )
-
-        assertThat(held.state).isEqualTo("book_chosen")
-        assertThat(held.messages.map { it.kind }).containsExactly("typed", "contents")
         assertThat(held.held?.ref).isNull()
-        assertThat(held.held?.title).isEqualTo("나의 노트")
         assertThat(held.held?.authors).containsExactly("나")
-        assertThat(held.held?.book).isNull()
-        assertThat(books(account)).isZero()
-        assertFails(SetupError.SESSION_CHANGED) {
-            setupSessionService.confirm(
-                account,
-                held.id,
-                SetupConfirmRequest(revision = 0, level = "work", voice = "explain"),
-            )
-        }
-
-        val started = setupSessionService.confirm(account, held.id, seen(account, held.id))
-
         val book = bookService.get(account, checkNotNull(started.bookId))
         assertThat(book.title).isEqualTo("나의 노트")
         assertThat(book.source).isEqualTo("manual")
@@ -572,31 +436,28 @@ class SetupSessionServiceTest(
         assertThat(fakeBookSourceGateway.asked).isEmpty()
     }
 
-    @Test
-    fun `a typed book is checked as a book is before anything is kept`() {
-        val account = accountId()
-
-        assertFails(BookError.INVALID_TITLE) {
-            setupSessionService.type(account, null, SetupTypedRequest(title = " ", toc = "1장 시작"))
-        }
-        assertFails(BookError.TOC_TOO_DEEP) {
-            setupSessionService.type(account, null, SetupTypedRequest(title = "책", toc = "1.2.3.4.5.6.7 너무 깊은 절"))
-        }
-        assertThat(
-            jdbc
-                .sql("select count(*) from setup_session where account_id = :account")
-                .param("account", account)
-                .query(Int::class.java)
-                .single(),
-        ).isZero()
-    }
-
-    @Test
-    fun `contents for an edition are typed in a session, never without one`() {
-        assertFails(SetupError.BOOK_NOT_OFFERED) {
-            setupSessionService.type(accountId(), null, SetupTypedRequest(ref = "102", toc = "1장 객체"))
-        }
-        assertThat(fakeBookSourceGateway.asked).isEmpty()
+    // A session holding a book typed in whole, as one could be before typing in went away.
+    private fun typedSession(
+        account: UUID,
+        title: String,
+        author: String,
+        toc: String,
+    ): UUID {
+        val id = UUID.randomUUID()
+        jdbc
+            .sql(
+                """
+                insert into setup_session (id, version, account_id, state, held_title, typed_authors, contents,
+                                           revision, created_at, updated_at)
+                values (:id, 0, :account, 'book_chosen', :title, array[:author], :toc, 1, now(), now())
+                """.trimIndent(),
+            ).param("id", id)
+            .param("account", account)
+            .param("title", title)
+            .param("author", author)
+            .param("toc", toc)
+            .update()
+        return id
     }
 
     @Test
@@ -630,7 +491,6 @@ class SetupSessionServiceTest(
     fun `every change names the revision the reader saw, and one made on an older revision changes nothing`() {
         val account = accountId()
         fakeBookSourceGateway.holds("101")
-        fakeBookSourceGateway.holds(ref = "102", isbn13 = "9788998139766", contents = null, title = "오브젝트 원서")
         val searching = setupMessageService.start(account, said("오브젝트"))
         val stale = searching.revision - 1
         val chosen = pickRef(account, searching.id, "101")
@@ -641,12 +501,6 @@ class SetupSessionServiceTest(
         }
         assertFails(SetupError.SESSION_CHANGED) {
             setupSessionService.pick(account, chosen.id, SetupPickRequest("101", revision = old))
-        }
-        assertFails(SetupError.SESSION_CHANGED) {
-            setupSessionService.type(account, chosen.id, SetupTypedRequest(ref = "102", toc = "1장", revision = old))
-        }
-        assertFails(SetupError.SESSION_CHANGED) {
-            setupSessionService.edit(account, chosen.id, SetupContentsRequest("1장 객체", revision = old))
         }
         assertFails(SetupError.SESSION_CHANGED) {
             setupSessionService.confirm(

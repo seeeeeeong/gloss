@@ -14,8 +14,7 @@ class SetupPolicyTest {
     }
 
     @Test
-    fun `nothing is edited or started before a book is picked`() {
-        assertThat(SetupPolicy.next(State.SEARCHING, Step.EDIT)).isNull()
+    fun `nothing is started before a book is picked`() {
         assertThat(SetupPolicy.next(State.SEARCHING, Step.CONFIRM)).isNull()
     }
 
@@ -27,10 +26,9 @@ class SetupPolicyTest {
     }
 
     @Test
-    fun `with a book chosen, a message searches again, a pick replaces it, and an edit keeps it`() {
+    fun `with a book chosen, a message searches again and a pick replaces it`() {
         assertThat(SetupPolicy.next(State.BOOK_CHOSEN, Step.SAY)).isEqualTo(State.SEARCHING)
         assertThat(SetupPolicy.next(State.BOOK_CHOSEN, Step.PICK)).isEqualTo(State.BOOK_CHOSEN)
-        assertThat(SetupPolicy.next(State.BOOK_CHOSEN, Step.EDIT)).isEqualTo(State.BOOK_CHOSEN)
     }
 
     @Test

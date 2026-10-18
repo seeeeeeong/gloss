@@ -41,7 +41,7 @@ class SetupSessionControllerTest(
     }
 
     @Test
-    fun `a reader names a book, picks an edition, edits its contents and starts, then the book stands confirmed`() {
+    fun `a reader names a book, picks an edition and starts, then the book stands confirmed`() {
         fakeBookSourceGateway.holds("101")
         val browser = signedIn()
 
@@ -53,17 +53,8 @@ class SetupSessionControllerTest(
                 "/api/me/setup-sessions/$sessionId/pick",
                 mapOf("ref" to "101", "revision" to started.body?.get("revision")?.asInt()),
             )
-        val seen =
-            picked.body
-                ?.get("revision")
-                ?.asInt()
-        val edited =
-            browser.put(
-                "/api/me/setup-sessions/$sessionId/contents",
-                mapOf("toc" to "1장 객체\n2장 설계", "revision" to seen),
-            )
         val revision =
-            edited.body
+            picked.body
                 ?.get("revision")
                 ?.asInt()
         val confirmed = browser.post("/api/me/setup-sessions/$sessionId/confirm", chosen + ("revision" to revision))
@@ -81,11 +72,11 @@ class SetupSessionControllerTest(
         assertThat(picked.body?.get("state")?.asString()).isEqualTo("book_chosen")
         assertThat(picked.body?.get("bookId")?.isNull).isTrue()
         assertThat(
-            edited.body
+            picked.body
                 ?.get("held")
                 ?.get("items")
                 ?.size(),
-        ).isEqualTo(2)
+        ).isEqualTo(3)
         assertThat(confirmed.body?.get("state")?.asString()).isEqualTo("confirmed")
         assertThat(book.body?.get("currentTocId")?.asString()).isNotNull()
         assertThat(
@@ -93,7 +84,7 @@ class SetupSessionControllerTest(
                 ?.get("toc")
                 ?.get("raw")
                 ?.asString(),
-        ).isEqualTo("1장 객체\n2장 설계")
+        ).isEqualTo("1장 객체, 설계\n1.1 티켓 판매\n2장 객체지향")
         val kinds: List<String> =
             again.body
                 ?.get("messages")
@@ -105,7 +96,7 @@ class SetupSessionControllerTest(
     }
 
     @Test
-    fun `an empty message, contents without a book and a step out of turn are refused`() {
+    fun `an empty message, a start without its style and a step out of turn are refused`() {
         val browser = signedIn()
         val started = browser.post("/api/me/setup-sessions", mapOf("text" to "오브젝트"))
         val sessionId = started.body?.get("id")?.asString()
@@ -113,10 +104,6 @@ class SetupSessionControllerTest(
         assertThat(browser.post("/api/me/setup-sessions", mapOf("text" to " ")).status).isEqualTo(400)
         assertThat(browser.post("/api/me/setup-sessions/$sessionId/confirm", emptyMap<String, String>()).status)
             .isEqualTo(400)
-        assertThat(browser.post("/api/me/setup-sessions/typed-contents", mapOf("title" to "책")).status).isEqualTo(400)
-        assertThat(
-            browser.post("/api/me/setup-sessions/typed-contents", mapOf("ref" to "101", "toc" to "1장")).code,
-        ).isEqualTo("setup.book_not_offered")
         assertThat(
             browser
                 .post(
@@ -133,37 +120,6 @@ class SetupSessionControllerTest(
         ).isEqualTo("setup.invalid_style")
         assertThat(browser.post("/api/me/setup-sessions/$sessionId/pick", mapOf("ref" to "999", "revision" to 1)).code)
             .isEqualTo("setup.book_not_offered")
-    }
-
-    @Test
-    fun `a book typed in whole starts a session, and starting with it makes the book`() {
-        val browser = signedIn()
-
-        val held =
-            browser.post(
-                "/api/me/setup-sessions/typed-contents",
-                mapOf("title" to "나의 노트", "authors" to listOf("나"), "toc" to "1장 시작\n1.1 준비"),
-            )
-        val sessionId = held.body?.get("id")?.asString()
-        val revision =
-            held.body
-                ?.get("revision")
-                ?.asInt()
-        val started = browser.post("/api/me/setup-sessions/$sessionId/confirm", chosen + ("revision" to revision))
-        val book = browser.get("/api/me/books/${started.body?.get("bookId")?.asString()}")
-
-        assertThat(held.status).isEqualTo(201)
-        assertThat(
-            held.body
-                ?.get("held")
-                ?.get("title")
-                ?.asString(),
-        ).isEqualTo("나의 노트")
-        assertThat(started.body?.get("state")?.asString()).isEqualTo("confirmed")
-        assertThat(book.body?.get("title")?.asString()).isEqualTo("나의 노트")
-        assertThat(book.body?.get("currentTocId")?.asString()).isNotNull()
-        assertThat(book.body?.get("level")?.asString()).isEqualTo("intro")
-        assertThat(book.body?.get("voice")?.asString()).isEqualTo("note")
     }
 
     @Test
