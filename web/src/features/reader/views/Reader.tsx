@@ -15,13 +15,13 @@ import {
 } from 'react'
 import { BookmarkButton } from '@/features/reader/components/BookmarkButton'
 import { Edges, PageChrome, Pager } from '@/features/reader/components/ReaderChrome'
+import { ReaderContents } from '@/features/reader/components/ReaderContents'
 import {
   Contents,
   Cover,
   ItemArticle,
   type ReaderBook,
 } from '@/features/reader/components/ReaderPages'
-import { ReaderTitle } from '@/features/reader/components/ReaderTitle'
 import { ReadingControls } from '@/features/reader/components/ReadingView'
 import { Tutor } from '@/features/reader/components/Tutor'
 import { useBookPosts } from '@/features/reader/hooks/useBookPosts'
@@ -29,6 +29,7 @@ import { useReadingPlace } from '@/features/reader/hooks/useReadingPlace'
 import { useReadingSize } from '@/features/reader/hooks/useReadingSize'
 import { useSpreads } from '@/features/reader/hooks/useSpreads'
 import { useStageGeometry } from '@/features/reader/hooks/useStageGeometry'
+import { useTutor } from '@/features/reader/hooks/useTutor'
 import { dwell, REST_MS } from '@/features/reader/utils/dwell'
 import {
   COVER,
@@ -45,6 +46,7 @@ import {
   visibleUnits,
 } from '@/features/reader/utils/reader'
 import { lineOf } from '@/features/reader/utils/reading'
+import { talkedItems } from '@/features/reader/utils/tutor'
 import { useBookmarks } from '@/hooks/useBookmarks'
 import type { Bookmark } from '@/lib/bookmarks'
 import type { TocItem } from '@/lib/books'
@@ -80,6 +82,9 @@ export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
   const flow = useRef<HTMLDivElement>(null)
   const [size] = useReadingSize()
   const marks = useBookmarks(bookmarks)
+  const marked = useMemo(() => new Set(marks.marks.map((mark) => mark.itemKey)), [marks.marks])
+  const tutor = useTutor(book.id)
+  const talked = useMemo(() => talkedItems(tutor.messages), [tutor.messages])
   const line = lineOf(size)
   const { geo, phone, width } = useStageGeometry(stage, line)
 
@@ -170,12 +175,14 @@ export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
 
   return (
     <div className="reader">
-      <ReaderTitle
+      <ReaderContents
         book={book}
         items={items}
         current={currentKey}
         phone={phone}
         viewOf={viewOf}
+        marked={marked}
+        talked={talked}
         onGo={goItem}
       />
       <div ref={stage} className="stage">
@@ -237,8 +244,7 @@ export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
         {marks.said}
       </div>
       <Tutor
-        key={book.id}
-        bookId={book.id}
+        tutor={tutor}
         items={items}
         current={ready ? currentKey : null}
         phone={phone}

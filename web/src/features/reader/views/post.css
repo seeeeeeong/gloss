@@ -8,7 +8,7 @@
 }
 .reader.post .post-scroll {
   position: absolute;
-  left: 0;
+  left: var(--tree-w, 0px);
   right: 0;
   top: 52px;
   bottom: 0;
