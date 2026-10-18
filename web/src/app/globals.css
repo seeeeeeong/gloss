@@ -2548,10 +2548,10 @@ button.tcard[aria-expanded="true"] {
 }
 .p-items li {
   display: flex;
-  gap: 14px;
-  padding: 13px 0;
-  border-bottom: 1px solid var(--b-light);
+  gap: 10px;
+  padding: 5px 0;
   font: 400 14px / 20px var(--font);
+  color: var(--tx);
 }
 .p-items .no {
   flex: none;
@@ -2560,11 +2560,24 @@ button.tcard[aria-expanded="true"] {
   color: var(--tx3);
   font-variant-numeric: tabular-nums;
 }
+/* A top item opens a group: a rule above it, and room around it */
+.p-items .d1 {
+  margin-top: 10px;
+  padding-top: 15px;
+  border-top: 1px solid var(--b-light);
+  font-weight: 590;
+}
+.p-items .d1:first-child {
+  margin-top: 0;
+  border-top: 0;
+}
 .p-items .d2 {
   padding-left: 16px;
 }
 .p-items .d3 {
   padding-left: 32px;
+  font-size: 13px;
+  color: var(--tx2);
 }
 /* Going on talking, or starting with these contents */
 .p-foot {
