@@ -4,15 +4,17 @@ import './reader.css'
 import './post.css'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BookmarkButton } from '@/features/reader/components/BookmarkButton'
+import { ReaderContents } from '@/features/reader/components/ReaderContents'
 import { ReaderPost } from '@/features/reader/components/ReaderPost'
-import { ReaderTitle } from '@/features/reader/components/ReaderTitle'
 import { ReadingControls } from '@/features/reader/components/ReadingView'
 import { Tutor } from '@/features/reader/components/Tutor'
 import { useBookPosts } from '@/features/reader/hooks/useBookPosts'
 import { lastReadIn, useReadingPlace } from '@/features/reader/hooks/useReadingPlace'
 import { useReadingSize } from '@/features/reader/hooks/useReadingSize'
 import { useStageSize } from '@/features/reader/hooks/useStageSize'
+import { useTutor } from '@/features/reader/hooks/useTutor'
 import { dwell, REST_MS } from '@/features/reader/utils/dwell'
+import { talkedItems } from '@/features/reader/utils/tutor'
 import { useBookmarks } from '@/hooks/useBookmarks'
 import type { ReaderProps } from './Reader'
 
@@ -27,6 +29,9 @@ export function PostReader({ book, items, posts, start, bookmarks }: ReaderProps
   const text = useRef<HTMLDivElement>(null)
   const [size] = useReadingSize()
   const marks = useBookmarks(bookmarks)
+  const marked = useMemo(() => new Set(marks.marks.map((mark) => mark.itemKey)), [marks.marks])
+  const tutor = useTutor(book.id)
+  const talked = useMemo(() => talkedItems(tutor.messages), [tutor.messages])
   const stage = useStageSize(scroller)
   const phone = stage?.phone ?? false
 
@@ -87,12 +92,14 @@ export function PostReader({ book, items, posts, start, bookmarks }: ReaderProps
 
   return (
     <div className="reader post">
-      <ReaderTitle
+      <ReaderContents
         book={book}
         items={items}
         current={current}
         phone={phone}
         viewOf={viewOf}
+        marked={marked}
+        talked={talked}
         onGo={goItem}
       />
       <div ref={scroller} className="post-scroll">
@@ -122,8 +129,7 @@ export function PostReader({ book, items, posts, start, bookmarks }: ReaderProps
         {marks.said}
       </div>
       <Tutor
-        key={book.id}
-        bookId={book.id}
+        tutor={tutor}
         items={items}
         current={current}
         phone={phone}

@@ -1,10 +1,11 @@
 import { type TocItem, type TocNode, treeOf } from '@/lib/books'
 import { type Generation, headingOf, type PostSummary } from '@/lib/posts'
 
-// Where the page keys belong to what has focus: typing, the sidebar and contents, and the tutor's
-// own controls, its toggle, floating button and sheet included, all of which sit outside the book.
+// Where the page keys belong to what has focus: typing, the app's sidebar, and the tutor's own
+// controls, its toggle, floating button and sheet included. The book's contents are links, which
+// leave the keys to the pages.
 const NOT_FOR_TURNING =
-  'input, textarea, select, [contenteditable="true"], .sb, .tocpop, dialog, .tutor, .ask, .tg, .t-fab, .t-phone'
+  'input, textarea, select, [contenteditable="true"], .sb, dialog, .tutor, .ask, .tg, .t-fab, .t-phone'
 
 /** Whether a page key pressed with focus on [target] turns the page. */
 export function turnsPageFrom(target: { closest: (selectors: string) => unknown } | null): boolean {
@@ -257,16 +258,28 @@ export function contentsRowsOf(items: TocItem[], openKey: string | null): Conten
   return walk(roots, 0)
 }
 
-/** A row of the contents popover: an item with items under it reads as their heading. */
-export type MenuRow = { key: string; label: string; heading: boolean }
+/** An item in the contents sidebar, with the items under it. */
+export type ContentsNode = {
+  item: TocItem
+  kind: ContentsRow['kind']
+  children: ContentsNode[]
+}
 
-export function menuRowsOf(items: TocItem[]): MenuRow[] {
-  const parents = new Set(items.map((item) => item.parentId))
-  return items.map((item) => ({
-    key: item.itemKey,
-    label: headingOf(item),
-    heading: parents.has(item.id),
-  }))
+/** The whole contents as a tree: parts over chapters over sections, as the 차례 page names them. */
+export function contentsTreeOf(items: TocItem[]): ContentsNode[] {
+  const roots = treeOf(items)
+  const chapterLevel = height(roots) >= 3 ? 1 : 0
+  const byId = new Map(items.map((item) => [item.id, item]))
+  const walk = (nodes: TocNode[], level: number): ContentsNode[] =>
+    nodes.map((node) => {
+      const part = level < chapterLevel && node.children.length > 0
+      return {
+        item: byId.get(node.id) ?? node,
+        kind: part ? 'part' : level <= chapterLevel ? 'chapter' : 'section',
+        children: walk(node.children, level + 1),
+      }
+    })
+  return walk(roots, 0)
 }
 
 /** The items [item] sits under, outermost first. */

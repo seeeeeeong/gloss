@@ -16,6 +16,7 @@ import {
   startsDocked,
   type TutorAction,
   type TutorState,
+  talkedItems,
   turnIn,
   tutorDocks,
   tutorOf,
@@ -301,5 +302,16 @@ describe('startsDocked', () => {
     expect(startsDocked(null)).toBe(false)
     expect(startsDocked('false')).toBe(false)
     expect(startsDocked('true')).toBe(true)
+  })
+})
+
+describe('talkedItems', () => {
+  it('names each item a message was about, once, and none before the thread is read', () => {
+    const elsewhere = { ...message(3, 'reader'), itemKey: 'b' }
+    const general = { ...message(5, 'reader'), itemKey: null }
+    expect([
+      ...talkedItems([message(1, 'reader'), message(2, 'gloss'), elsewhere, general]),
+    ]).toEqual(['a', 'b'])
+    expect(talkedItems(null).size).toBe(0)
   })
 })

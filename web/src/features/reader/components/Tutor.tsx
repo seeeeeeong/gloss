@@ -17,7 +17,7 @@ import { useShellPanel } from '@/components/layouts/ShellPanel'
 import { useShellTitle } from '@/components/layouts/ShellTitle'
 import { Icon } from '@/components/ui/Icon'
 import { itemKeyFor, type Quote, quoteOf } from '@/features/reader/api/chat'
-import { useTutor } from '@/features/reader/hooks/useTutor'
+import type { useTutor } from '@/features/reader/hooks/useTutor'
 import { itemOfUnit } from '@/features/reader/utils/reader'
 import {
   holdOthers,
@@ -31,7 +31,8 @@ import { TutorComposer } from './TutorComposer'
 import { TutorThread } from './TutorThread'
 
 type Props = {
-  bookId: string
+  /** The book's conversation, which the page reads once for the tutor and the contents. */
+  tutor: ReturnType<typeof useTutor>
   items: TocItem[]
   /** The item the reader is on, null on the cover and the 차례. */
   current: string | null
@@ -54,8 +55,7 @@ const DOCKED_KEY = 'gloss.tutor.docked'
  * sheet behind a floating button on a phone. A phrase picked in the book can be asked about.
  */
 export function Tutor(props: Props) {
-  const { bookId, items, current, phone: phoneWide, width, versions, flow, onGo, onKeep } = props
-  const tutor = useTutor(bookId)
+  const { tutor, items, current, phone: phoneWide, width, versions, flow, onGo, onKeep } = props
   const { slot, setOpen } = useShellPanel()
   const shell = useShellTitle()
   const docking = useDocked(width > 0)

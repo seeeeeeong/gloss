@@ -6,6 +6,7 @@ import {
   CONTENTS,
   COVER,
   contentsRowsOf,
+  contentsTreeOf,
   currentUnit,
   geometryOf,
   type ItemView,
@@ -13,7 +14,6 @@ import {
   itemsAround,
   itemViewOf,
   type Layout,
-  menuRowsOf,
   openItemOf,
   pageIn,
   pageOfAnchor,
@@ -293,17 +293,27 @@ describe('rowMarkOf', () => {
   })
 })
 
-describe('menuRowsOf', () => {
-  it('lists every item, those with items under them as headings', () => {
-    expect(menuRowsOf(BOOK).map((row) => [row.key, row.heading])).toEqual([
-      ['pre', false],
-      ['p1', true],
-      ['c1', true],
-      ['s11', false],
-      ['s12', false],
-      ['c2', true],
-      ['s21', false],
+describe('contentsTreeOf', () => {
+  const shape = (nodes: ReturnType<typeof contentsTreeOf>): unknown[] =>
+    nodes.map((node) => [node.item.itemKey, node.kind, ...shape(node.children)])
+
+  it('sets parts over chapters over sections in a book three levels deep', () => {
+    expect(shape(contentsTreeOf(BOOK))).toEqual([
+      ['pre', 'chapter'],
+      [
+        'p1',
+        'part',
+        ['c1', 'chapter', ['s11', 'section'], ['s12', 'section']],
+        ['c2', 'chapter', ['s21', 'section']],
+      ],
     ])
+  })
+
+  it('starts at chapters in a shallower book, and keeps each item as the contents has it', () => {
+    const flat = [item('c1', null, '1', '서론'), item('s11', 'c1', '1.1', '할 일')]
+    const tree = contentsTreeOf(flat)
+    expect(shape(tree)).toEqual([['c1', 'chapter', ['s11', 'section']]])
+    expect(tree[0]?.item).toBe(flat[0])
   })
 })
 
@@ -377,9 +387,10 @@ describe('turnsPageFrom', () => {
       selectors.split(',').some((s) => within.includes(s.trim())) ? {} : null,
   })
 
-  it('turns the page from the book, and never from the tutor or its controls', () => {
+  it('turns the page from the book and its contents, and never from the tutor or its controls', () => {
     expect(turnsPageFrom(at('.flow'))).toBe(true)
     expect(turnsPageFrom(null)).toBe(true)
+    expect(turnsPageFrom(at('.tree-col'))).toBe(true)
     for (const control of ['.tg', '.t-fab', '.t-phone', '.tutor', '.ask', 'textarea']) {
       expect(turnsPageFrom(at(control))).toBe(false)
     }

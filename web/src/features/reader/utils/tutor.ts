@@ -235,3 +235,8 @@ export async function followWhileAnswering(
   }
   return true
 }
+
+/** The items the reader has talked with the tutor about. */
+export function talkedItems(messages: ChatMessage[] | null): ReadonlySet<string> {
+  return new Set((messages ?? []).flatMap((message) => message.itemKey ?? []))
+}

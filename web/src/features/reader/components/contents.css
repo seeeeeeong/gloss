@@ -1,0 +1,243 @@
+/* The contents beside the reading: a column of 272 after the rail, a drawer on a phone */
+.reader {
+  --tree-w: 272px;
+}
+.reader:has(> .tree-col.shut) {
+  --tree-w: 0px;
+}
+.main:has(> .reader > .tree-col:not(.shut)) > .top.reading {
+  left: 272px;
+}
+.top-here {
+  min-width: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  font: 510 13px / 20px var(--font);
+  color: var(--tx);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tree-reopen {
+  flex: none;
+}
+
+.tree-col {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  width: 272px;
+  background: var(--sidebar);
+  border-right: 1px solid var(--sb-border);
+}
+.tree-col.shut {
+  display: none;
+}
+.tree-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 8px 0 16px;
+  border-bottom: 1px solid var(--sb-border);
+}
+.tree-head .bt {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font: 590 13px / 18px var(--font);
+  color: var(--tx);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tree-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.tree {
+  padding: 0 8px 24px;
+  font: 400 13px / 20px var(--font);
+}
+.tree ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tree-cap {
+  display: flex;
+  justify-content: space-between;
+  margin: 18px 8px 8px;
+  font: 400 12px / 18px var(--font);
+  color: var(--tx3);
+}
+.tree-cap span:last-child {
+  font-variant-numeric: tabular-nums;
+}
+
+/* A top item opens a group: a rule above it, and room around it */
+.tree > ul > li {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--b-light);
+}
+.tree > ul > li:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.tr-line {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+}
+.tr-fold {
+  position: absolute;
+  left: 0;
+  top: 4px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  color: var(--tx3);
+  transition: background-color 150ms var(--ease);
+}
+.tr-fold:hover {
+  background: var(--hover);
+  color: var(--tx);
+}
+.tr-fold svg {
+  transition: transform 150ms var(--ease);
+}
+.tr-ch.open > .tr-line .tr-fold svg {
+  transform: rotate(90deg);
+}
+.tr-row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: 28px;
+  padding: 4px 8px 4px 24px;
+  border-radius: 6px;
+  color: var(--tx);
+  transition: background-color 100ms var(--ease);
+}
+.tr-row:hover {
+  background: var(--hover);
+}
+.tr-row .no {
+  flex: none;
+  min-width: 22px;
+  font: 400 12px / 20px var(--font);
+  color: var(--tx3);
+  font-variant-numeric: tabular-nums;
+}
+.tr-row .t {
+  flex: 1;
+  min-width: 0;
+}
+.tr-part > .tr-row {
+  padding-left: 8px;
+}
+.tr-row.d1 {
+  font-weight: 590;
+}
+.tr-row.d3 {
+  padding-left: 38px;
+  font-size: 12px;
+  color: var(--tx2);
+}
+.tr-row.todo {
+  color: var(--tx3);
+}
+.tr-row[aria-current="page"] {
+  background: var(--selected);
+  color: var(--selected-tx);
+  font-weight: 590;
+}
+.tr-row[aria-current="page"] .no {
+  color: var(--selected-tx);
+}
+.tr-row:focus-visible,
+.tr-fold:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--focus);
+}
+.st {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  margin-left: 2px;
+}
+.st .ic-chat,
+.st .ic-mark {
+  display: grid;
+  color: var(--mark);
+}
+.st .ic-mark svg {
+  fill: currentColor;
+}
+.tree .spin {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--b-heavy);
+  border-top-color: var(--tx2);
+  animation: spin 800ms linear infinite;
+}
+.tree-scrim {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .reader,
+  .reader:has(> .tree-col.shut) {
+    --tree-w: 0px;
+  }
+  .main:has(> .reader > .tree-col:not(.shut)) > .top.reading {
+    left: 0;
+  }
+  .top-here,
+  .tree-reopen {
+    display: none;
+  }
+  .tree-col,
+  .tree-col.shut {
+    position: fixed;
+    z-index: 45;
+    display: flex;
+    width: min(320px, 86vw);
+    border-right: 0;
+    box-shadow: var(--dialog-shadow);
+    transform: translateX(-100%);
+    visibility: hidden;
+    transition:
+      transform 240ms var(--ease),
+      visibility 0s linear 240ms;
+  }
+  .tree-col.open {
+    transform: none;
+    visibility: visible;
+    transition:
+      transform 240ms var(--ease),
+      visibility 0s;
+  }
+  .tree-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 44;
+    background: var(--scrim);
+  }
+}
