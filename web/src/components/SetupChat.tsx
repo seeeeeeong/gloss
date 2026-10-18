@@ -1,11 +1,12 @@
 'use client'
 
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { Composer } from '@/components/Composer'
+import { Icon } from '@/components/Icon'
 import type { ShownContents } from '@/components/SetupContents'
 import { GlossTurn } from '@/components/SetupTurns'
-import { TypedContentsForm } from '@/components/TypedContentsForm'
 import { useHeldContents } from '@/components/useHeldContents'
 import { type Pending, useSetupSession } from '@/components/useSetupSession'
 import {
@@ -22,13 +23,12 @@ const MAX_TEXT = 500
 
 /**
  * Adding a book by talking it through: the reader names a book or asks what to read, Gloss answers
- * with the editions found or the books it recommends, a pick brings its contents as a document into
- * the thread, 수정 opens them as text in the side panel, and starting with them makes the book. Empty,
- * the screen is a heading over the composer.
+ * with the editions found or the books it recommends, a pick brings its contents into the thread as a
+ * card that opens them in the side panel, and starting with them makes the book. Empty, the screen is
+ * a heading over the composer.
  */
 export function SetupChat({ initial }: { initial: SetupSession | null }) {
   const params = useSearchParams()
-  const [typing, setTyping] = useState<OfferedBook | 'blank' | null>(null)
   const setup = useSetupSession(initial)
   const { session, pending, error, reset } = setup
   const held = useHeldContents(setup)
@@ -43,7 +43,6 @@ export function SetupChat({ initial }: { initial: SetupSession | null }) {
     if (!cameBack) return
     reset()
     resetHeld()
-    setTyping(null)
   }, [fresh, reset, resetHeld])
 
   const composer = (docked: boolean) => (
@@ -54,15 +53,10 @@ export function SetupChat({ initial }: { initial: SetupSession | null }) {
       busy={pending !== null || session?.state === 'confirmed' || session?.searching === true}
       autoFocus={docked}
       onSend={setup.say}
-      plus={{
-        label: '직접 입력',
-        expanded: typing === 'blank',
-        onClick: () => setTyping(typing === 'blank' ? null : 'blank'),
-      }}
     />
   )
 
-  if (!session && !pending && !error && typing === null) {
+  if (!session && !pending && !error) {
     return (
       <div className="home">
         <div className="wrap">
@@ -79,38 +73,19 @@ export function SetupChat({ initial }: { initial: SetupSession | null }) {
     <div className="scroll">
       <div className="wrap">
         <div className="col thread">
+          <Link className="tbtn new-thread" href="/books/new">
+            <Icon name="plus" size={16} />새 대화
+          </Link>
           <Turns
             session={session}
             pending={pending}
             contents={held.contents}
-            onPick={(book) => {
-              setTyping(null)
-              void setup.pick(book)
-            }}
-            onType={setTyping}
+            onPick={(book) => void setup.pick(book)}
           />
           {error && (
             <div className="turn gloss">
               <p role="alert">{error}</p>
             </div>
-          )}
-          {typing !== null && (
-            <section className="turn gloss" aria-labelledby="typed">
-              <h2 className="sub-h" id="typed">
-                {typing === 'blank' ? '직접 입력' : '목차 입력'}
-              </h2>
-              {/* A new key starts the form over for the edition picked. */}
-              <TypedContentsForm
-                key={typing === 'blank' ? 'blank' : typing.ref}
-                found={typing === 'blank' ? null : typing}
-                onSubmit={async (typed) => {
-                  const result = await setup.type(typed)
-                  if (result?.ok) setTyping(null)
-                  return result
-                }}
-                onCancel={() => setTyping(null)}
-              />
-            </section>
           )}
         </div>
       </div>
@@ -119,7 +94,7 @@ export function SetupChat({ initial }: { initial: SetupSession | null }) {
           <div className="col">{composer(true)}</div>
         </div>
       </div>
-      {held.editor}
+      {held.panel}
     </div>
   )
 }
@@ -129,11 +104,10 @@ type TurnsProps = {
   pending: Pending | null
   contents: ShownContents | null
   onPick: (book: OfferedBook) => void
-  onType: (book: OfferedBook) => void
 }
 
 /** The thread so far, then what the reader just did while the server answers it. */
-function Turns({ session, pending, contents, onPick, onType }: TurnsProps) {
+function Turns({ session, pending, contents, onPick }: TurnsProps) {
   const lastTurn = useRef<HTMLDivElement>(null)
   const messages = session?.messages ?? []
   const lastReader = pending ? -1 : messages.findLastIndex((message) => message.role === 'reader')
@@ -161,13 +135,15 @@ function Turns({ session, pending, contents, onPick, onType }: TurnsProps) {
             )
           return (
             <div className="turn gloss" key={message.seq}>
+              <p className="speaker" aria-hidden="true">
+                gloss
+              </p>
               <GlossTurn
                 message={message}
                 session={session}
                 busy={pending !== null}
                 contents={contents}
                 onPick={onPick}
-                onType={onType}
               />
             </div>
           )

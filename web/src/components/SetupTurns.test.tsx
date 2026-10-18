@@ -79,7 +79,6 @@ const turn = (message: SetupMessage) =>
       busy={false}
       contents={null}
       onPick={noop}
-      onType={noop}
     />,
   )
 
@@ -91,7 +90,6 @@ describe('BookRow', () => {
         state="searching"
         busy={false}
         onPick={noop}
-        onType={noop}
         rank={1}
         reason="전공 수업에서 많이 써요."
         sources={[
@@ -114,18 +112,18 @@ describe('BookRow', () => {
     expect(out).toContain('aria-label="운영체제, 이 책으로 학습"')
   })
 
-  it('offers a book without contents to be typed in, and no rank or reason in a plain list', () => {
+  it('offers nothing to press for a book without contents, and no rank or reason in a plain list', () => {
     const out = renderToStaticMarkup(
       <BookRow
         book={{ ...book, hasContents: false }}
         state="searching"
         busy={false}
         onPick={noop}
-        onType={noop}
       />,
     )
 
-    expect(out).toContain('직접 입력')
+    expect(out).toContain('목차 없음')
+    expect(out).not.toContain('직접 입력')
     expect(out).not.toContain('이 책으로 학습')
     expect(out).not.toContain('bk-why')
     expect(out).not.toContain('bk-src')
@@ -161,7 +159,6 @@ describe('GlossTurn', () => {
         busy={false}
         contents={null}
         onPick={noop}
-        onType={noop}
       />,
     )
 
@@ -196,7 +193,7 @@ describe('GlossTurn', () => {
     expect(failed('setup.no_answer', '다시 보내 주세요')).not.toContain('href')
   })
 
-  it('shows contents brought earlier as their heading and size, never the whole list', () => {
+  it('shows contents brought earlier as their title and size, never the whole list', () => {
     const out = turn({
       ...at,
       role: 'gloss',
@@ -204,7 +201,8 @@ describe('GlossTurn', () => {
       payload: { ref: '101', title: '운영체제', items: 11, typed: false },
     })
 
-    expect(out).toContain('<span class="tcard-title">운영체제 전체 목차</span>')
+    expect(out).toContain('<div class="tcard">')
+    expect(out).toContain('<span class="tcard-title">운영체제</span>')
     expect(out).toContain('<span class="tcard-meta">11개 항목</span>')
     expect(out).not.toContain('<h1>')
   })

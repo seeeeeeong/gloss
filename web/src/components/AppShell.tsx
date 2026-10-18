@@ -103,7 +103,7 @@ export function AppShell({ me, books, children }: Props) {
   const crumb = crumbOf(path)
   const frame = [
     'app',
-    (wide || reading) && 'rail',
+    reading && 'rail',
     wide && 'panel-open',
     panelOpen === 'tutor' && 'tutor-open',
     drawer && 'drawer',
@@ -245,7 +245,10 @@ type RailProps = {
   onSearch: () => void
 }
 
-/** The sidebar folded to icons, beside a book or an open panel: the shelf, a search and the theme. */
+/**
+ * The sidebar folded to icons, beside a book or, below 1024, an open panel: the shelf, a search and
+ * the theme.
+ */
 function Rail({ operator, within, onSearch }: RailProps) {
   const { dark, toggle } = useDarkTheme()
   const themeLabel = dark ? '라이트 모드로 변경' : '다크 모드로 변경'

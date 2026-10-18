@@ -4,17 +4,13 @@ import {
   canPick,
   cardItems,
   chatKey,
-  contentsHeading,
   contentsIntro,
-  docOf,
   factsOf,
   failureLink,
   type HeldContents,
   type HeldItem,
   type HoldStep,
-  heldTree,
   hostOf,
-  keepsEditing,
   kindTells,
   latestBooks,
   listOf,
@@ -120,21 +116,6 @@ describe('canPick', () => {
   it('offers none without contents, or once the book is made', () => {
     expect(canPick('searching', book(false))).toBe(false)
     expect(canPick('confirmed', book(true))).toBe(false)
-  })
-})
-
-describe('heldTree', () => {
-  it('nests each item under the one its parent names', () => {
-    const tree = heldTree([
-      { ord: 0, parent: null, depth: 1, number: '1장', title: '객체' },
-      { ord: 1, parent: 0, depth: 2, number: '1.1', title: '티켓' },
-      { ord: 2, parent: null, depth: 1, number: '2장', title: '설계' },
-    ])
-
-    expect(tree.map((node) => [node.title, node.children.map((child) => child.title)])).toEqual([
-      ['객체', ['티켓']],
-      ['설계', []],
-    ])
   })
 })
 
@@ -252,17 +233,6 @@ describe('startMayHaveLanded', () => {
   it('takes a clear refusal or a success as it is', () => {
     expect(startMayHaveLanded({ ok: false, status: 409, code: 'setup.held_changed' })).toBe(false)
     expect(startMayHaveLanded({ ok: true })).toBe(false)
-  })
-})
-
-describe('keepsEditing', () => {
-  it('closes the editor once saved, or when another tab changed the contents first', () => {
-    expect(keepsEditing({ ok: true })).toBe(false)
-    expect(keepsEditing({ ok: false, status: 409 })).toBe(false)
-  })
-  it('keeps the edit open after a refusal the reader can fix in place', () => {
-    expect(keepsEditing({ ok: false, status: 400 })).toBe(true)
-    expect(keepsEditing({ ok: false, status: 0 })).toBe(true)
   })
 })
 
@@ -548,57 +518,6 @@ const heldItem = (ord: number, parent: number | null, depth: number, title: stri
   title,
 })
 
-describe('docOf', () => {
-  it('reads three levels as parts, chapters and lists of sections, deeper ones nested', () => {
-    const blocks = docOf([
-      heldItem(0, null, 0, 'Part 1 개관'),
-      heldItem(1, 0, 1, '1 서론'),
-      heldItem(2, 1, 2, '1.1 운영체제가 할 일'),
-      heldItem(3, 2, 3, '1.1.1 사용자 관점'),
-      heldItem(4, 1, 2, '1.2 구성'),
-      heldItem(5, 0, 1, '2 구조'),
-    ])
-
-    expect(blocks).toEqual([
-      { kind: 'part', key: '0', label: 'Part 1 개관' },
-      { kind: 'chapter', key: '1', label: '1 서론' },
-      {
-        kind: 'list',
-        key: '2',
-        items: [
-          {
-            key: '2',
-            label: '1.1 운영체제가 할 일',
-            children: [{ key: '3', label: '1.1.1 사용자 관점', children: [] }],
-          },
-          { key: '4', label: '1.2 구성', children: [] },
-        ],
-      },
-      { kind: 'chapter', key: '5', label: '2 구조' },
-    ])
-  })
-
-  it('reads two levels as chapters and their sections, one as a single list', () => {
-    expect(
-      docOf([heldItem(0, null, 0, '1장'), heldItem(1, 0, 1, '1.1'), heldItem(2, null, 0, '2장')]),
-    ).toEqual([
-      { kind: 'chapter', key: '0', label: '1장' },
-      { kind: 'list', key: '1', items: [{ key: '1', label: '1.1', children: [] }] },
-      { kind: 'chapter', key: '2', label: '2장' },
-    ])
-    expect(docOf([heldItem(0, null, 0, '1장'), heldItem(1, null, 0, '2장')])).toEqual([
-      {
-        kind: 'list',
-        key: '0',
-        items: [
-          { key: '0', label: '1장', children: [] },
-          { key: '1', label: '2장', children: [] },
-        ],
-      },
-    ])
-  })
-})
-
 describe('factsOf', () => {
   const held: HeldContents = {
     ref: '101',
@@ -624,7 +543,6 @@ describe('factsOf', () => {
       '판본: 퍼스트북 2020',
       '구성: 1개 항목',
     ])
-    expect(contentsHeading(held)).toBe('운영체제 전체 목차')
   })
 
   it('leaves out what a book typed in does not have', () => {
@@ -690,14 +608,14 @@ describe('shownHold', () => {
 })
 
 describe('stepOn', () => {
-  const step: HoldStep = { seq: 2, editing: true, starting: 'note', notice: '시작하지 못했어요.' }
+  const step: HoldStep = { seq: 2, reviewing: true, starting: 'note', notice: '시작하지 못했어요.' }
 
   it('keeps the step taken on the contents still held', () => {
     expect(stepOn(step, 2)).toBe(step)
   })
 
   it('drops the editor, a start with its voice and a notice once another book is picked or the hold is let go', () => {
-    const none = { editing: false, starting: null, notice: null }
+    const none = { reviewing: false, starting: null, notice: null }
     expect(stepOn(step, 4)).toEqual({ seq: 4, ...none })
     expect(stepOn(step, null)).toEqual({ seq: null, ...none })
   })

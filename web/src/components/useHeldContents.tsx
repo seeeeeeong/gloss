@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { EDIT_BUTTON, SetupContentsEditor, type ShownContents } from '@/components/SetupContents'
+import { CONTENTS_CARD, ContentsPanel, type ShownContents } from '@/components/SetupContents'
 import { PLAN_LINE } from '@/components/SetupPlan'
 import { useShellPanel } from '@/components/ShellPanel'
 import type { useSetupSession } from '@/components/useSetupSession'
 import {
   type ChosenStyle,
   type HoldStep,
-  keepsEditing,
   liveContents,
   once,
   type ShownHold,
@@ -20,22 +19,35 @@ import {
 
 type Setup = ReturnType<typeof useSetupSession>
 
-const NO_STEP: HoldStep = { seq: null, editing: false, starting: null, notice: null }
+const NO_STEP: HoldStep = { seq: null, reviewing: false, starting: null, notice: null }
+
+// Wide enough to keep the thread beside the panel, so new contents open in it unasked.
+const BESIDE = '(min-width: 1024px)'
+
+/** Where focus goes once the panel is gone: its card, the composer, or the first voice to start with. */
+type Back = 'card' | 'composer' | 'voices'
+
+const BACK_TO: Record<Back, string> = {
+  card: `#${CONTENTS_CARD}`,
+  composer: '.dock textarea',
+  voices: '.voices .pick',
+}
 
 /**
- * The contents a session holds, shown whole in the thread: edited in the side panel, which hands
- * focus back to 수정 as it closes, and started with, which hands it to the line saying how the plan
- * comes along.
+ * The contents a session holds: a card in the thread that opens them whole in the side panel, which
+ * hands focus back to where the reader goes next as it closes, and started with, which hands it to the
+ * line saying how the plan comes along.
  */
 export function useHeldContents(setup: Setup) {
   const { session } = setup
   const { slot, open, setOpen } = useShellPanel()
-  // Tagged with the contents message it was taken on, so a new hold starts from nothing: no editor,
+  // Tagged with the contents message it was taken on, so a new hold starts from nothing: no panel,
   // no voice a start is on its way with, no notice.
   const [step, setStep] = useState(NO_STEP)
   // The contents last held, kept on screen once started with: the session holds them no longer.
   const [kept, setKept] = useState<ShownHold | null>(null)
-  const backToEdit = useRef(false)
+  const back = useRef<Back | null>(null)
+  const opened = useRef<number | null>(null)
   const toPlan = useRef(false)
   const seeking = useRef(false)
 
@@ -51,24 +63,31 @@ export function useHeldContents(setup: Setup) {
   }, [released])
   const shown = shownHold(session, kept)
   const now = stepOn(step, live)
-  const editorOpen = now.editing && held !== null
+  const reviewing = now.reviewing && held !== null
   // Changes the step taken on [seq]; once another hold is live, the change is never seen.
   const change = useCallback((seq: number | null, patch: Partial<HoldStep>) => {
     setStep((prev) => ({ ...stepOn(prev, seq), ...patch }))
   }, [])
 
   useEffect(() => {
-    setOpen(editorOpen)
-  }, [editorOpen, setOpen])
+    setOpen(reviewing)
+  }, [reviewing, setOpen])
   useEffect(() => () => setOpen(false), [setOpen])
 
-  // Only once the panel is gone and the thread is wide again does 수정 sit where it will stay.
+  // New contents open in the panel once, where it fits beside the thread.
   useEffect(() => {
-    if (open || !backToEdit.current) return
-    backToEdit.current = false
-    const button = document.getElementById(EDIT_BUTTON)
-    button?.focus({ preventScroll: true })
-    button?.scrollIntoView({ block: 'center' })
+    if (live === null || opened.current === live) return
+    opened.current = live
+    if (matchMedia(BESIDE).matches) change(live, { reviewing: true, notice: null })
+  }, [live, change])
+
+  // Only once the panel is gone and the thread is wide again does the place to go back to stay put.
+  useEffect(() => {
+    if (open || !back.current) return
+    const target = document.querySelector<HTMLElement>(BACK_TO[back.current])
+    back.current = null
+    target?.focus({ preventScroll: true })
+    target?.scrollIntoView({ block: 'center' })
   }, [open])
 
   const confirmed = session?.state === 'confirmed'
@@ -78,21 +97,10 @@ export function useHeldContents(setup: Setup) {
     document.getElementById(PLAN_LINE)?.focus({ preventScroll: true })
   }, [confirmed])
 
-  const closeEditor = useCallback(() => {
-    backToEdit.current = true
-    setStep((prev) => ({ ...prev, editing: false }))
+  const close = useCallback((to: Back) => {
+    back.current = to
+    setStep((prev) => ({ ...prev, reviewing: false }))
   }, [])
-
-  async function save(toc: string) {
-    const seq = live
-    const result = await setup.edit(toc)
-    // Refused because the contents moved on in another tab: shown as they are now, in the thread.
-    if (result && !result.ok && !keepsEditing(result)) {
-      backToEdit.current = true
-      change(seq, { editing: false, notice: result.message })
-    }
-    return result
-  }
 
   // Refused, as when another tab moved on or no search is set up: said under the contents. A second
   // press while the first is on its way is not sent.
@@ -118,34 +126,36 @@ export function useHeldContents(setup: Setup) {
   const contents: ShownContents | null = shown && {
     ...shown,
     live: shown.seq === live,
-    editing: editorOpen,
+    reviewing,
     waiting: setup.pending !== null || session?.searching === true,
     starting: now.starting,
     searching: seekingContents(session),
     notice: now.notice,
-    onEdit: () => change(live, { editing: true, notice: null }),
+    onReview: () => (reviewing ? close('card') : change(live, { reviewing: true, notice: null })),
     onSeek: seek,
     onStart: start,
   }
 
-  const editor =
-    editorOpen && held && slot
+  const panel =
+    reviewing && contents && slot
       ? createPortal(
-          <SetupContentsEditor
-            key={live}
-            held={held}
-            open={open}
-            onSave={save}
-            onClose={closeEditor}
+          <ContentsPanel
+            contents={contents}
+            onClose={() => close('card')}
+            onTalk={() => close('composer')}
+            onChoose={() => close('voices')}
           />,
           slot,
         )
       : null
 
+  // A new thread numbers its messages from 1 again, so its contents may take the seq last opened.
   const reset = useCallback(() => {
     setStep(NO_STEP)
     setKept(null)
+    opened.current = null
+    back.current = null
   }, [])
 
-  return { contents, editor, reset }
+  return { contents, panel, reset }
 }
