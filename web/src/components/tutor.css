@@ -255,27 +255,41 @@
 }
 
 /* "Gloss에게 묻기" over a phrase picked in the book */
+/* "Gloss에게 묻기" and a bookmark over a phrase picked in the book */
 .ask {
   position: fixed;
   z-index: 50;
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  align-items: stretch;
   height: 36px;
-  padding: 0 14px 0 12px;
+  overflow: hidden;
   border-radius: 999px;
   background: var(--bg-primary);
   color: var(--tx);
   box-shadow: var(--dialog-shadow);
   font: 500 14px / 20px var(--font);
   white-space: nowrap;
+}
+.ask button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   transition: background-color 150ms var(--ease);
 }
-.ask:hover {
+.ask button:hover {
   background: var(--bg-tertiary);
 }
-.ask:focus-visible {
-  outline-offset: 2px;
+.ask button:focus-visible {
+  outline-offset: -2px;
+}
+.ask-q {
+  padding: 0 12px;
+}
+.ask-keep {
+  justify-content: center;
+  width: 40px;
+  border-left: 1px solid var(--b-light);
+  color: var(--tx2);
 }
 
 /* A phone, or a window too narrow to dock it: the tutor is a sheet behind a floating button, and

@@ -37,6 +37,8 @@ type Props = {
   /** The book's flow, where a phrase picked can be asked about. */
   flow: RefObject<HTMLElement | null>
   onGo: (itemKey: string) => void
+  /** Keeps a phrase picked in the book as a bookmark. */
+  onKeep: (quote: Quote) => void
 }
 
 const DOCKED_KEY = 'gloss.tutor.docked'
@@ -46,7 +48,7 @@ const DOCKED_KEY = 'gloss.tutor.docked'
  * sheet behind a floating button on a phone. A phrase picked in the book can be asked about.
  */
 export function Tutor(props: Props) {
-  const { bookId, items, current, phone: phoneWide, width, versions, flow, onGo } = props
+  const { bookId, items, current, phone: phoneWide, width, versions, flow, onGo, onKeep } = props
   const tutor = useTutor(bookId)
   const { slot, setOpen } = useShellPanel()
   const shell = useShellTitle()
@@ -228,7 +230,7 @@ export function Tutor(props: Props) {
           </div>,
           document.body,
         )}
-      <AskPill flow={flow} keyOfUnit={keyOfUnit} onAsk={take} />
+      <AskPill flow={flow} keyOfUnit={keyOfUnit} onAsk={take} onKeep={onKeep} />
     </>
   )
 }
@@ -342,10 +344,14 @@ type AskProps = {
   flow: RefObject<HTMLElement | null>
   keyOfUnit: (unit: number) => string | null
   onAsk: (quote: Quote) => void
+  onKeep: (quote: Quote) => void
 }
 
-/** "Gloss에게 묻기" over a phrase picked in an item's text; pressing it puts the phrase in the quote row. */
-function AskPill({ flow, keyOfUnit, onAsk }: AskProps) {
+/**
+ * Over a phrase picked in an item's text: "Gloss에게 묻기", which puts the phrase in the quote row,
+ * and a bookmark, which keeps it.
+ */
+function AskPill({ flow, keyOfUnit, onAsk, onKeep }: AskProps) {
   const [pick, setPick] = useState<Pick | null>(null)
 
   useEffect(() => {
@@ -373,22 +379,30 @@ function AskPill({ flow, keyOfUnit, onAsk }: AskProps) {
   }, [flow, keyOfUnit])
 
   if (!pick) return null
+  const quote = { text: pick.text, itemKey: pick.itemKey }
+  const done = (then: (quote: Quote) => void) => () => {
+    getSelection()?.removeAllRanges()
+    setPick(null)
+    then(quote)
+  }
   return createPortal(
-    <button
-      type="button"
-      className="ask"
-      style={pick.style}
-      // Keeps the selection while the pill is pressed.
-      onMouseDown={(event) => event.preventDefault()}
-      onClick={() => {
-        getSelection()?.removeAllRanges()
-        setPick(null)
-        onAsk({ text: pick.text, itemKey: pick.itemKey })
-      }}
-    >
-      <Icon name="quote" size={16} />
-      <span>Gloss에게 묻기</span>
-    </button>,
+    // Pressing either keeps the selection until the click lands.
+    // biome-ignore lint/a11y/noStaticElementInteractions: it only stops the press from dropping the selection
+    <div className="ask" style={pick.style} onMouseDown={(event) => event.preventDefault()}>
+      <button type="button" className="ask-q" onClick={done(onAsk)}>
+        <Icon name="quote" size={16} />
+        <span>Gloss에게 묻기</span>
+      </button>
+      <button
+        type="button"
+        className="ask-keep"
+        aria-label="책갈피에 저장"
+        data-tip="책갈피에 저장"
+        onClick={done(onKeep)}
+      >
+        <Icon name="bookmark" size={16} />
+      </button>
+    </div>,
     document.body,
   )
 }

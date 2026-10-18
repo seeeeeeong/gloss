@@ -6,6 +6,7 @@ const CONTENTS = /^\/books\/[^/]+\/contents$/
 /** The header's crumb for [path]; null where the screen puts its own title there, as the reader does. */
 export function crumbOf(path: string): Crumb | null {
   if (path === '/') return { shelf: true, name: '내 서재' }
+  if (path === '/bookmarks') return { shelf: true, name: '책갈피' }
   if (path === '/books/new') return { shelf: true, name: '책 추가' }
   if (CONTENTS.test(path)) return { shelf: true, name: '목차' }
   if (path === '/me') return { shelf: false, name: '마이페이지' }

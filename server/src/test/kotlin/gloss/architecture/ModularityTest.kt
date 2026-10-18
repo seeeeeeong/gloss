@@ -28,6 +28,7 @@ class ModularityTest {
             "apikey",
             "audit",
             "book",
+            "bookmark",
             "budget",
             "chat",
             "common",

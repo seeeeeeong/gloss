@@ -12,6 +12,7 @@ scopes = [
   "generation",
   "setup",
   "chat",
+  "bookmark",
   "web",
   "server",
   "arch",

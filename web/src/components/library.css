@@ -169,6 +169,96 @@
   margin-top: 7px;
 }
 
+.continue-row.two {
+  grid-template-columns: minmax(0, 1.85fr) minmax(0, 1fr);
+}
+/* The bookmark kept last: its phrase, then its book */
+.last-mark {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border: 1px solid var(--b-light);
+  border-radius: 8px;
+  color: var(--tx);
+  transition:
+    border-color 100ms var(--ease),
+    background-color 100ms var(--ease);
+}
+.last-mark:hover {
+  border-color: var(--b-default);
+  background: var(--sidebar);
+}
+.last-mark .sec-label svg,
+.mark .saved svg {
+  color: var(--mark);
+  fill: currentColor;
+}
+.last-mark blockquote {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 19px 0 20px;
+  font: 450 16px / 1.65 var(--font);
+  letter-spacing: -0.025em;
+}
+.last-mark-from {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  color: var(--tx3);
+  font: 400 12px / 18px var(--font);
+}
+
+/* 책갈피: two cards a row, each a phrase large with its book and item under a rule */
+.marks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.mark {
+  position: relative;
+  padding: 24px;
+  border: 1px solid var(--b-default);
+  border-radius: 8px;
+}
+.mark .saved {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  color: var(--mark);
+}
+.mark blockquote {
+  margin: 20px 0 28px;
+  padding-right: 24px;
+  font: 400 20px / 1.7 var(--font);
+  letter-spacing: -0.025em;
+  overflow-wrap: anywhere;
+}
+.mark-from {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--b-light);
+  color: var(--tx);
+}
+.mark-from b {
+  display: block;
+  font: 500 13px / 20px var(--font);
+}
+.mark-from small {
+  display: block;
+  margin-top: 3px;
+  font: 400 12px / 18px var(--font);
+  color: var(--tx3);
+}
+.mark-from:hover {
+  color: var(--link);
+}
+
 /* The shelf: tabs, a search and the look, then the books */
 .shelf-bar {
   display: flex;
@@ -506,6 +596,9 @@
   }
 }
 @container main (max-width: 880px) {
+  .continue-row.two {
+    grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+  }
   .continue-art {
     display: none;
   }
@@ -516,6 +609,10 @@
 @container main (max-width: 760px) {
   .shelf-books {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .continue-row.two,
+  .marks {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 767px) {

@@ -385,6 +385,11 @@ svg {
   width: 17px;
   height: 17px;
 }
+.row small {
+  margin-left: auto;
+  font: inherit;
+  color: var(--tx3);
+}
 .row:hover {
   background: var(--hover);
 }
@@ -2655,6 +2660,32 @@ kbd {
   border-radius: 3px;
   font: 400 11px / 1.4 var(--font);
   color: var(--tx3);
+}
+
+/* A bookmark kept: the reader's own mark, in vermilion, filled */
+.ibtn.saved {
+  color: var(--mark);
+}
+.ibtn.saved svg {
+  fill: currentColor;
+}
+/* A short line after a change, at the foot of the screen */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  z-index: 100;
+  max-width: calc(100vw - 32px);
+  padding: 11px 16px;
+  border-radius: 8px;
+  background: var(--tx);
+  color: var(--page);
+  box-shadow: var(--dialog-shadow);
+  font: 400 13px / 20px var(--font);
+  transform: translateX(-50%);
+}
+.toast:empty {
+  display: none;
 }
 
 /* Settings: who is signed in, then a row a preference */

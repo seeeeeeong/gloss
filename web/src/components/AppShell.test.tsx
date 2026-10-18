@@ -19,7 +19,7 @@ const books = [{ id: '0199a3b2-7c4e-7d10-9b1f-2a3c4d5e6f70', title: '운영체�
 function render(path: string) {
   nav.path = path
   return renderToStaticMarkup(
-    <AppShell me={me} books={books}>
+    <AppShell me={me} books={books} marks={2}>
       <p>page</p>
     </AppShell>,
   )
@@ -31,6 +31,12 @@ describe('AppShell', () => {
     expect(out).toContain('<a class="brand" aria-label="Gloss 내 서재" href="/">')
     expect(out).toMatch(/<a class="row" href="\/">.*?내 서재<\/span><\/a>/)
     expect(out).toMatch(/<a class="row" href="\/books\/new">.*?책 추가<\/span><\/a>/)
+  })
+
+  it('counts the bookmarks beside 책갈피, and keeps a way to them on the rail', () => {
+    const out = render('/me')
+    expect(out).toMatch(/<a class="row" href="\/bookmarks">.*?책갈피<\/span><small>2<\/small><\/a>/)
+    expect(out.slice(out.indexOf('class="sb-rail"'))).toContain('aria-label="책갈피"')
   })
 
   it('lists the books under 내 책 with their count and a spine in their tone', () => {

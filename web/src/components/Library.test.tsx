@@ -58,3 +58,22 @@ describe('Continue', () => {
     expect(out).toContain('03 / 08')
   })
 })
+
+describe('Library with a bookmark', () => {
+  it('shows the bookmark kept last, which opens every bookmark', () => {
+    const mark = {
+      id: 'm1',
+      bookId: 'a',
+      bookTitle: '운영체제',
+      itemKey: 'k',
+      itemNumber: null,
+      itemTitle: '프로세스',
+      quote: '프로세스는 실행 중인 프로그램이다.',
+      createdAt: '2026-10-18T00:00:00Z',
+    }
+    const out = renderToStaticMarkup(<Library books={[book('a')]} mark={mark} />)
+    expect(out).toContain('<section class="continue-row" aria-label="최근 활동">')
+    expect(out).toContain('<a class="last-mark" href="/bookmarks">')
+    expect(out).toContain('<blockquote>프로세스는 실행 중인 프로그램이다.</blockquote>')
+  })
+})
