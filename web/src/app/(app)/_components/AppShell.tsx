@@ -185,6 +185,7 @@ export function AppShell({ me, books, marks, children }: Props) {
                   <Link
                     className="row"
                     href={`/books/${book.id}`}
+                    title={book.title}
                     aria-current={within(`/books/${book.id}`)}
                     onClick={leave}
                   >

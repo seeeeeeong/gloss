@@ -419,6 +419,8 @@ svg {
 }
 .sb-books {
   display: grid;
+  /* Without minmax the column grows to the longest title and the ellipsis never shows */
+  grid-template-columns: minmax(0, 1fr);
   gap: 4px;
 }
 .sb-books .row {

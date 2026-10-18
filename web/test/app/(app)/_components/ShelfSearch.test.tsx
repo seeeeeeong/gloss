@@ -10,7 +10,7 @@ const books = [
 describe('ShelfSearch', () => {
   it('lists every book before anything is typed, each a way into it, and counts them', () => {
     const out = renderToStaticMarkup(<ShelfSearch books={books} onClose={() => {}} />)
-    expect(out).toContain('aria-label="전체 책 검색"')
+    expect(out).toContain('aria-label="서재 검색"')
     expect(out).toContain('<a class="hit" href="/books/a">')
     expect(out).toContain('<b>클린 코드</b>')
     expect(out).toContain('<span>2권의 책</span>')

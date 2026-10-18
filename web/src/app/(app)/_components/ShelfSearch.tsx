@@ -21,7 +21,7 @@ export function ShelfSearch({ books, onClose }: Props) {
         <Icon name="search" />
         <input
           type="search"
-          aria-label="전체 책 검색"
+          aria-label="서재 검색"
           data-autofocus
           value={query}
           onChange={(event) => setQuery(event.target.value)}
