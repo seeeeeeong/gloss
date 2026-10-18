@@ -1,7 +1,7 @@
 /* The tutor: notes of 380 in the shell's panel, a bottom sheet on a phone */
 @media (min-width: 768px) {
   .app.tutor-open {
-    grid-template-columns: 260px minmax(0, 1fr) 380px;
+    grid-template-columns: 216px minmax(0, 1fr) 380px;
   }
   .app.rail.tutor-open {
     grid-template-columns: 52px minmax(0, 1fr) 380px;

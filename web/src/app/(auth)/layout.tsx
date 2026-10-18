@@ -4,7 +4,12 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <header className="a-top">
-        <span className="wordmark">Gloss</span>
+        <span className="brand sm">
+          gloss
+          <span className="brand-mark" aria-hidden="true">
+            ↗
+          </span>
+        </span>
       </header>
       <main className="auth">
         <div className="acol">{children}</div>

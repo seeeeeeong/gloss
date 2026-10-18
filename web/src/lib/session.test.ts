@@ -26,12 +26,12 @@ describe('destinationFor', () => {
   })
 
   it('sends a signed-in reader away from the sign-in and password pages to a new book', () => {
-    expect(destinationFor(me(), '/login')).toBe('/books/new')
-    expect(destinationFor(me(), '/password')).toBe('/books/new')
+    expect(destinationFor(me(), '/login')).toBe('/')
+    expect(destinationFor(me(), '/password')).toBe('/')
   })
 
   it('keeps the operator pages to operators', () => {
-    expect(destinationFor(me(), '/admin/accounts')).toBe('/books/new')
+    expect(destinationFor(me(), '/admin/accounts')).toBe('/')
     expect(destinationFor(me({ role: 'operator' }), '/admin/accounts')).toBeNull()
   })
 })

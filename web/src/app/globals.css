@@ -41,6 +41,7 @@
   --panel: #f2f6fe;
   --divider: #e5e9f0;
   --warn-tx: #985b0b;
+  --mark: #b7442a;
   --composer: #ffffff;
   --composer-shadow: 0 0 0 1px var(--b-field);
   --dialog-shadow: 0 8px 12px 0 rgba(24, 29, 39, 0.08), 0 0 1px 0 rgba(24, 29, 39, 0.62);
@@ -90,6 +91,7 @@
     --panel: #0c0e14;
     --divider: #22252c;
     --warn-tx: #e7b369;
+    --mark: #ee957d;
     --composer: #161920;
     --dialog-shadow: 0 8px 12px 0 rgba(0, 0, 0, 0.4), inset 0 0 1px 0 rgba(255, 255, 255, 0.2);
     --translucent: rgba(22, 25, 32, 0.72);
@@ -138,6 +140,7 @@
   --panel: #0c0e14;
   --divider: #22252c;
   --warn-tx: #e7b369;
+  --mark: #ee957d;
   --composer: #161920;
   --dialog-shadow: 0 8px 12px 0 rgba(0, 0, 0, 0.4), inset 0 0 1px 0 rgba(255, 255, 255, 0.2);
   --translucent: rgba(22, 25, 32, 0.72);
@@ -263,10 +266,10 @@ svg {
   scrollbar-color: var(--b-heavy) transparent;
 }
 
-/* App frame: sidebar 260 (rail 52) and the main area */
+/* App frame: sidebar 216 (rail 52) and the main area */
 .app {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
+  grid-template-columns: 216px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   height: 100dvh;
   overflow: hidden;
@@ -292,7 +295,8 @@ svg {
   display: flex;
   flex-direction: column;
   height: 100%;
-  width: 260px;
+  width: 216px;
+  padding: 26px 16px 18px;
 }
 .sb-rail {
   display: none;
@@ -309,35 +313,76 @@ svg {
   display: flex;
 }
 .sb-head {
-  height: 52px;
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 8px 0 16px;
+  padding: 0 0 0 12px;
 }
-.wordmark {
-  font: 600 18px / 28px var(--font);
-  letter-spacing: -0.2px;
+/* gloss with a vermilion arrow: the shelf's name, and the way back to it */
+.brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font: 680 32px / 1 var(--font);
+  letter-spacing: -1.8px;
+  color: var(--tx);
+}
+.brand-mark {
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--mark);
+  transform: translateY(-9px);
+}
+.brand.sm {
+  font-size: 25px;
+  letter-spacing: -1.2px;
+}
+.brand.sm .brand-mark {
+  font-size: 17px;
+  transform: translateY(-6px);
+}
+/* The rail's g. with a vermilion point */
+.sb-rail .brand.sm .brand-mark {
+  font-size: 25px;
+  font-weight: 680;
+  transform: none;
+}
+.sb-head .sb-close {
+  display: none;
 }
 .sb-scroll {
   flex: 1;
   overflow-y: auto;
-  padding-top: 8px;
+  margin: 0 -16px;
+  padding: 0 16px;
+}
+.sb-cap {
+  margin: 30px 12px 16px;
+  font: 400 12px / 18px var(--font);
+  color: var(--tx3);
+}
+.sb-nav {
+  display: grid;
+  gap: 3px;
 }
 .row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  width: calc(100% - 12px);
-  height: 36px;
-  margin: 0 6px;
-  padding: 6px 10px;
-  border-radius: 10px;
-  font: 400 14px / 20px var(--font);
-  color: var(--tx);
-  transition: background-color 150ms var(--ease);
+  gap: 10px;
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 6px;
+  font: 400 13px / 20px var(--font);
+  color: var(--tx2);
+  transition: background-color 100ms var(--ease);
   white-space: nowrap;
+}
+.row svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
 }
 .row:hover {
   background: var(--hover);
@@ -345,7 +390,7 @@ svg {
 .row[aria-current="page"] {
   background: var(--selected);
   color: var(--selected-tx);
-  font-weight: 600;
+  font-weight: 590;
 }
 .row:focus-visible {
   outline: none;
@@ -357,21 +402,70 @@ svg {
   min-width: 0;
 }
 .sb-sec {
-  margin-top: 20px;
-  padding: 8px 16px 6px;
-  font: 400 14px / 20px var(--font);
+  display: flex;
+  justify-content: space-between;
+  margin: 38px 12px 6px;
+  font: 400 12px / 18px var(--font);
   color: var(--tx3);
+}
+.sb-sec > span {
+  font-variant-numeric: tabular-nums;
+}
+.sb-books {
+  display: grid;
+  gap: 4px;
+}
+.sb-books .row {
+  height: auto;
+  min-height: 34px;
+  padding: 6px 12px;
+}
+/* A book's spine, in its shelf tone; the tones are the covers' own, the same in both themes */
+.spine {
+  flex: none;
+  width: 11px;
+  height: 15px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 2px;
+  background: var(--spine);
+  box-shadow: inset 2px 0 rgba(255, 255, 255, 0.25);
+}
+.tone-sage {
+  --jacket-bg: #374238;
+  --jacket-tx: #f5f5ed;
+  --spine: #3c483c;
+}
+.tone-clay {
+  --jacket-bg: #ccd5dc;
+  --jacket-tx: #27343d;
+  --spine: #b8c3ca;
+}
+.tone-ink {
+  --jacket-bg: #dde0d4;
+  --jacket-tx: #292d26;
+  --spine: #d9dcce;
+}
+.tone-apricot {
+  --jacket-bg: #bd4b34;
+  --jacket-tx: #fff4e5;
+  --spine: #c24c32;
 }
 .sb-foot {
   flex: none;
+  display: grid;
+  gap: 3px;
+  margin-top: 32px;
+  padding-top: 8px;
   border-top: 1px solid var(--b-light);
-  padding: 6px 0;
 }
 .rail-gap {
   flex: 1;
 }
 .sb-rail .first {
-  margin-bottom: 16px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
 }
 .sb-rail .ibtn[aria-current="page"] {
   background: var(--selected);
@@ -451,43 +545,86 @@ svg {
   width: 100%;
 }
 
-/* Header: transparent, over the page */
+/* Header: a bar of 64 over the page with where the screen sits; the reader's is transparent */
 .top {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 52px;
-  padding: 8px;
+  height: 64px;
+  padding: 0 32px;
   display: flex;
   align-items: center;
   gap: 8px;
   z-index: 6;
+  background: var(--page);
+  border-bottom: 1px solid var(--b-light);
+}
+.top.reading {
+  height: 52px;
+  padding: 8px;
+  background: none;
+  border-bottom: 0;
   pointer-events: none;
 }
-.top > * {
+.top.reading > * {
   pointer-events: auto;
 }
-.top-title {
-  display: none;
-  height: 36px;
-  padding: 4px 10px;
-  border-radius: 8px;
-  font: 400 18px / 28px var(--font);
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  font: 400 12px / 18px var(--font);
+  color: var(--tx3);
+}
+.crumbs > [aria-hidden] {
+  opacity: 0.55;
+}
+.crumbs .here {
+  overflow: hidden;
+  color: var(--tx2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.top-me {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.top-acts:not(:empty) + .top-me {
+  margin-left: 0;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin-left: 8px;
+  border: 1px solid var(--b-default);
+  border-radius: 50%;
+  background: var(--hover-card);
+  font: 600 11px / 1 var(--font);
   color: var(--tx);
 }
-.app.rail .top-title {
-  display: block;
+.avatar.lg {
+  width: 40px;
+  height: 40px;
+  margin: 0;
+  font-size: 15px;
 }
 .top-pill {
   display: none;
 }
-/* A screen's own title, portalled in; the shell's title and new-book button step aside for it */
+/* A screen's own title, portalled in; the shell's name and new-book button step aside for it */
 .top-slot {
   display: contents;
 }
-.top:has(.top-slot > *) :is(.top-title, .top-new),
-.top-pill:has(.top-slot > *) > .name {
+.top:has(.top-slot > *) .top-new,
+.top-pill:has(.top-slot > *) > .name,
+.top:has(.crumbs) .top-pill > .name {
   display: none;
 }
 .top-new {
@@ -525,9 +662,9 @@ svg {
   justify-content: center;
   gap: 6px;
   height: 36px;
-  padding: 0 14px;
-  border-radius: 999px;
-  font: 500 14px / 20px var(--font);
+  padding: 0 12px;
+  border-radius: 6px;
+  font: 510 13px / 20px var(--font);
   white-space: nowrap;
   transition:
     background-color 150ms var(--ease),
@@ -536,6 +673,7 @@ svg {
 .btn.primary {
   background: var(--btn-bg);
   color: var(--btn-tx);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 .btn.primary:hover:not(:disabled) {
   background: var(--btn-hover);
@@ -717,14 +855,14 @@ svg {
 
 /* A thread: the reader's line as a bubble, Gloss's answer as plain text */
 .thread {
-  padding: 76px 0 32px;
+  padding: 96px 0 32px;
 }
 .turn.user {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   padding-bottom: 40px;
-  scroll-margin-top: 64px;
+  scroll-margin-top: 80px;
 }
 .bubble {
   max-width: 70%;
@@ -969,7 +1107,7 @@ button.think-head:focus-visible svg,
 
 /* Pages inside the shell: the thread's column, title 24/32 */
 .page {
-  padding: 76px 0 48px;
+  padding: 112px 0 48px;
 }
 .p-row {
   display: flex;
@@ -2288,6 +2426,57 @@ button.think-head:focus-visible svg,
 }
 
 /* Phone: the sidebar is a drawer behind the menu button */
+/* Settings: who is signed in, then a row a preference */
+.set-me {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 20px 0 8px;
+  font: 550 15px / 22px var(--font);
+}
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 0;
+  border-top: 1px solid var(--b-light);
+  font: 550 13px / 20px var(--font);
+}
+/* A switch; its track keeps 3:1 against the page (WCAG 1.4.11) */
+.switch {
+  display: flex;
+  align-items: center;
+  flex: none;
+  width: 42px;
+  height: 24px;
+  padding: 2px;
+  border: 1px solid var(--b-field);
+  border-radius: 20px;
+  background: var(--bg-tertiary);
+  transition:
+    background-color 150ms var(--ease),
+    border-color 150ms var(--ease);
+}
+.switch > span {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  color: var(--tx2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.13);
+  transition: transform 250ms var(--ease);
+}
+.switch[aria-checked="true"] {
+  border-color: var(--btn-bg);
+  background: var(--btn-bg);
+}
+.switch[aria-checked="true"] > span {
+  transform: translateX(17px);
+}
+
 @media (max-width: 767px) {
   /* The name field takes the row; half of 358 leaves it a few letters wide. */
   .s-k.fit {
@@ -2340,15 +2529,24 @@ button.think-head:focus-visible svg,
   }
   .top {
     height: 56px;
+    padding: 0 10px 0 8px;
+  }
+  .top.reading {
+    height: 56px;
     padding: 10px;
   }
-  .app.rail .top-title {
+  .sb-head .sb-close {
+    display: grid;
+  }
+  .top-me .avatar {
     display: none;
   }
   .top-pill {
     display: flex;
     align-items: center;
     height: 36px;
+  }
+  .top.reading .top-pill {
     padding-right: 12px;
     border-radius: 999px;
     background: var(--translucent);
@@ -2361,6 +2559,8 @@ button.think-head:focus-visible svg,
   }
   .top-new {
     display: grid;
+  }
+  .top.reading .top-new {
     background: var(--translucent);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
@@ -2369,7 +2569,7 @@ button.think-head:focus-visible svg,
     padding-top: 72px;
   }
   .page {
-    padding-top: 72px;
+    padding-top: 88px;
   }
   .home {
     top: calc(50% - 46px);

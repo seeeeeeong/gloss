@@ -7,8 +7,8 @@ export type Me = {
   lastLoginAt: string | null
 }
 
-/** Where a signed-in reader lands: the new-book conversation. */
-export const HOME = '/books/new'
+/** Where a signed-in reader lands: the shelf. */
+export const HOME = '/'
 
 const OPEN_WHEN_SIGNED_OUT = ['/login']
 

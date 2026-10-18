@@ -4,7 +4,10 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Me } from '@/lib/session'
+import { toneOf } from '@/lib/shelf'
+import { crumbOf } from '@/lib/shell'
 import { Icon } from './Icon'
+import { ShellActions } from './ShellActions'
 import { type PanelKind, ShellPanelContext } from './ShellPanel'
 import { ShellTitleContext } from './ShellTitle'
 import { Tooltip } from './Tooltip'
@@ -14,16 +17,19 @@ export type ShelfBook = { id: string; title: string }
 // The width below which the sidebar is a drawer, as in globals.css.
 const PHONE = '(max-width: 767px)'
 
+const SHELF = '/'
 const NEW_BOOK = '/books/new'
 const OPERATOR = '/admin/accounts'
 const ACCOUNT = '/me'
+// A book's own page, where the reader puts its title and tools in the header.
+const READING = /^\/books\/(?!new$)[^/]+$/
 
 type Props = { me: Me; books: ShelfBook[]; children: ReactNode }
 
 export function AppShell({ me, books, children }: Props) {
   const path = usePathname()
-  const [collapsed, setCollapsed] = useState(false)
   const [drawer, setDrawer] = useState(false)
+  const reading = READING.test(path)
   const [panelSlot, setPanelSlot] = useState<HTMLElement | null>(null)
   const [panelOpen, setPanelOpen] = useState<PanelKind | null>(null)
   const setOpen = useCallback(
@@ -83,17 +89,12 @@ export function AppShell({ me, books, children }: Props) {
     setDrawer(false)
   }
 
-  // The same button closes the drawer on a phone and folds the sidebar to its rail elsewhere.
-  function hide() {
-    if (matchMedia(PHONE).matches) dismiss()
-    else setCollapsed(true)
-  }
-
   const leave = () => setDrawer(false)
   const wide = panelOpen === 'panel'
+  const crumb = crumbOf(path)
   const frame = [
     'app',
-    (collapsed || wide) && 'rail',
+    wide && 'rail',
     wide && 'panel-open',
     panelOpen === 'tutor' && 'tutor-open',
     drawer && 'drawer',
@@ -105,32 +106,48 @@ export function AppShell({ me, books, children }: Props) {
       <nav id="sidebar" className="sb" aria-label="사이드바">
         <div className="sb-full">
           <div className="sb-head">
-            <span className="wordmark">Gloss</span>
+            <Link className="brand" href={SHELF} aria-label="Gloss 내 서재" onClick={leave}>
+              gloss
+              <span className="brand-mark" aria-hidden="true">
+                ↗
+              </span>
+            </Link>
             <button
               type="button"
-              className="ibtn tert"
+              className="ibtn tert sb-close"
               aria-label="사이드바 닫기"
-              data-tip="사이드바 닫기"
-              onClick={hide}
+              onClick={dismiss}
             >
-              <Icon name="sidebar" />
+              <Icon name="x" />
             </button>
           </div>
           <div className="sb-scroll">
-            <Link
-              ref={firstRow}
-              className="row"
-              href={NEW_BOOK}
-              aria-current={current(NEW_BOOK)}
-              onClick={leave}
-            >
-              <Icon name="newbook" />
-              <span className="lbl-t">새 책</span>
-            </Link>
+            <div className="sb-cap">개인 서재</div>
+            <nav className="sb-nav" aria-label="주 메뉴">
+              <Link
+                ref={firstRow}
+                className="row"
+                href={SHELF}
+                aria-current={current(SHELF)}
+                onClick={leave}
+              >
+                <Icon name="library" />
+                <span className="lbl-t">내 서재</span>
+              </Link>
+              <Link
+                className="row"
+                href={NEW_BOOK}
+                aria-current={current(NEW_BOOK)}
+                onClick={leave}
+              >
+                <Icon name="plus" />
+                <span className="lbl-t">책 추가</span>
+              </Link>
+            </nav>
             <div className="sb-sec" id="shelf">
-              책장
+              내 책<span>{books.length}</span>
             </div>
-            <ul aria-labelledby="shelf">
+            <ul className="sb-books" aria-labelledby="shelf">
               {books.map((book) => (
                 <li key={book.id}>
                   <Link
@@ -139,6 +156,7 @@ export function AppShell({ me, books, children }: Props) {
                     aria-current={within(`/books/${book.id}`)}
                     onClick={leave}
                   >
+                    <span className={`spine tone-${toneOf(book.id)}`} aria-hidden="true" />
                     <span className="lbl-t">{book.title}</span>
                   </Link>
                 </li>
@@ -159,27 +177,15 @@ export function AppShell({ me, books, children }: Props) {
           </div>
         </div>
         <div className="sb-rail">
-          <button
-            type="button"
-            className="ibtn tert first"
-            aria-label="사이드바 열기"
-            data-tip="사이드바 열기"
-            onClick={() => setCollapsed(false)}
-          >
-            <Icon name="sidebar" />
-          </button>
-          <Link className="ibtn" href={NEW_BOOK} aria-label="새 책" data-tip="새 책">
-            <Icon name="newbook" />
+          <Link className="brand sm first" href={SHELF} aria-label="Gloss 내 서재">
+            g<span className="brand-mark">.</span>
           </Link>
-          <button
-            type="button"
-            className="ibtn"
-            aria-label="책장"
-            data-tip="책장"
-            onClick={() => setCollapsed(false)}
-          >
-            <Icon name="book" />
-          </button>
+          <Link className="ibtn" href={SHELF} aria-label="내 서재" data-tip="내 서재">
+            <Icon name="library" />
+          </Link>
+          <Link className="ibtn" href={NEW_BOOK} aria-label="책 추가" data-tip="책 추가">
+            <Icon name="plus" />
+          </Link>
           <span className="rail-gap" />
           {operator && (
             <Link
@@ -205,7 +211,7 @@ export function AppShell({ me, books, children }: Props) {
         onClick={dismiss}
       />
       <main className="main" inert={drawer}>
-        <div className="top">
+        <div className={reading ? 'top reading' : 'top'}>
           <div className="top-pill">
             <button
               ref={opener}
@@ -219,17 +225,26 @@ export function AppShell({ me, books, children }: Props) {
               <Icon name="menu" />
             </button>
             <span ref={setPillSlot} className="top-slot" />
-            <Link className="name" href={NEW_BOOK}>
+            <Link className="name" href={SHELF}>
               Gloss
             </Link>
           </div>
           <span ref={setBarSlot} className="top-slot" />
+          {crumb && (
+            <p className="crumbs">
+              {crumb.shelf && (
+                <>
+                  <span>서재</span>
+                  <span aria-hidden="true">/</span>
+                </>
+              )}
+              <span className="here">{crumb.name}</span>
+            </p>
+          )}
           <div ref={setActsSlot} className="top-acts" />
-          <Link className="top-title" href={NEW_BOOK}>
-            Gloss
-          </Link>
-          <Link className="ibtn round top-new" href={NEW_BOOK} aria-label="새 책">
-            <Icon name="newbook" />
+          {!reading && <ShellActions name={me.displayName} />}
+          <Link className="ibtn round top-new" href={NEW_BOOK} aria-label="책 추가">
+            <Icon name="plus" />
           </Link>
         </div>
         <ShellPanelContext value={panel}>

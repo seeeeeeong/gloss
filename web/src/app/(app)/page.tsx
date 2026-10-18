@@ -1,6 +1,10 @@
-import { redirect } from 'next/navigation'
-import { HOME } from '@/lib/session'
+import type { Metadata } from 'next'
+import { Library } from '@/components/Library'
+import { shelfOf } from '@/lib/server-books'
 
-export default function Home() {
-  redirect(HOME)
+export const metadata: Metadata = { title: '내 서재' }
+
+export default async function Shelf() {
+  const books = await shelfOf()
+  return <Library books={books} />
 }
