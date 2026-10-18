@@ -1,9 +1,10 @@
 package gloss.domain.book.domain
 
 /**
- * A table of contents as typed or pasted, one item a line, into a tree. Depth comes from a line's
- * numbering (part, chapter, 1.2.3) where it has one, otherwise from its indent. The reader sees the
- * tree before confirming it, so a wrong guess here is corrected, never generated from.
+ * A table of contents, one item a line, into a tree. Depth comes from a line's numbering (part,
+ * chapter, 1.2.3) where it has one, otherwise from its indent; in contents that indent nothing, an
+ * unnumbered line belongs to the part or chapter above it. The reader sees the tree before starting,
+ * so a wrong guess shows before anything is written from it.
  */
 object TocParser {
     // Same as toc_item's checks; a book's contents run to a few hundred lines.
@@ -69,13 +70,22 @@ object TocParser {
     private val BULLET = Regex("""^[-*•·](?:\s+|$)""")
     private val SEPARATOR = Regex("""^[\s.:)\-–—]+""")
 
+    // What follows the last chapter and belongs to no chapter. Only checked after the last numbered
+    // line, since a chapter may close with a section of the same name.
+    private val BACK_MATTER =
+        Regex(
+            """^(?:마치며|나가며|나오는\s*글|맺음말|맺으며|에필로그|후기|부록|찾아보기|색인|참고\s*문헌|감사의\s*[글말]|용어집|미주|""" +
+                """(?i:epilogue|afterword|appendix|index|bibliography|references|glossary|""" +
+                """acknowledge?ments))$LABEL_END""",
+        )
+
     fun parse(text: String): Result {
         val lines = text.lines().mapNotNull(::lineOf)
         return when {
             lines.isEmpty() -> Result.Empty
             lines.size > MAX_ITEMS -> Result.TooManyItems
             lines.any(::tooLong) -> Result.LineTooLong
-            else -> treeOf(lines)?.let(Result::Parsed) ?: Result.TooDeep
+            else -> treeOf(Lines(lines))?.let(Result::Parsed) ?: Result.TooDeep
         }
     }
 
@@ -95,9 +105,10 @@ object TocParser {
         if (content.isEmpty()) return null
         val label = labelOf(content, indent)?.takeIf { lengthOf(it.number) <= MAX_NUMBER }
         val title = label?.let { content.substring(it.end).replace(SEPARATOR, "") }.orEmpty()
-        // A label alone on its line, or too long to be one, is part of the title.
+        // A label too long to be one is part of the title; a label alone on its line is the title, and
+        // still places the line as a part or chapter.
         return if (label == null || title.isEmpty()) {
-            Line(indent = indent, rank = null, number = null, title = content, length = lengthOf(text))
+            Line(indent = indent, rank = label?.rank, number = null, title = content, length = lengthOf(text))
         } else {
             Line(indent = indent, rank = label.rank, number = label.number, title = title, length = lengthOf(text))
         }
@@ -142,6 +153,14 @@ object TocParser {
             else -> 1
         }
 
+    private class Lines(
+        val all: List<Line>,
+    ) {
+        // Indent says the depth in contents that indent any line; in the rest only numbers say it.
+        val flat = all.none { it.indent > 0 }
+        val lastNumbered = all.indexOfLast { it.rank != null }
+    }
+
     /** A line's place in the tree, before its key. */
     private data class Placed(
         val parent: Int?,
@@ -150,7 +169,8 @@ object TocParser {
     )
 
     // Null when a line would sit deeper than MAX_DEPTH.
-    private fun treeOf(lines: List<Line>): List<Item>? {
+    private fun treeOf(contents: Lines): List<Item>? {
+        val lines = contents.all
         // The ranks of the numbered items still open above the next one: its depth is how many enclose it.
         val open = ArrayDeque<Int>()
         val placed = mutableListOf<Placed>()
@@ -159,7 +179,7 @@ object TocParser {
         val children = HashMap<Int?, Int>()
         for ((ord, line) in lines.withIndex()) {
             // No level is skipped: an item is at most one below the one before it.
-            val wanted = depthOf(line = line, open = open, lines = lines, placed = placed)
+            val wanted = depthOf(line = line, open = open, contents = contents, placed = placed)
             val depth = wanted.coerceAtMost((placed.lastOrNull()?.depth ?: 0) + 1)
             // Too deep by its place, or by its own number, as a first line of 1.2.3.4.5.6.7 says.
             if (depth > MAX_DEPTH || (line.rank ?: 0) > MAX_DEPTH) return null
@@ -188,7 +208,7 @@ object TocParser {
     private fun depthOf(
         line: Line,
         open: ArrayDeque<Int>,
-        lines: List<Line>,
+        contents: Lines,
         placed: List<Placed>,
     ): Int =
         when {
@@ -197,14 +217,29 @@ object TocParser {
             }
 
             line.indent > 0 -> {
-                indentedDepth(lines, placed, placed.size)
+                indentedDepth(contents.all, placed, placed.size)
             }
 
             else -> {
-                open.clear()
-                1
+                unindentedDepth(line = line, open = open, contents = contents, ord = placed.size)
             }
         }
+
+    // In flat contents an unnumbered line is a section of the part or chapter above it, or a sibling of
+    // the numbered section above it. Anywhere else, or as back matter, it starts again at the top.
+    private fun unindentedDepth(
+        line: Line,
+        open: ArrayDeque<Int>,
+        contents: Lines,
+        ord: Int,
+    ): Int {
+        val backMatter = ord > contents.lastNumbered && BACK_MATTER.containsMatchIn(line.title)
+        if (!contents.flat || open.isEmpty() || backMatter) {
+            open.clear()
+            return 1
+        }
+        return if (open.last() > CHAPTER_RANK) open.size else open.size + 1
+    }
 
     // Closes what a rank at or below this one opened, so a chapter after a chapter is its sibling
     // whether or not a part came before them.

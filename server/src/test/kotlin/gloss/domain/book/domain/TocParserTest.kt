@@ -57,8 +57,75 @@ class TocParserTest {
             "  제1장 프로세스",
             "Ⅱ 병행성",
             "  제2장 스레드",
-            "- I 는 로봇",
-            "제3장 락",
+            "    - I 는 로봇",
+            "  제3장 락",
+        )
+    }
+
+    @Test
+    fun `in contents that indent nothing, unnumbered lines are sections of the chapter above`() {
+        val raw =
+            """
+            들어가며
+            제1부. AI 거인들의 전쟁
+            제1장. 마침내 GPT-5 등장하다
+
+            GPT-5 시대의 개막
+            인류의 마지막 시험
+
+            제2장. 빅3+1
+            클로드, 코딩과 글쓰기
+            제2부. 다음 무대
+            제3장. 에이전트
+            도구를 쓰는 모델
+            """.trimIndent()
+
+        assertThat(outline(raw)).containsExactly(
+            "- 들어가며",
+            "제1부 AI 거인들의 전쟁",
+            "  제1장 마침내 GPT-5 등장하다",
+            "    - GPT-5 시대의 개막",
+            "    - 인류의 마지막 시험",
+            "  제2장 빅3+1",
+            "    - 클로드, 코딩과 글쓰기",
+            "제2부 다음 무대",
+            "  제3장 에이전트",
+            "    - 도구를 쓰는 모델",
+        )
+    }
+
+    @Test
+    fun `an unnumbered line after a numbered section is that section's sibling`() {
+        assertThat(outline("1장 시작\n1.1 설치\n정리\n2장 기본기")).containsExactly(
+            "1장 시작",
+            "  1.1 설치",
+            "  - 정리",
+            "2장 기본기",
+        )
+    }
+
+    @Test
+    fun `back matter after the last chapter returns to the top, a chapter's own closing section does not`() {
+        assertThat(outline("1장 시작\n설치\n마치며\n2장 끝\n배포\n마치며\n용어집\n찾아보기")).containsExactly(
+            "1장 시작",
+            "  - 설치",
+            "  - 마치며",
+            "2장 끝",
+            "  - 배포",
+            "- 마치며",
+            "- 용어집",
+            "- 찾아보기",
+        )
+    }
+
+    @Test
+    fun `a chapter label alone on its line is a chapter titled by it`() {
+        assertThat(outline("1부 기초\n1장 시작\n설치\n2장\n배포")).containsExactly(
+            "1부 기초",
+            "  1장 시작",
+            "    - 설치",
+            "  - 2장",
+            "    - 배포",
         )
     }
 
