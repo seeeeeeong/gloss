@@ -69,6 +69,12 @@ describe('geometryOf', () => {
   it('falls back to one page where two would be narrower than 300', () => {
     expect(geometryOf(600, 848, false).cols).toBe(1)
   })
+
+  it('keeps a whole number of lines at the line of a larger reading size', () => {
+    const g = geometryOf(1388, 848, false, 32)
+    expect(g.th % 32).toBe(0)
+    expect(geometryOf(1388, 848, false).th % 28).toBe(0)
+  })
 })
 
 describe('pages and units', () => {

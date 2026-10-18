@@ -11,7 +11,7 @@ export function turnsPageFrom(target: { closest: (selectors: string) => unknown 
   return !target?.closest(NOT_FOR_TURNING)
 }
 
-/** Every line of a page is 28px, so a page's text height is a whole number of lines. */
+/** A page's text height is a whole number of lines: 28px at the smallest reading size. */
 export const LINE = 28
 
 /**
@@ -32,10 +32,10 @@ export type Geometry = {
   hd: number
 }
 
-const lines = (height: number) => Math.max(1, Math.floor(height / LINE)) * LINE
+const lines = (height: number, line: number) => Math.max(1, Math.floor(height / line)) * line
 
 /** The prototype's geometry: two pages of at most 600 when they fit, one on a phone. */
-export function geometryOf(width: number, height: number, phone: boolean): Geometry {
+export function geometryOf(width: number, height: number, phone: boolean, line = LINE): Geometry {
   if (phone) {
     const ph = Math.max(320, height - 68)
     const px = 24
@@ -46,7 +46,7 @@ export function geometryOf(width: number, height: number, phone: boolean): Geome
       ph,
       px,
       pt,
-      th: lines(ph - pt - 44),
+      th: lines(ph - pt - 44, line),
       tw: width - 2 * px,
       left: 0,
       top: 0,
@@ -68,7 +68,7 @@ export function geometryOf(width: number, height: number, phone: boolean): Geome
     ph,
     px,
     pt,
-    th: lines(ph - pt - 56),
+    th: lines(ph - pt - 56, line),
     tw: pw - 2 * px,
     left: Math.round((width - cols * pw) / 2),
     top: Math.max(8, Math.round((height - ph - 48) / 2)),

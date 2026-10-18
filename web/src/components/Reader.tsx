@@ -33,14 +33,17 @@ import {
   unitOfItem,
   visibleUnits,
 } from '@/lib/reader'
+import { lineOf } from '@/lib/reading'
 import { RECENT_KEY, readsFrom, withRead } from '@/lib/shelf'
 import { Icon } from './Icon'
 import { Edges, PageChrome, Pager } from './ReaderChrome'
 import { MENU_ID, ReaderMenu } from './ReaderMenu'
 import { Contents, Cover, ItemArticle, type ReaderBook } from './ReaderPages'
+import { ReadingSizeDialog } from './ReadingSize'
 import { useShellTitle } from './ShellTitle'
 import { Tutor } from './Tutor'
 import { useBookPosts } from './useBookPosts'
+import { useReadingSize } from './useReadingSize'
 import { useSpreads } from './useSpreads'
 import { useStageGeometry } from './useStageGeometry'
 
@@ -69,7 +72,9 @@ export function Reader({ book, items, posts, start }: Props) {
   const { viewOf, texts, versions, arrive, prefetch, retry } = useBookPosts(book.id, posts)
   const stage = useRef<HTMLDivElement>(null)
   const flow = useRef<HTMLDivElement>(null)
-  const { geo, phone, width } = useStageGeometry(stage)
+  const [size] = useReadingSize()
+  const line = lineOf(size)
+  const { geo, phone, width } = useStageGeometry(stage, line)
 
   const [focus, setFocus] = useState<string | null>(start)
   const spreads = useSpreads(flow, geo, {
@@ -179,7 +184,7 @@ export function Reader({ book, items, posts, start }: Props) {
             className={spreads.slide ? 'track' : 'track still'}
             style={{ transform: `translateX(${-first * (geo?.pw ?? 0) + spreads.drag}px)` }}
           >
-            <div ref={flow} className="flow" style={flowStyle(geo)}>
+            <div ref={flow} className="flow" style={flowStyle(geo, size, line)}>
               <BookPages
                 book={book}
                 items={items}
@@ -214,6 +219,7 @@ export function Reader({ book, items, posts, start }: Props) {
       <div className="sr-only" role="status">
         {spreads.announced}
       </div>
+      <SizeButton />
       <Tutor
         key={book.id}
         bookId={book.id}
@@ -331,10 +337,12 @@ function bookStyle(geo: Geometry | null, ready: boolean): CSSProperties {
   }
 }
 
-function flowStyle(geo: Geometry | null): CSSProperties | undefined {
+function flowStyle(geo: Geometry | null, size: number, line: number): CSSProperties | undefined {
   if (!geo) return undefined
   const gap = geo.pw - geo.tw
   return {
+    fontSize: size,
+    lineHeight: `${line}px`,
     left: geo.px,
     top: geo.pt,
     height: geo.th,
@@ -469,5 +477,27 @@ function ReaderTitle({ book, items, current, phone, viewOf, onGo }: TitleProps) 
         />
       )}
     </>
+  )
+}
+
+/** 글자 크기 in the header, before the tutor's toggle. */
+function SizeButton() {
+  const shell = useShellTitle()
+  const [open, setOpen] = useState(false)
+  if (!shell.acts) return null
+  return createPortal(
+    <>
+      <button
+        type="button"
+        className="ibtn"
+        aria-label="글자 크기"
+        data-tip="글자 크기"
+        onClick={() => setOpen(true)}
+      >
+        <Icon name="text" />
+      </button>
+      {open && <ReadingSizeDialog onClose={() => setOpen(false)} />}
+    </>,
+    shell.acts,
   )
 }
