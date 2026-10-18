@@ -48,21 +48,45 @@ function render(props: Partial<Parameters<typeof TutorThread>[0]>) {
 }
 
 describe('TutorThread', () => {
-  it('opens with the item named, the quote as the bubble first line, and a copy under the reply', () => {
+  it('opens a note under the item with the phrase marked, the question in bold and a copy under the answer', () => {
     const out = render({ messages: [said(1, { quote: '운영체제를 자원 할당자로' }), replied(2)] })
     expect(out).toContain(
       '<button type="button" class="t-div"><span>1.1 운영체제가 할 일</span></button>',
     )
     expect(out).toContain(
-      '<div class="t-bub"><span class="t-q">운영체제를 자원 할당자로</span>자원 할당자가 뭔가요?</div>',
+      '<div class="t-ask opens"><p class="t-mark"><mark>운영체제를 자원 할당자로</mark></p><p class="t-qtext">자원 할당자가 뭔가요?</p></div>',
     )
-    expect(out).toContain('<p>자원을 나눠 주는 역할이에요.</p>')
+    expect(out).toContain('<div class="t-a"><p>자원을 나눠 주는 역할이에요.</p>')
     expect(out).toContain('aria-label="복사"')
   })
 
-  it('writes the answer under way with the dot cursor', () => {
+  it('keeps a question without a quote in the note before it, and opens one for a new quote', () => {
+    const out = render({
+      messages: [
+        said(1, { quote: '운영체제를 자원 할당자로' }),
+        replied(2),
+        said(3, { text: '예를 들면요?' }),
+        replied(4),
+        said(5, { quote: '프로세스', text: '프로세스는요?' }),
+      ],
+    })
+    expect(out).toContain('<div class="t-ask"><p class="t-qtext">예를 들면요?</p></div>')
+    expect(out).toContain(
+      '<div class="t-ask opens"><p class="t-mark"><mark>프로세스</mark></p><p class="t-qtext">프로세스는요?</p></div>',
+    )
+  })
+
+  it('shows each paragraph of an answer on its own', () => {
+    const out = render({ messages: [said(1), replied(2, { text: '첫 문단\n\n둘째 문단' })] })
+    expect(out).toContain('<div class="t-a"><p>첫 문단</p><p>둘째 문단</p>')
+  })
+
+  it('thinks until the first words come, then writes the answer with the dot cursor', () => {
+    const waiting = render({ live: { asked: said(-1), text: '' } })
+    expect(waiting).toContain('<div class="t-a" aria-busy="true"><p class="t-pending">생각 중</p>')
+
     const out = render({ live: { asked: said(-1), text: '자원을' } })
-    expect(out).toContain('<div class="t-turn gloss" aria-busy="true"><p>자원을<span class="cur"')
+    expect(out).toContain('<div class="t-a" aria-busy="true"><p>자원을<span class="cur"')
     expect(out).not.toContain('답을 받지 못했어요.')
   })
 
@@ -87,7 +111,7 @@ describe('TutorThread', () => {
     })
     expect(out).toContain('<p class="t-note quiet">답을 받지 못했어요.</p>')
     expect(out).toContain(
-      '<div class="t-turn gloss" role="alert"><p class="t-note">책의 학습 계획을 만드는 중이에요.</p>',
+      '<div class="t-a" role="alert"><p class="t-note">책의 학습 계획을 만드는 중이에요.</p>',
     )
   })
 

@@ -3,7 +3,14 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import type { TocItem } from '../lib/books'
-import { type ChatMessage, noteOf, type ReplyNote, type ThreadRow, threadRowsOf } from '../lib/chat'
+import {
+  type ChatMessage,
+  noteOf,
+  paragraphsOf,
+  type ReplyNote,
+  type ThreadRow,
+  threadRowsOf,
+} from '../lib/chat'
 import { COPIED_FOR } from '../lib/copied'
 import { type LiveTurn, type Refused, shownOf } from '../lib/tutor'
 import { Icon } from './Icon'
@@ -22,8 +29,9 @@ type Props = {
 }
 
 /**
- * The conversation: the reader's turns as bubbles, Gloss's as plain text, and a divider wherever a
- * turn comes from another item, which jumps there. The turn being answered ends in the dot cursor.
+ * The conversation as notes: the phrase a turn quotes, the reader's question in bold, Gloss's answer
+ * under it. A question without a quote stays in the note before it. A divider names the item
+ * wherever a turn comes from another one, and jumps there.
  */
 export function TutorThread(props: Props) {
   const { items, messages, live, refused, loadFailed, elsewhere = false, onGo, onReload } = props
@@ -46,25 +54,27 @@ export function TutorThread(props: Props) {
           )
         }
         const { message } = row
-        if (message.role === 'gloss') return <GlossTurn key={row.key} message={message} />
+        if (message.role === 'gloss') return <Answer key={row.key} message={message} />
         const status = waitStatus({ rows, at: i, live, elsewhere })
-        return <ReaderTurn key={row.key} message={message} status={status} />
+        const opens = message.quote !== null || rows[i - 1]?.kind !== 'message'
+        return <Question key={row.key} message={message} status={status} opens={opens} />
       })}
       {live && (
-        <div className="t-turn gloss" aria-busy="true">
-          <p>
-            {live.text}
-            <span className="cur" aria-hidden="true" />
-          </p>
+        <div className="t-a" aria-busy="true">
+          {live.text ? (
+            <Paragraphs text={live.text} cursor />
+          ) : (
+            <p className="t-pending">생각 중</p>
+          )}
         </div>
       )}
       {refused && (
-        <div className="t-turn gloss" role="alert">
+        <div className="t-a" role="alert">
           <Note note={noteOf({ status: 'failed', code: refused.code, message: refused.message })} />
         </div>
       )}
       {loadFailed && (
-        <div className="t-turn gloss">
+        <div className="t-a">
           <p className="t-note">대화를 불러오지 못했어요.</p>
           <button type="button" className="btn sec sm t-retry" onClick={onReload}>
             다시 시도
@@ -78,7 +88,7 @@ export function TutorThread(props: Props) {
 type WaitArgs = { rows: ThreadRow[]; at: number; live: LiveTurn | null; elsewhere: boolean }
 
 /** How a reader's turn with no reply under it stands: lost, or being answered in another tab. */
-function waitStatus({ rows, at, live, elsewhere }: WaitArgs): ReaderTurnProps['status'] {
+function waitStatus({ rows, at, live, elsewhere }: WaitArgs): QuestionProps['status'] {
   const row = rows[at]
   const next = rows[at + 1]
   const answered = next?.kind === 'message' && next.message.role === 'gloss'
@@ -87,24 +97,31 @@ function waitStatus({ rows, at, live, elsewhere }: WaitArgs): ReaderTurnProps['s
   return elsewhere && at === rows.length - 1 && !live ? 'elsewhere' : 'unanswered'
 }
 
-type ReaderTurnProps = { message: ChatMessage; status: 'unanswered' | 'elsewhere' | null }
+type QuestionProps = {
+  message: ChatMessage
+  status: 'unanswered' | 'elsewhere' | null
+  /** A quote, or the first turn after a divider, starts a note of its own. */
+  opens: boolean
+}
 
-function ReaderTurn({ message, status }: ReaderTurnProps) {
+function Question({ message, status, opens }: QuestionProps) {
   return (
     <>
-      <div className="t-turn user">
-        <div className="t-bub">
-          {message.quote && <span className="t-q">{message.quote}</span>}
-          {message.text}
-        </div>
+      <div className={opens ? 't-ask opens' : 't-ask'}>
+        {message.quote && (
+          <p className="t-mark">
+            <mark>{message.quote}</mark>
+          </p>
+        )}
+        <p className="t-qtext">{message.text}</p>
       </div>
       {status === 'unanswered' && (
-        <div className="t-turn gloss">
+        <div className="t-a">
           <p className="t-note quiet">답을 받지 못했어요.</p>
         </div>
       )}
       {status === 'elsewhere' && (
-        <div className="t-turn gloss">
+        <div className="t-a">
           <p className="t-note quiet pulse">답하는 중</p>
         </div>
       )}
@@ -112,11 +129,11 @@ function ReaderTurn({ message, status }: ReaderTurnProps) {
   )
 }
 
-function GlossTurn({ message }: { message: ChatMessage }) {
+function Answer({ message }: { message: ChatMessage }) {
   const note = noteOf(message)
   return (
-    <div className="t-turn gloss">
-      {message.text && <p>{message.text}</p>}
+    <div className="t-a">
+      {message.text && <Paragraphs text={message.text} />}
       {note && <Note note={note} />}
       {message.text && (
         <div className="t-act">
@@ -125,6 +142,16 @@ function GlossTurn({ message }: { message: ChatMessage }) {
       )}
     </div>
   )
+}
+
+function Paragraphs({ text, cursor = false }: { text: string; cursor?: boolean }) {
+  const paragraphs = paragraphsOf(text)
+  return paragraphs.map((paragraph, i) => (
+    <p key={paragraph.at}>
+      {paragraph.text}
+      {cursor && i === paragraphs.length - 1 && <span className="cur" aria-hidden="true" />}
+    </p>
+  ))
 }
 
 function Note({ note }: { note: ReplyNote | null }) {

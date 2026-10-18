@@ -32,7 +32,7 @@ describe('TutorComposer', () => {
   it('shows the picked phrase above the text with its x', () => {
     const out = render({ quote: { text: '자원 할당자로', itemKey: 'a' } })
     expect(out).toContain('class="composer has-quote"')
-    expect(out).toContain('<p>자원 할당자로</p>')
+    expect(out).toContain('<p><mark>자원 할당자로</mark></p>')
     expect(out).toContain('aria-label="인용 지우기"')
   })
 

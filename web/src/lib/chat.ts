@@ -101,6 +101,19 @@ export function threadRowsOf(messages: ChatMessage[], items: TocItem[]): ThreadR
   return rows
 }
 
+/** An answer's paragraphs, split at blank lines, each with where it starts in the text. */
+export function paragraphsOf(text: string): { at: number; text: string }[] {
+  const paragraphs: { at: number; text: string }[] = []
+  let at = 0
+  for (const blank of text.matchAll(/\n(?:[ \t]*\n)+/g)) {
+    paragraphs.push({ at, text: text.slice(at, blank.index) })
+    at = blank.index + blank[0].length
+  }
+  paragraphs.push({ at, text: text.slice(at) })
+  const written = paragraphs.filter((paragraph) => paragraph.text.trim() !== '')
+  return written.length > 0 ? written : [{ at: 0, text }]
+}
+
 /** What a reply that did not finish tells the reader, and where they can fix it. */
 export type ReplyNote = { text: string; fix: 'key' | 'usage' | null; quiet: boolean }
 

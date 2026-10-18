@@ -57,6 +57,7 @@ export function Tutor(props: Props) {
   const [draft, setDraft] = useState('')
   const input = useRef<HTMLTextAreaElement>(null)
   const fab = useRef<HTMLButtonElement>(null)
+  const toggle = useRef<HTMLButtonElement>(null)
   // A window too narrow for the book beside the tutor gets the sheet, as a phone does.
   const [narrow, setNarrow] = useState(false)
   const phone = phoneWide || narrow
@@ -142,12 +143,18 @@ export function Tutor(props: Props) {
 
   const keyOfUnit = useCallback((unit: number) => items[itemOfUnit(unit)]?.itemKey ?? null, [items])
 
+  function closeDocked() {
+    docking.choose(false)
+    toggle.current?.focus()
+  }
+
   const panel = (sheetHeading: boolean) => (
     <TutorPanel
       tutor={tutor}
       items={items}
       grab={sheetHeading}
       onGo={go}
+      onClose={sheetHeading ? closeSheet : closeDocked}
       composer={
         <TutorComposer
           value={draft}
@@ -172,6 +179,7 @@ export function Tutor(props: Props) {
         !phone &&
         createPortal(
           <button
+            ref={toggle}
             type="button"
             className="ibtn tg"
             aria-pressed={open}
@@ -230,13 +238,13 @@ type PanelProps = {
   items: TocItem[]
   grab: boolean
   onGo: (itemKey: string) => void
+  onClose: () => void
   composer: ReactNode
 }
 
 /** The panel's head, its thread kept at the newest turn while the reader stays there, and its composer. */
-function TutorPanel({ tutor, items, grab, onGo, composer }: PanelProps) {
+function TutorPanel({ tutor, items, grab, onGo, onClose, composer }: PanelProps) {
   const body = useRef<HTMLDivElement>(null)
-  const [scrolled, setScrolled] = useState(false)
   const stick = useRef(true)
   const { messages, live, refused, loadFailed } = tutor
 
@@ -254,17 +262,25 @@ function TutorPanel({ tutor, items, grab, onGo, composer }: PanelProps) {
 
   function onScroll(event: UIEvent<HTMLDivElement>) {
     const el = event.currentTarget
-    setScrolled(el.scrollTop > 0)
     stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX
   }
 
   const shell = (
     <>
       {grab && <div className="t-grab" aria-hidden="true" />}
-      <div className={scrolled ? 't-head scrolled' : 't-head'}>
+      <div className="t-head">
         <h2 className="t-title" id={grab ? 'tutor-title' : undefined}>
           튜터
         </h2>
+        <button
+          type="button"
+          className="ibtn"
+          aria-label="튜터 닫기"
+          data-tip="튜터 닫기"
+          onClick={onClose}
+        >
+          <Icon name="x" />
+        </button>
       </div>
       <div ref={body} className="t-body" onScroll={onScroll}>
         {showsThread(tutor) && (
