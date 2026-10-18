@@ -25,29 +25,38 @@ describe('ApiKeyForm', () => {
     expect(renderToStaticMarkup(<ApiKeyForm apiKey={null} />)).not.toContain('placeholder')
   })
 
-  it('shows a registered key by its last four, with a way to delete it', () => {
+  it('shows a registered key by its last four, with a way to delete it in red', () => {
     const out = renderToStaticMarkup(<ApiKeyForm apiKey={keyIn('valid')} />)
 
     expect(out).toContain('····a3f9')
     expect(out).toContain('새 키로 바꾸기')
     expect(out).toContain('API 키 삭제')
+    expect(out).toMatch(/<button type="button" class="btn sec sm destroy">삭제<\/button>/)
+  })
+
+  it('takes a new key on one row, its label, the field and 저장', () => {
+    const out = renderToStaticMarkup(<ApiKeyForm apiKey={keyIn('valid')} />)
+    expect(out).toMatch(
+      /<form class="s-line"[^>]*><span class="s-k">새 키로 바꾸기<\/span><span class="inl grow"><input/,
+    )
   })
 
   it('keeps a key in use plain and puts when it was checked on a line of its own', () => {
     const out = renderToStaticMarkup(<ApiKeyForm apiKey={keyIn('valid', '2026-10-15T00:13:00Z')} />)
 
-    expect(out).toContain('<span class="s-sub s-state">')
+    expect(out).toMatch(/<span class="s-v"><span class="s-state"><svg[\s\S]*?<\/svg>정상<\/span>/)
     expect(out).toContain('<span class="s-sub">2026-10-15 09:13 확인</span>')
+    expect(out).toContain('<span class="s-end">····a3f9</span>')
     expect(out).not.toContain(' · ')
   })
 
   it('gives a missing key, one to enter again and one DeepSeek refused a tone', () => {
     expect(renderToStaticMarkup(<ApiKeyForm apiKey={null} />)).toContain('s-v s-state warn')
     expect(renderToStaticMarkup(<ApiKeyForm apiKey={keyIn('unreadable')} />)).toContain(
-      's-sub s-state warn',
+      'class="s-state warn"',
     )
     expect(renderToStaticMarkup(<ApiKeyForm apiKey={keyIn('invalid')} />)).toContain(
-      's-sub s-state bad',
+      'class="s-state bad"',
     )
   })
 

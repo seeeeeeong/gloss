@@ -8,7 +8,7 @@ export type ApiKey = {
 }
 
 const STATUSES: Record<string, string> = {
-  valid: '사용 중',
+  valid: '정상',
   invalid: 'DeepSeek이 거절함',
   unreadable: '다시 입력 필요',
 }

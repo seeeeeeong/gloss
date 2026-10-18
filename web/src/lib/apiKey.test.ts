@@ -3,7 +3,7 @@ import { keyStatusLabel } from './apiKey'
 
 describe('keyStatusLabel', () => {
   it('says how a key stands in Korean', () => {
-    expect(keyStatusLabel('valid')).toBe('사용 중')
+    expect(keyStatusLabel('valid')).toBe('정상')
     expect(keyStatusLabel('invalid')).toBe('DeepSeek이 거절함')
     expect(keyStatusLabel('unreadable')).toBe('다시 입력 필요')
   })

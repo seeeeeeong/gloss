@@ -188,7 +188,7 @@ function AccountStatus({ account }: { account: AdminAccount }) {
   if (!account.mustChangePassword) return label
   return (
     <span className="st warn">
-      <Icon name="key" size={16} />
+      <Icon name="clock" size={16} />
       {label}
     </span>
   )

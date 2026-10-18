@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useSyncExternalStore } from 'react'
+import { createContext, useCallback, useContext, useSyncExternalStore } from 'react'
 import { type Theme, themeAttribute, themeColors, themeCookie } from '@/lib/theme'
 
 const DARK = '(prefers-color-scheme: dark)'
@@ -40,17 +40,16 @@ function isDark() {
   return chosen === 'system' ? matchMedia(DARK).matches : chosen === 'dark'
 }
 
-/** The theme chosen on the page now, [initial] while the server renders it. */
-export function useThemeChoice(initial: Theme): Theme {
-  return useSyncExternalStore(subscribe, chosenTheme, () => initial)
-}
+/** The theme in the cookie the server rendered the page with, which it cannot read off the page. */
+export const RenderedTheme = createContext<Theme>('system')
 
 /**
  * Whether the page is dark now, however it was chosen, and a switch to the other. It reads the page
  * itself, so a theme set elsewhere, as on 마이페이지, shows here at once.
  */
 export function useDarkTheme() {
-  const dark = useSyncExternalStore(subscribe, isDark, () => false)
+  const rendered = useContext(RenderedTheme)
+  const dark = useSyncExternalStore(subscribe, isDark, () => rendered === 'dark')
   const toggle = useCallback(() => applyTheme(isDark() ? 'light' : 'dark'), [])
   return { dark, toggle }
 }

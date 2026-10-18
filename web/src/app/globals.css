@@ -693,14 +693,10 @@ svg {
 .btn.danger:hover:not(:disabled) {
   background: var(--danger-bg-hover);
 }
-.btn.danger-t {
-  height: 32px;
-  padding: 0 12px;
-  margin-right: -12px;
+.btn.sec.destroy {
   color: var(--danger-tx);
 }
-.btn.danger-t:hover:not(:disabled),
-.btn.danger-t:focus-visible {
+.btn.sec.destroy:hover:not(:disabled) {
   background: var(--danger-soft);
 }
 .btn.sm {
@@ -1117,7 +1113,8 @@ button.think-head:focus-visible svg,
   min-height: 36px;
 }
 .title {
-  font: 600 24px / 32px var(--font);
+  font: 590 32px / 1.3 var(--font);
+  letter-spacing: -0.035em;
 }
 .meta {
   margin-top: 4px;
@@ -1183,28 +1180,28 @@ button.think-head:focus-visible svg,
   text-overflow: ellipsis;
 }
 .lid {
-  font: 400 14px / 20px var(--font);
-  color: var(--tx2);
+  font: 400 12px / 18px var(--font);
+  color: var(--tx3);
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Settings: section heads and rows of label and value */
+/* Settings: section heads, then rows of a label column, the value after it and an action at the end */
 .p-row + .set {
-  margin-top: 8px;
+  margin-top: 28px;
 }
 .set + .set {
   margin-top: 40px;
 }
 .set-h {
-  height: 60px;
   display: flex;
   align-items: center;
-  border-bottom: 1px solid var(--divider);
-  font: 500 18px / 28px var(--font);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--b-light);
+  font: 590 16px / 24px var(--font);
 }
 .srow {
-  border-bottom: 1px solid var(--divider);
+  border-bottom: 1px solid var(--b-light);
 }
 .srow:last-child {
   border-bottom: 0;
@@ -1213,13 +1210,17 @@ button.think-head:focus-visible svg,
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 56px;
-  padding: 10px 0;
+  min-height: 54px;
+  padding: 8px 0;
+}
+.s-line > :is(.btn, .switch):last-child {
+  margin-left: auto;
 }
 .s-k {
-  flex: 1;
-  min-width: 0;
+  flex: none;
+  width: 154px;
   font: 400 14px / 20px var(--font);
+  color: var(--tx2);
 }
 .s-sub {
   display: block;
@@ -1244,15 +1245,41 @@ button.think-head:focus-visible svg,
 .s-state:is(.warn, .bad) svg {
   color: currentColor;
 }
-.s-v.s-state {
-  justify-content: flex-end;
-}
 .s-v {
-  flex: none;
+  flex: 1;
+  min-width: 0;
+  font: 400 14px / 20px var(--font);
+  color: var(--tx);
+  font-variant-numeric: tabular-nums;
+}
+.s-end {
+  margin-left: auto;
   font: 400 14px / 20px var(--font);
   color: var(--tx2);
-  text-align: right;
   font-variant-numeric: tabular-nums;
+}
+/* What a save says, under the field in the value column */
+.s-msg {
+  margin: -4px 0 12px 166px;
+}
+/* The usage legend: tight rows with the figures at the end, then the limit under a rule */
+.srow.fig {
+  border-bottom: 0;
+}
+.srow.fig .s-line {
+  min-height: 30px;
+  padding: 3px 0;
+}
+.srow.fig .s-k {
+  flex: 1;
+  width: auto;
+}
+.srow.fig .s-v {
+  flex: none;
+}
+.srow.fig + .srow:not(.fig) {
+  margin-top: 12px;
+  border-top: 1px solid var(--b-light);
 }
 .s-k .sw {
   display: inline-block;
@@ -1341,6 +1368,11 @@ button.think-head:focus-visible svg,
 .money .field.limit {
   width: 96px;
 }
+/* On a 320 phone the field and both buttons need the row; the short label gives up its column. */
+.limit-line .s-k {
+  flex-shrink: 1;
+  min-width: 0;
+}
 .f-err {
   font: 400 13px / 18px var(--font);
   color: var(--danger-tx);
@@ -1351,14 +1383,16 @@ button.think-head:focus-visible svg,
 }
 .month {
   padding: 16px 0 0;
-  font: 600 14px / 20px var(--font);
+  font: 400 14px / 20px var(--font);
+  color: var(--tx2);
 }
 .ubar {
   display: flex;
-  height: 6px;
-  margin: 12px 0 4px;
+  height: 8px;
+  margin: 14px 0 10px;
   border-radius: 999px;
-  background: var(--b-default);
+  background: var(--bg-tertiary);
+  box-shadow: inset 0 0 0 1px var(--b-light);
   overflow: hidden;
 }
 .ubar i {
@@ -1382,6 +1416,10 @@ button.think-head:focus-visible svg,
 }
 .sub-h + .cday .cday-h {
   margin-top: 8px;
+}
+.set .sub-h {
+  margin-top: 28px;
+  font: 590 14px / 20px var(--font);
 }
 .calls {
   margin: 0 -8px;
@@ -2626,6 +2664,12 @@ button.think-head:focus-visible svg,
   .in {
     height: 44px;
     font-size: 16px;
+  }
+  .s-k {
+    width: 104px;
+  }
+  .s-msg {
+    margin-left: 116px;
   }
   .dlg {
     padding: 20px;
