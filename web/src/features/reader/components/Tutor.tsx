@@ -3,6 +3,7 @@
 import './tutor.css'
 import {
   type CSSProperties,
+  type PointerEvent,
   type ReactNode,
   type RefObject,
   type UIEvent,
@@ -20,12 +21,17 @@ import { itemKeyFor, type Quote, quoteOf } from '@/features/reader/api/chat'
 import type { useTutor } from '@/features/reader/hooks/useTutor'
 import {
   holdOthers,
+  isQuiet,
   narrowAt,
   pillTop,
+  promptOf,
+  type SheetSize,
+  sheetAfterDrag,
   showsThread,
   startsDocked,
 } from '@/features/reader/utils/tutor'
 import type { TocItem } from '@/lib/books'
+import { headingOf } from '@/lib/posts'
 import { TutorComposer } from './TutorComposer'
 import { TutorThread } from './TutorThread'
 
@@ -33,7 +39,7 @@ type Props = {
   /** The book's conversation, which the page reads once for the tutor and the contents. */
   tutor: ReturnType<typeof useTutor>
   items: TocItem[]
-  /** The item the reader is on, null on the cover and the 차례. */
+  /** The item the reader is on; null before the book is laid out. */
   current: string | null
   phone: boolean
   /** The version of each item's post the page shows. */
@@ -92,6 +98,7 @@ export function Tutor(props: Props) {
 
   const phoneRoot = useRef<HTMLDivElement>(null)
   const closeSheet = useCallback(() => setSheet(false), [])
+  const sheetSize = useSheetSize(sheet && phone, closeSheet)
   // An open sheet is modal: the page behind it is inert, and closing it hands focus back to its button.
   useEffect(() => {
     if (!sheet || !phone) return
@@ -155,10 +162,12 @@ export function Tutor(props: Props) {
     toggle.current?.focus()
   }
 
+  const item = items.find((it) => it.itemKey === current)
   const panel = (sheetHeading: boolean) => (
     <TutorPanel
       tutor={tutor}
       items={items}
+      item={item ? headingOf(item) : null}
       grab={sheetHeading}
       onGo={go}
       onClose={sheetHeading ? closeSheet : closeDocked}
@@ -171,6 +180,7 @@ export function Tutor(props: Props) {
             setQuote(null)
             input.current?.focus()
           }}
+          placeholder={promptOf(quote, tutor.messages)}
           answering={tutor.live !== null}
           onSend={send}
           onStop={() => void tutor.stop()}
@@ -224,11 +234,14 @@ export function Tutor(props: Props) {
               onClick={closeSheet}
             />
             <section
-              className={sheet ? 'tutor t-sheet open' : 'tutor t-sheet'}
+              ref={sheetSize.ref}
+              className={sheetClass(sheet, sheetSize.size)}
+              style={sheetSize.style}
               role="dialog"
               aria-modal="true"
-              aria-labelledby="tutor-title"
+              aria-label="튜터"
               inert={!sheet}
+              {...sheetSize.handlers}
             >
               {panel(true)}
             </section>
@@ -243,14 +256,20 @@ export function Tutor(props: Props) {
 type PanelProps = {
   tutor: ReturnType<typeof useTutor>
   items: TocItem[]
+  /** The item open, which the panel is titled with. */
+  item: string | null
   grab: boolean
   onGo: (itemKey: string) => void
   onClose: () => void
   composer: ReactNode
 }
 
-/** The panel's head, its thread kept at the newest turn while the reader stays there, and its composer. */
-function TutorPanel({ tutor, items, grab, onGo, onClose, composer }: PanelProps) {
+/**
+ * The panel titled with the item open, its thread kept at the newest turn while the reader stays
+ * there, and its composer at the foot.
+ */
+export function TutorPanel(props: PanelProps) {
+  const { tutor, items, item, grab, onGo, onClose, composer } = props
   const body = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
   const { messages, live, refused, loadFailed } = tutor
@@ -276,9 +295,7 @@ function TutorPanel({ tutor, items, grab, onGo, onClose, composer }: PanelProps)
     <>
       {grab && <div className="t-grab" aria-hidden="true" />}
       <div className="t-head">
-        <h2 className="t-title" id={grab ? 'tutor-title' : undefined}>
-          튜터
-        </h2>
+        <h2 className="t-title">{item ?? '튜터'}</h2>
         <button
           type="button"
           className="ibtn"
@@ -290,7 +307,14 @@ function TutorPanel({ tutor, items, grab, onGo, onClose, composer }: PanelProps)
         </button>
       </div>
       <div ref={body} className="t-body" onScroll={onScroll}>
-        {showsThread(tutor) && (
+        {isQuiet(tutor) && (
+          <div className="t-quiet" aria-hidden="true">
+            <span className="brand">
+              gloss<span className="brand-mark">↗</span>
+            </span>
+          </div>
+        )}
+        {showsThread(tutor) && !isQuiet(tutor) && (
           <TutorThread
             items={items}
             messages={messages ?? []}
@@ -307,6 +331,78 @@ function TutorPanel({ tutor, items, grab, onGo, onClose, composer }: PanelProps)
     </>
   )
   return grab ? shell : <div className="tutor">{shell}</div>
+}
+
+const sheetClass = (open: boolean, size: SheetSize) =>
+  ['tutor t-sheet', open && 'open', size === 'full' && 'full'].filter(Boolean).join(' ')
+
+// Below the window's height by more than this, the visual viewport has a keyboard over it.
+const KEYBOARD_PX = 150
+
+/**
+ * The phone's sheet: over the lower part of the page, the post above it, at full height once
+ * dragged up or once the keyboard opens; dragged down a step, or closed from the lower one. It
+ * follows the visual viewport, so the keyboard never covers the composer.
+ */
+function useSheetSize(open: boolean, onClose: () => void) {
+  const ref = useRef<HTMLElement>(null)
+  const [size, setSize] = useState<Exclude<SheetSize, 'closed'>>('half')
+  const [drag, setDrag] = useState<number | null>(null)
+  const from = useRef(0)
+
+  useEffect(() => {
+    if (open) return
+    setSize('half')
+    setDrag(null)
+  }, [open])
+
+  useEffect(() => {
+    const viewport = window.visualViewport
+    const el = ref.current
+    if (!open || !viewport || !el) return
+    const follow = () => {
+      el.style.setProperty('--vv-h', `${viewport.height}px`)
+      el.style.setProperty('--vv-bottom', `${innerHeight - viewport.height - viewport.offsetTop}px`)
+      if (innerHeight - viewport.height > KEYBOARD_PX) setSize('full')
+    }
+    follow()
+    viewport.addEventListener('resize', follow)
+    viewport.addEventListener('scroll', follow)
+    return () => {
+      viewport.removeEventListener('resize', follow)
+      viewport.removeEventListener('scroll', follow)
+    }
+  }, [open])
+
+  // The grab bar and the head move the sheet; the buttons in the head stay buttons.
+  const handlers = {
+    onPointerDown(event: PointerEvent<HTMLElement>) {
+      const target = event.target as Element
+      if (!target.closest('.t-grab, .t-head') || target.closest('button')) return
+      from.current = event.clientY
+      setDrag(0)
+      event.currentTarget.setPointerCapture(event.pointerId)
+    },
+    onPointerMove(event: PointerEvent<HTMLElement>) {
+      if (drag !== null) setDrag(event.clientY - from.current)
+    },
+    onPointerUp() {
+      if (drag === null) return
+      const next = sheetAfterDrag(size, drag)
+      setDrag(null)
+      if (next === 'closed') onClose()
+      else setSize(next)
+    },
+  }
+  const style: CSSProperties | undefined =
+    drag === null
+      ? undefined
+      : {
+          transition: 'none',
+          transform: drag > 0 ? `translateY(${drag}px)` : undefined,
+          ['--pull' as string]: `${Math.max(0, -drag)}px`,
+        }
+  return { ref, size, style, handlers: { ...handlers, onPointerCancel: handlers.onPointerUp } }
 }
 
 // Within this of the bottom, a new piece keeps the thread at the bottom.
