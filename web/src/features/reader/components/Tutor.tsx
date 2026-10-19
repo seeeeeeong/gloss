@@ -33,6 +33,7 @@ import {
 import type { TocItem } from '@/lib/books'
 import { headingOf } from '@/lib/posts'
 import { TutorComposer } from './TutorComposer'
+import { DeleteChatDialog, TutorHistory } from './TutorHistory'
 import { TutorThread } from './TutorThread'
 
 type Props = {
@@ -70,7 +71,6 @@ export function Tutor(props: Props) {
   const [draft, setDraft] = useState('')
   const input = useRef<HTMLTextAreaElement>(null)
   const fab = useRef<HTMLButtonElement>(null)
-  const toggle = useRef<HTMLButtonElement>(null)
   // A window too narrow for the book beside the tutor gets the sheet, as a phone does.
   const [narrow, setNarrow] = useState(false)
   const phone = phoneWide || narrow
@@ -111,7 +111,9 @@ export function Tutor(props: Props) {
   useEffect(() => {
     if (!sheet || !phone) return
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !event.defaultPrevented) closeSheet()
+      // Escape in a dialog over the sheet closes the dialog alone.
+      const inDialog = event.target instanceof Element && event.target.closest('dialog') !== null
+      if (event.key === 'Escape' && !event.defaultPrevented && !inDialog) closeSheet()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -157,11 +159,6 @@ export function Tutor(props: Props) {
 
   const keyOfUnit = useCallback((unit: number) => items[unit]?.itemKey ?? null, [items])
 
-  function closeDocked() {
-    docking.choose(false)
-    toggle.current?.focus()
-  }
-
   const item = items.find((it) => it.itemKey === current)
   const panel = (sheetHeading: boolean) => (
     <TutorPanel
@@ -170,7 +167,7 @@ export function Tutor(props: Props) {
       item={item ? headingOf(item) : null}
       grab={sheetHeading}
       onGo={go}
-      onClose={sheetHeading ? closeSheet : closeDocked}
+      onFresh={focusInput}
       composer={
         <TutorComposer
           value={draft}
@@ -196,7 +193,6 @@ export function Tutor(props: Props) {
         !phone &&
         createPortal(
           <button
-            ref={toggle}
             type="button"
             className="ibtn tg"
             aria-pressed={open}
@@ -260,25 +256,32 @@ type PanelProps = {
   item: string | null
   grab: boolean
   onGo: (itemKey: string) => void
-  onClose: () => void
+  /** A new conversation is open: the composer takes the focus. */
+  onFresh?: () => void
   composer: ReactNode
 }
 
 /**
  * The panel titled with the item open, its thread kept at the newest turn while the reader stays
- * there, and its composer at the foot.
+ * there, and its composer at the foot; or the book's conversations, in the thread's place, to open
+ * one or delete one. A new conversation starts from the header.
  */
 export function TutorPanel(props: PanelProps) {
-  const { tutor, items, item, grab, onGo, onClose, composer } = props
+  const { tutor, items, item, grab, onGo, onFresh, composer } = props
   const body = useRef<HTMLDivElement>(null)
   const stick = useRef(true)
+  const [history, setHistory] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
   const { messages, live, refused, loadFailed } = tutor
+  // A turn under way belongs to the conversation open: it is answered there first.
+  const busy = live !== null
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: each new piece or turn scrolls to it
   useLayoutEffect(() => {
     const el = body.current
-    if (el && stick.current) el.scrollTop = el.scrollHeight
-  }, [messages, live, refused])
+    if (el && stick.current && !history) el.scrollTop = el.scrollHeight
+  }, [messages, live, refused, history])
 
   // A turn the reader sends is shown, wherever they had scrolled to.
   const asked = live?.asked
@@ -287,34 +290,67 @@ export function TutorPanel(props: PanelProps) {
   }, [asked])
 
   function onScroll(event: UIEvent<HTMLDivElement>) {
+    if (history) return
     const el = event.currentTarget
     stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX
+  }
+
+  function showHistory(on: boolean) {
+    if (on) void tutor.list()
+    setHistory(on)
+    setFailed(null)
+    stick.current = true
+  }
+
+  function fresh() {
+    tutor.open(null)
+    showHistory(false)
+    onFresh?.()
+  }
+
+  function openSession(sessionId: string) {
+    if (sessionId !== tutor.sessionId) tutor.open(sessionId)
+    showHistory(false)
+  }
+
+  async function confirmDelete() {
+    const sessionId = deleting
+    setDeleting(null)
+    if (!sessionId) return
+    const result = await tutor.remove(sessionId)
+    setFailed(result.ok || result.status === 404 ? null : result.message)
   }
 
   const shell = (
     <>
       {grab && <div className="t-grab" aria-hidden="true" />}
-      <div className="t-head">
-        <h2 className="t-title">{item ?? '튜터'}</h2>
-        <button
-          type="button"
-          className="ibtn"
-          aria-label="튜터 닫기"
-          data-tip="튜터 닫기"
-          onClick={onClose}
-        >
-          <Icon name="x" />
-        </button>
-      </div>
+      <TutorHead
+        title={history ? '대화 기록' : (item ?? '튜터')}
+        history={history}
+        busy={busy}
+        onHistory={showHistory}
+        onFresh={fresh}
+      />
       <div ref={body} className="t-body" onScroll={onScroll}>
-        {isQuiet(tutor) && (
+        {history && (
+          <TutorHistory
+            sessions={tutor.sessions ?? []}
+            items={items}
+            openId={tutor.sessionId}
+            now={new Date()}
+            failed={failed}
+            onOpen={openSession}
+            onDelete={setDeleting}
+          />
+        )}
+        {!history && isQuiet(tutor) && (
           <div className="t-quiet" aria-hidden="true">
             <span className="brand">
               gloss<span className="brand-mark">↗</span>
             </span>
           </div>
         )}
-        {showsThread(tutor) && !isQuiet(tutor) && (
+        {!history && showsThread(tutor) && !isQuiet(tutor) && (
           <TutorThread
             items={items}
             messages={messages ?? []}
@@ -327,10 +363,68 @@ export function TutorPanel(props: PanelProps) {
           />
         )}
       </div>
-      <div className="t-dock">{composer}</div>
+      {!history && <div className="t-dock">{composer}</div>}
+      {deleting && (
+        <DeleteChatDialog
+          onDelete={() => void confirmDelete()}
+          onCancel={() => setDeleting(null)}
+        />
+      )}
     </>
   )
   return grab ? shell : <div className="tutor">{shell}</div>
+}
+
+type HeadProps = {
+  title: string
+  history: boolean
+  /** A turn of the conversation open is under way. */
+  busy: boolean
+  onHistory: (on: boolean) => void
+  onFresh: () => void
+}
+
+/** The title, then 기록 in a conversation or the way back in the history, and a new conversation. */
+function TutorHead({ title, history, busy, onHistory, onFresh }: HeadProps) {
+  return (
+    <div className="t-head">
+      {history && (
+        <button
+          type="button"
+          className="ibtn sm t-back"
+          aria-label="대화로 돌아가기"
+          onClick={() => onHistory(false)}
+        >
+          <Icon name="arrowL" />
+        </button>
+      )}
+      <h2 className="t-title">{title}</h2>
+      <div className="t-acts">
+        {!history && (
+          <button
+            type="button"
+            className="ibtn sm"
+            aria-label="대화 기록"
+            data-tip="대화 기록"
+            disabled={busy}
+            onClick={() => onHistory(true)}
+          >
+            <Icon name="history" />
+          </button>
+        )}
+        <button
+          type="button"
+          className="ibtn sm"
+          aria-label="새 대화"
+          data-tip="새 대화"
+          disabled={busy}
+          onClick={onFresh}
+        >
+          <Icon name="plus" />
+        </button>
+      </div>
+    </div>
+  )
 }
 
 const sheetClass = (open: boolean, size: SheetSize) =>

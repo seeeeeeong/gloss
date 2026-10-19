@@ -10,6 +10,7 @@ const ITEMS: TocItem[] = [
 ]
 
 const said = (seq: number, overrides: Partial<ChatMessage> = {}): ChatMessage => ({
+  sessionId: 's1',
   seq,
   role: 'reader',
   turnId: null,

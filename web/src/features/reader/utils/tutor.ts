@@ -1,4 +1,4 @@
-import type { ChatMessage, Quote } from '@/features/reader/api/chat'
+import type { ChatMessage, ChatSession, Quote } from '@/features/reader/api/chat'
 
 /** The turn being answered: the reader's message, as kept once the server has it, and the answer so far. */
 export type LiveTurn = { asked: ChatMessage; text: string }
@@ -6,9 +6,17 @@ export type LiveTurn = { asked: ChatMessage; text: string }
 /** A turn the server refused before keeping it: the reader's words go back into the composer. */
 export type Refused = { code: string; message: string; text: string; quote: Quote | null }
 
-/** One book's conversation as the page holds it; null messages until the first read comes back. */
+/**
+ * One book's conversations as the page holds them: the one open, its messages null until the first
+ * read comes back, and the list of them, null until read.
+ */
 export type TutorState = {
   bookId: string
+  /** The conversation open; null for a new one, before its first question is kept. */
+  sessionId: string | null
+  /** Counts each conversation opened, so a read for one left behind changes nothing. */
+  view: number
+  sessions: ChatSession[] | null
   messages: ChatMessage[] | null
   loadFailed: boolean
   live: LiveTurn | null
@@ -20,8 +28,19 @@ export type TutorState = {
 /** Each change names the book it was asked for, so one that comes back after the reader moved on is dropped. */
 export type TutorAction =
   | { type: 'reset'; bookId: string }
-  | { type: 'loaded'; bookId: string; messages: ChatMessage[]; answering?: boolean }
-  | { type: 'loadFailed'; bookId: string }
+  | {
+      type: 'loaded'
+      bookId: string
+      messages: ChatMessage[]
+      answering?: boolean
+      /** The conversation read, and the view it was read for. */
+      sessionId?: string | null
+      view?: number
+    }
+  | { type: 'loadFailed'; bookId: string; view?: number }
+  | { type: 'opened'; bookId: string; sessionId: string | null; view: number }
+  | { type: 'listed'; bookId: string; sessions: ChatSession[] }
+  | { type: 'removed'; bookId: string; sessionId: string }
   | { type: 'asking'; bookId: string; asked: ChatMessage }
   | { type: 'asked'; bookId: string; asked: ChatMessage }
   | { type: 'text'; bookId: string; piece: string }
@@ -33,6 +52,9 @@ export type TutorAction =
 
 export const tutorOf = (bookId: string): TutorState => ({
   bookId,
+  sessionId: null,
+  view: 0,
+  sessions: null,
   messages: null,
   loadFailed: false,
   live: null,
@@ -51,6 +73,54 @@ export function mergeBySeq(base: ChatMessage[], incoming: ChatMessage[]): ChatMe
 const elsewhereAfter = (state: TutorState, answering: boolean | undefined) =>
   answering === undefined ? state.elsewhere : answering && state.live === null
 
+type Action<T extends TutorAction['type']> = Extract<TutorAction, { type: T }>
+
+function loadedInto(state: TutorState, action: Action<'loaded'>): TutorState {
+  if (!readsOpen(state, action)) return state
+  return {
+    ...state,
+    sessionId: action.sessionId ?? state.sessionId,
+    loadFailed: false,
+    messages: mergeBySeq(state.messages ?? [], action.messages),
+    elsewhere: elsewhereAfter(state, action.answering),
+  }
+}
+
+function openedIn(state: TutorState, action: Action<'opened'>): TutorState {
+  return {
+    ...state,
+    sessionId: action.sessionId,
+    view: action.view,
+    // A new conversation has nothing to read; one from the history is read next.
+    messages: action.sessionId === null ? [] : null,
+    loadFailed: false,
+    live: null,
+    refused: null,
+    elsewhere: false,
+  }
+}
+
+// The turn's message as kept: a new conversation takes the id it was given, and moves up the list.
+function askedIn(state: TutorState, asked: ChatMessage): TutorState {
+  if (!state.live) return state
+  return {
+    ...state,
+    sessionId: state.sessionId ?? asked.sessionId,
+    sessions: touchSession(state.sessions, asked),
+    live: { ...state.live, asked },
+  }
+}
+
+/**
+ * Whether a read is of the conversation open: one for a view since left, or of another conversation
+ * than the one open, is dropped; a new conversation takes the one its first question went into.
+ */
+function readsOpen(state: TutorState, action: { sessionId?: string | null; view?: number }) {
+  if (action.view !== undefined && action.view !== state.view) return false
+  const read = action.sessionId
+  return read === undefined || read === null || state.sessionId === null || read === state.sessionId
+}
+
 /**
  * A read and a turn may finish in either order: the read may already hold the turn the reader just
  * sent, or come back after it was answered, and the thread shows each message once either way.
@@ -61,18 +131,21 @@ export function tutorReducer(state: TutorState, action: TutorAction): TutorState
   if (action.bookId !== state.bookId) return state
   switch (action.type) {
     case 'loaded':
-      return {
-        ...state,
-        loadFailed: false,
-        messages: mergeBySeq(state.messages ?? [], action.messages),
-        elsewhere: elsewhereAfter(state, action.answering),
-      }
+      return loadedInto(state, action)
     case 'loadFailed':
-      return { ...state, loadFailed: true }
+      return action.view !== undefined && action.view !== state.view
+        ? state
+        : { ...state, loadFailed: true }
+    case 'opened':
+      return openedIn(state, action)
+    case 'listed':
+      return { ...state, sessions: action.sessions }
+    case 'removed':
+      return { ...state, sessions: (state.sessions ?? []).filter((s) => s.id !== action.sessionId) }
     case 'asking':
       return { ...state, refused: null, live: { asked: action.asked, text: '' } }
     case 'asked':
-      return state.live ? { ...state, live: { ...state.live, asked: action.asked } } : state
+      return askedIn(state, action.asked)
     case 'text':
       return state.live
         ? { ...state, live: { ...state.live, text: state.live.text + action.piece } }
@@ -244,9 +317,64 @@ export async function followWhileAnswering(
   return true
 }
 
-/** The items the reader has talked with the tutor about. */
-export function talkedItems(messages: ChatMessage[] | null): ReadonlySet<string> {
-  return new Set((messages ?? []).flatMap((message) => message.itemKey ?? []))
+/** The items the reader has talked with the tutor about, in any of the book's conversations. */
+export function talkedItems(
+  sessions: ChatSession[] | null,
+  messages: ChatMessage[] | null,
+): ReadonlySet<string> {
+  return new Set([
+    ...(sessions ?? []).flatMap((session) => session.itemKeys),
+    ...(messages ?? []).flatMap((message) => message.itemKey ?? []),
+  ])
+}
+
+/** The list once [asked] is kept: its conversation moved to the top, or added there by its first question. */
+export function touchSession(
+  sessions: ChatSession[] | null,
+  asked: ChatMessage,
+): ChatSession[] | null {
+  if (sessions === null) return null
+  const at = asked.createdAt
+  const found = sessions.find((session) => session.id === asked.sessionId)
+  const itemKeys = (keys: string[]) =>
+    asked.itemKey === null || keys.includes(asked.itemKey) ? keys : [...keys, asked.itemKey]
+  const touched: ChatSession = found
+    ? { ...found, itemKeys: itemKeys(found.itemKeys), lastActivityAt: at }
+    : {
+        id: asked.sessionId,
+        firstQuestion: asked.text,
+        itemKey: asked.itemKey,
+        itemKeys: itemKeys([]),
+        startedAt: at,
+        lastActivityAt: at,
+      }
+  return [touched, ...sessions.filter((session) => session.id !== asked.sessionId)]
+}
+
+/** A row of the history: a conversation, and whether it is the one open. */
+export type HistoryRow = { session: ChatSession; open: boolean }
+
+/** The book's conversations, newest activity first, the one open marked. */
+export function historyRowsOf(sessions: ChatSession[], openId: string | null): HistoryRow[] {
+  return [...sessions]
+    .sort(
+      (a, b) =>
+        Date.parse(b.lastActivityAt) - Date.parse(a.lastActivityAt) || (a.id < b.id ? 1 : -1),
+    )
+    .map((session) => ({ session, open: session.id === openId }))
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+/** When a conversation was last had, by the reader's calendar: 오늘, 어제, 10월 12일, or with its year. */
+export function relativeDay(iso: string, now: Date): string {
+  const at = new Date(iso)
+  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const days = Math.round((day(now) - day(at)) / DAY_MS)
+  if (days === 0) return '오늘'
+  if (days === 1) return '어제'
+  const date = `${at.getMonth() + 1}월 ${at.getDate()}일`
+  return at.getFullYear() === now.getFullYear() ? date : `${at.getFullYear()}년 ${date}`
 }
 
 /** What the empty composer asks for: about the phrase quoted, more after an answer, else the post. */
