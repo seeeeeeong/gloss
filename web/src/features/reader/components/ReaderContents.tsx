@@ -1,6 +1,7 @@
 'use client'
 
 import './contents.css'
+import Link from 'next/link'
 import {
   type MouseEvent,
   type ReactNode,
@@ -27,6 +28,7 @@ import type { ReaderBook } from './ReaderPages'
 
 export const CONTENTS_ID = 'reader-contents'
 const SHUT_KEY = 'gloss.reader.contents'
+const SETUP_LABEL = '이 책을 고른 대화'
 
 type Props = {
   book: ReaderBook
@@ -152,6 +154,16 @@ export function ReaderContents(props: Props) {
             <div className="tree-head">
               <span className={`spine tone-${toneOf(book.id)}`} aria-hidden="true" />
               <span className="bt">{book.title}</span>
+              {book.setupHref && (
+                <Link
+                  className="ibtn sm tert"
+                  href={book.setupHref}
+                  aria-label={SETUP_LABEL}
+                  data-tip={SETUP_LABEL}
+                >
+                  <Icon name="chat" />
+                </Link>
+              )}
               {phone ? (
                 <button
                   type="button"

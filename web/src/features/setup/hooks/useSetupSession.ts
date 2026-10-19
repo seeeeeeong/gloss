@@ -4,10 +4,10 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   type ChosenStyle,
   type OfferedBook,
-  SESSION_PARAM,
   SETUP_PATH,
   type SetupSession,
   sessionPath,
+  showChatAddress,
   startMayHaveLanded,
 } from '@/features/setup/api/setup'
 import { type ApiResult, load, send } from '@/lib/api'
@@ -20,7 +20,7 @@ export type Pending = { kind: 'say' | 'pick'; text: string }
 
 /**
  * A setup session as the page holds it, and the reader's steps on it. The first message starts the
- * session and puts it in the address.
+ * session and puts its own address in place of the fresh screen's.
  */
 export function useSetupSession(initial: SetupSession | null) {
   const [session, setSession] = useState(initial)
@@ -55,7 +55,7 @@ export function useSetupSession(initial: SetupSession | null) {
     setPending(null)
     await catchUp(result)
     if (!result.ok) return setError(result.message)
-    if (!session) window.history.replaceState(null, '', `?${SESSION_PARAM}=${result.data.id}`)
+    if (!session) showChatAddress(result.data.id)
     setSession(result.data)
   }
 

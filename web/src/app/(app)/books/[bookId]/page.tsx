@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound, redirect } from 'next/navigation'
 import { bookmarksBeside, bookOf, tocInUse } from '@/features/books/api/server-books'
 import { ReaderSwitch } from '@/features/reader/views/ReaderSwitch'
+import { chatOfBook } from '@/features/setup/api/server-setup'
 import type { PostSummary } from '@/lib/posts'
 import { serverGet } from '@/lib/server-session'
 
@@ -18,13 +19,14 @@ export default async function BookPage({ params, searchParams }: Props) {
   if (!book) notFound()
   const toc = await tocInUse(book)
   if (!toc) redirect('/books/new')
-  const [posts, bookmarks, { item }] = await Promise.all([
+  const [posts, bookmarks, setupHref, { item }] = await Promise.all([
     serverGet<PostSummary[]>(`/api/me/books/${book.id}/posts`),
     bookmarksBeside(),
+    chatOfBook(book.id),
     searchParams,
   ])
   const start = toc.items.find((it) => it.itemKey === item)?.itemKey ?? null
-  const shown = { id: book.id, title: book.title }
+  const shown = { id: book.id, title: book.title, setupHref }
   return (
     // Another book starts the reader over: nothing of the last one, such as its bookmarks, carries across.
     <ReaderSwitch

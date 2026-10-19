@@ -54,6 +54,10 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The head's buttons sit together, apart from the title. */
+.tree-head .ibtn + .ibtn {
+  margin-left: -8px;
+}
 .tree-scroll {
   flex: 1;
   overflow-y: auto;

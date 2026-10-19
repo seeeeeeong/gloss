@@ -1,13 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { useEffect, useRef } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import {
+  NEW_CHAT,
   type OfferedBook,
   readerLine,
-  SESSION_PARAM,
+  readOnly,
   type SetupSession,
   showsTurn,
 } from '@/features/setup/api/setup'
@@ -24,17 +25,17 @@ const MAX_TEXT = 500
  * Adding a book by talking it through: the reader names a book or asks what to read, Gloss answers
  * with the editions found or the books it recommends, a pick brings its contents into the thread as a
  * card that opens them in the side panel, and starting with them makes the book. Empty, the screen is
- * a heading over the composer.
+ * a heading over the composer; once the book is made, the thread is only read.
  */
 export function SetupChat({ initial }: { initial: SetupSession | null }) {
-  const params = useSearchParams()
+  const path = usePathname()
   const setup = useSetupSession(initial)
   const { session, pending, error, reset } = setup
   const held = useHeldContents(setup)
   const resetHeld = held.reset
 
   // "새 책" from the sidebar comes back here without a session: a new thread.
-  const fresh = params.get(SESSION_PARAM) === null
+  const fresh = path === NEW_CHAT
   const wasFresh = useRef(fresh)
   useEffect(() => {
     const cameBack = fresh && !wasFresh.current
@@ -49,7 +50,7 @@ export function SetupChat({ initial }: { initial: SetupSession | null }) {
       label="메시지"
       placeholder={docked ? undefined : 'Gloss에게 물어보세요'}
       maxLength={MAX_TEXT}
-      busy={pending !== null || session?.state === 'confirmed' || session?.searching === true}
+      busy={pending !== null || session?.searching === true}
       autoFocus={docked}
       onSend={setup.say}
     />
@@ -88,11 +89,13 @@ export function SetupChat({ initial }: { initial: SetupSession | null }) {
           )}
         </div>
       </div>
-      <div className="dock">
-        <div className="wrap">
-          <div className="col">{composer(true)}</div>
+      {!readOnly(session) && (
+        <div className="dock">
+          <div className="wrap">
+            <div className="col">{composer(true)}</div>
+          </div>
         </div>
-      </div>
+      )}
       {held.panel}
     </div>
   )

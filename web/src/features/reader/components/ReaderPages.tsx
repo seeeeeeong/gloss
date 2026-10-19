@@ -3,7 +3,8 @@ import type { ItemView } from '@/features/reader/utils/reader'
 import type { Book } from '@/lib/books'
 import { Prose } from './Prose'
 
-export type ReaderBook = Pick<Book, 'id' | 'title'>
+/** [setupHref] is the conversation the book was chosen in, when it was chosen in one. */
+export type ReaderBook = Pick<Book, 'id' | 'title'> & { setupHref?: string | null }
 
 export const KEY_HREF = '/me#api-key-head'
 export const USAGE_HREF = '/me#usage'

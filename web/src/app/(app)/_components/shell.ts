@@ -5,7 +5,8 @@ export type Crumb = { shelf: boolean; name: string }
 export function crumbOf(path: string): Crumb | null {
   if (path === '/') return { shelf: true, name: '내 서재' }
   if (path === '/bookmarks') return { shelf: true, name: '책갈피' }
-  if (path === '/books/new') return { shelf: true, name: '책 추가' }
+  if (path === '/books/new' || path.startsWith('/books/new/'))
+    return { shelf: true, name: '책 추가' }
   if (path === '/me') return { shelf: false, name: '마이페이지' }
   if (path === '/admin' || path.startsWith('/admin/')) return { shelf: false, name: '계정 관리' }
   return null
