@@ -74,7 +74,10 @@ export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
   const marks = useBookmarks(bookmarks)
   const marked = useMemo(() => new Set(marks.marks.map((mark) => mark.itemKey)), [marks.marks])
   const tutor = useTutor(book.id)
-  const talked = useMemo(() => talkedItems(tutor.messages), [tutor.messages])
+  const talked = useMemo(
+    () => talkedItems(tutor.sessions, tutor.messages),
+    [tutor.sessions, tutor.messages],
+  )
   const line = lineOf(size)
   const { geo, phone, width } = useStageGeometry(stage, line)
 

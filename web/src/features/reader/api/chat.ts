@@ -1,8 +1,10 @@
 import type { TocItem } from '@/lib/books'
 import { headingOf } from '@/lib/posts'
 
-/** A message as GET /api/me/books/{id}/chat lists it. A reply has a status; the reader's has none. */
+/** A message as a conversation lists it. A reply has a status; the reader's has none. */
 export type ChatMessage = {
+  /** The conversation it was said in. */
+  sessionId: string
   seq: number
   role: 'reader' | 'gloss'
   /** The page's own name for a reader's turn; null on Gloss's replies. */
@@ -18,13 +20,31 @@ export type ChatMessage = {
   createdAt: string
 }
 
-/** [answering] is true while a turn is under way, from this page or another, until its reply is kept. */
-export type Chat = { messages: ChatMessage[]; answering: boolean }
+/**
+ * One of the book's conversations; no [sessionId] before the first question. [answering] is true
+ * while a turn is under way, from this page or another, until its reply is kept.
+ */
+export type Chat = { sessionId: string | null; messages: ChatMessage[]; answering: boolean }
+
+/** A conversation as the history lists it: its first question and the item it started on. */
+export type ChatSession = {
+  id: string
+  firstQuestion: string
+  itemKey: string | null
+  /** Every item a turn of it came from. */
+  itemKeys: string[]
+  startedAt: string
+  lastActivityAt: string
+}
 
 /** A phrase picked in the book, with the item it was picked in. */
 export type Quote = { text: string; itemKey: string | null }
 
+/** The conversation with the newest activity. */
 export const chatPath = (bookId: string) => `/api/me/books/${bookId}/chat`
+export const sessionsPath = (bookId: string) => `${chatPath(bookId)}/sessions`
+export const sessionPath = (bookId: string, sessionId: string) =>
+  `${sessionsPath(bookId)}/${sessionId}`
 export const turnsPath = (bookId: string) => `${chatPath(bookId)}/turns`
 export const stopPath = (bookId: string) => `${chatPath(bookId)}/stop`
 

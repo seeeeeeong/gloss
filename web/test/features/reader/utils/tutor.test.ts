@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import type { ChatMessage } from '@/features/reader/api/chat'
+import type { ChatMessage, ChatSession } from '@/features/reader/api/chat'
 import {
   FOLLOW_LIMIT_MS,
   followWait,
   followWhileAnswering,
+  historyRowsOf,
   holdOthers,
   isQuiet,
   MIN_READER,
@@ -12,6 +13,7 @@ import {
   pillTop,
   pollUntil,
   promptOf,
+  relativeDay,
   repliedTo,
   sheetAfterDrag,
   shownOf,
@@ -20,6 +22,7 @@ import {
   type TutorAction,
   type TutorState,
   talkedItems,
+  touchSession,
   turnIn,
   tutorDocks,
   tutorOf,
@@ -32,6 +35,7 @@ const message = (
   text = `${role} ${seq}`,
   turnId: string | null = role === 'reader' ? `turn-${seq}` : null,
 ): ChatMessage => ({
+  sessionId: 's1',
   seq,
   role,
   turnId,
@@ -319,14 +323,146 @@ describe('startsDocked', () => {
   })
 })
 
+const session = (
+  id: string,
+  lastActivityAt: string,
+  overrides: Partial<ChatSession> = {},
+): ChatSession => ({
+  id,
+  firstQuestion: `${id} 질문`,
+  itemKey: 'a',
+  itemKeys: ['a'],
+  startedAt: '2026-10-01T00:00:00Z',
+  lastActivityAt,
+  ...overrides,
+})
+
 describe('talkedItems', () => {
-  it('names each item a message was about, once, and none before the thread is read', () => {
+  it('names each item any conversation came from, once, and none before anything is read', () => {
     const elsewhere = { ...message(3, 'reader'), itemKey: 'b' }
     const general = { ...message(5, 'reader'), itemKey: null }
+    const older = session('s0', '2026-10-01T00:00:00Z', { itemKeys: ['c', 'a'] })
     expect([
-      ...talkedItems([message(1, 'reader'), message(2, 'gloss'), elsewhere, general]),
-    ]).toEqual(['a', 'b'])
-    expect(talkedItems(null).size).toBe(0)
+      ...talkedItems([older], [message(1, 'reader'), message(2, 'gloss'), elsewhere, general]),
+    ]).toEqual(['c', 'a', 'b'])
+    expect(talkedItems(null, null).size).toBe(0)
+  })
+
+  it('drops an item once the only conversation about it is deleted', () => {
+    const kept = session('s1', '2026-10-02T00:00:00Z', { itemKeys: ['a'] })
+    const deleted = session('s2', '2026-10-03T00:00:00Z', { itemKeys: ['b'] })
+    const before = apply(tutorOf('A'), { type: 'listed', bookId: 'A', sessions: [kept, deleted] })
+    const after = apply(before, { type: 'removed', bookId: 'A', sessionId: 's2' })
+    expect([...talkedItems(before.sessions, null)]).toEqual(['a', 'b'])
+    expect([...talkedItems(after.sessions, null)]).toEqual(['a'])
+  })
+})
+
+describe('relativeDay', () => {
+  const now = new Date(2026, 9, 18, 9, 30)
+  it('says 오늘 and 어제 by the calendar, not by 24 hours', () => {
+    expect(relativeDay(new Date(2026, 9, 18, 0, 5).toISOString(), now)).toBe('오늘')
+    expect(relativeDay(new Date(2026, 9, 17, 23, 50).toISOString(), now)).toBe('어제')
+    expect(relativeDay(new Date(2026, 9, 17, 0, 1).toISOString(), now)).toBe('어제')
+  })
+
+  it('names an older day by its month and day, and its year when not this one', () => {
+    expect(relativeDay(new Date(2026, 9, 12, 15).toISOString(), now)).toBe('10월 12일')
+    expect(relativeDay(new Date(2026, 0, 3).toISOString(), now)).toBe('1월 3일')
+    expect(relativeDay(new Date(2025, 11, 31).toISOString(), now)).toBe('2025년 12월 31일')
+  })
+})
+
+describe('historyRowsOf', () => {
+  it('puts the newest activity first and marks only the conversation open', () => {
+    const rows = historyRowsOf(
+      [
+        session('s1', '2026-10-12T00:00:00Z'),
+        session('s3', '2026-10-18T00:00:00Z'),
+        session('s2', '2026-10-17T00:00:00Z'),
+      ],
+      's2',
+    )
+    expect(rows.map((row) => row.session.id)).toEqual(['s3', 's2', 's1'])
+    expect(rows.map((row) => row.open)).toEqual([false, true, false])
+  })
+
+  it('marks none while a new conversation is open', () => {
+    const rows = historyRowsOf([session('s1', '2026-10-12T00:00:00Z')], null)
+    expect(rows.map((row) => row.open)).toEqual([false])
+  })
+})
+
+describe('touchSession', () => {
+  const asked = (sessionId: string, itemKey: string | null) => ({
+    ...message(1, 'reader', '새 질문'),
+    sessionId,
+    itemKey,
+    createdAt: '2026-10-18T10:00:00Z',
+  })
+
+  it('adds a new conversation at the top by its first question', () => {
+    const older = session('s1', '2026-10-12T00:00:00Z')
+    const touched = touchSession([older], asked('s2', 'b'))
+    expect(touched?.map((s) => s.id)).toEqual(['s2', 's1'])
+    expect(touched?.[0]).toMatchObject({ firstQuestion: '새 질문', itemKey: 'b', itemKeys: ['b'] })
+  })
+
+  it('moves a conversation gone on with to the top, adding the item it came from', () => {
+    const touched = touchSession(
+      [session('s2', '2026-10-17T00:00:00Z'), session('s1', '2026-10-12T00:00:00Z')],
+      asked('s1', 'b'),
+    )
+    expect(touched?.map((s) => s.id)).toEqual(['s1', 's2'])
+    expect(touched?.[0]).toMatchObject({ firstQuestion: 's1 질문', itemKeys: ['a', 'b'] })
+    expect(touchSession(null, asked('s1', 'a'))).toBeNull()
+  })
+})
+
+describe('switching conversations', () => {
+  it('opens a new one empty, and a read begun for the one left changes nothing', () => {
+    const read = apply(tutorOf('A'), {
+      type: 'loaded',
+      bookId: 'A',
+      messages: [message(1, 'reader')],
+      sessionId: 's1',
+      view: 0,
+    })
+    const fresh = apply(read, { type: 'opened', bookId: 'A', sessionId: null, view: 1 })
+    const late = apply(fresh, {
+      type: 'loaded',
+      bookId: 'A',
+      messages: [message(1, 'reader'), message(2, 'gloss')],
+      sessionId: 's1',
+      view: 0,
+    })
+    expect(read.sessionId).toBe('s1')
+    expect(fresh).toMatchObject({ sessionId: null, messages: [], view: 1 })
+    expect(late).toBe(fresh)
+  })
+
+  it('takes the conversation its first question went into', () => {
+    const fresh = apply(tutorOf('A'), { type: 'opened', bookId: 'A', sessionId: null, view: 1 })
+    const asking = apply(fresh, { type: 'asking', bookId: 'A', asked: message(-1, 'reader') })
+    const asked = apply(asking, {
+      type: 'asked',
+      bookId: 'A',
+      asked: { ...message(1, 'reader'), sessionId: 's9' },
+    })
+    expect(asked.sessionId).toBe('s9')
+  })
+
+  it('reads one from the history, dropping a read of another', () => {
+    const opened = apply(tutorOf('A'), { type: 'opened', bookId: 'A', sessionId: 's2', view: 1 })
+    const other = apply(opened, {
+      type: 'loaded',
+      bookId: 'A',
+      messages: [message(1, 'reader')],
+      sessionId: 's1',
+      view: 1,
+    })
+    expect(opened.messages).toBeNull()
+    expect(other).toBe(opened)
   })
 })
 

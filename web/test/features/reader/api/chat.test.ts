@@ -11,6 +11,7 @@ import {
 import type { TocItem } from '@/lib/books'
 
 const message = (seq: number, role: 'reader' | 'gloss', itemKey: string | null): ChatMessage => ({
+  sessionId: 's1',
   seq,
   role,
   turnId: null,
