@@ -7,7 +7,9 @@ import gloss.domain.setup.dto.request.SetupMessageRequest
 import gloss.domain.setup.dto.request.SetupPickRequest
 import gloss.domain.setup.dto.response.SetupEditionResponse
 import gloss.domain.setup.dto.response.SetupSessionResponse
+import gloss.domain.setup.dto.response.SetupSessionSummaryResponse
 import gloss.domain.setup.service.SetupEditionsService
+import gloss.domain.setup.service.SetupHistoryService
 import gloss.domain.setup.service.SetupMessageService
 import gloss.domain.setup.service.SetupSessionService
 import jakarta.validation.Valid
@@ -17,6 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import java.util.UUID
@@ -27,7 +30,14 @@ class SetupSessionController(
     private val setupSessionService: SetupSessionService,
     private val setupMessageService: SetupMessageService,
     private val setupEditionsService: SetupEditionsService,
+    private val setupHistoryService: SetupHistoryService,
 ) {
+    @GetMapping
+    fun list(
+        @CurrentAccount account: SessionAccount,
+        @RequestParam(required = false) bookId: UUID?,
+    ): List<SetupSessionSummaryResponse> = setupHistoryService.list(account.id, bookId)
+
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     fun start(

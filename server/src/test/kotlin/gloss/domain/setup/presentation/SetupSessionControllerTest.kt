@@ -123,6 +123,42 @@ class SetupSessionControllerTest(
     }
 
     @Test
+    fun `a reader lists their conversations, and finds the one that made a book`() {
+        fakeBookSourceGateway.holds("101")
+        val browser = signedIn()
+        val asking = browser.post("/api/me/setup-sessions", mapOf("text" to "객체지향 입문서"))
+        val started = browser.post("/api/me/setup-sessions", mapOf("text" to "오브젝트"))
+        val sessionId = started.body?.get("id")?.asString()
+        val picked =
+            browser.post(
+                "/api/me/setup-sessions/$sessionId/pick",
+                mapOf("ref" to "101", "revision" to started.body?.get("revision")?.asInt()),
+            )
+        val revision = picked.body?.get("revision")?.asInt()
+        val confirmed = browser.post("/api/me/setup-sessions/$sessionId/confirm", chosen + ("revision" to revision))
+        val bookId = confirmed.body?.get("bookId")?.asString()
+
+        val all = browser.get("/api/me/setup-sessions")
+        val ofBook = browser.get("/api/me/setup-sessions?bookId=$bookId")
+
+        val listed = all.body?.toList().orEmpty()
+        assertThat(all.status).isEqualTo(200)
+        assertThat(listed.map { it.get("id").asString() })
+            .containsExactly(sessionId, asking.body?.get("id")?.asString())
+        assertThat(listed.map { it.get("title").asString() }).containsExactly("오브젝트", "객체지향 입문서")
+        assertThat(listed.map { it.get("state").asString() }).containsExactly("confirmed", "searching")
+        assertThat(listed[0].get("bookId").asString()).isEqualTo(bookId)
+        assertThat(listed[1].get("bookId").isNull).isTrue()
+        assertThat(listed[0].has("createdAt") && listed[0].has("lastActivityAt")).isTrue()
+        assertThat(
+            ofBook.body
+                ?.toList()
+                .orEmpty()
+                .map { it.get("id").asString() },
+        ).containsExactly(sessionId)
+    }
+
+    @Test
     fun `a session is its reader's own`() {
         val owner = signedIn()
         val sessionId =
@@ -133,6 +169,7 @@ class SetupSessionControllerTest(
                 ?.asString()
         val stranger = signedIn()
 
+        assertThat(stranger.get("/api/me/setup-sessions").body?.toList()).isEmpty()
         assertThat(stranger.get("/api/me/setup-sessions/$sessionId").code).isEqualTo("setup.not_found")
         assertThat(
             stranger.post("/api/me/setup-sessions/$sessionId/messages", mapOf("text" to "a", "revision" to 1)).status,
@@ -145,6 +182,7 @@ class SetupSessionControllerTest(
         browser.fetchCsrf()
 
         assertThat(browser.post("/api/me/setup-sessions", mapOf("text" to "오브젝트")).status).isEqualTo(401)
+        assertThat(browser.get("/api/me/setup-sessions").status).isEqualTo(401)
         assertThat(fakeBookSourceGateway.asked).isEmpty()
     }
 
