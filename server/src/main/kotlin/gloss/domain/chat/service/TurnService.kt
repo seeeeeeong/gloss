@@ -32,7 +32,7 @@ class TurnService(
     ) {
         val turn = chatService.open(accountId, bookId, request)
         try {
-            stream.send(TurnEvent.Asked(ChatMessageResponse.from(turn.asked)))
+            stream.send(TurnEvent.Asked(ChatMessageResponse.from(turn.asked, turn.session.id)))
             val answer = answerOf(turn, stream)
             val reply = chatService.close(turn, answer)
             stream.send(TurnEvent.Answered(reply))

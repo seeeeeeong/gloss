@@ -8,6 +8,7 @@ import java.util.UUID
  * A reader's question, from [itemKey] when they were on an item, about [quote] when they picked one.
  * [turnId] is the page's own name for the turn, which a stop sent before any answer names, and
  * [postVersionId] the version of the item's post the reader was shown, which the question is about.
+ * [sessionId] is the conversation it goes on; without one, the question starts a new conversation.
  */
 data class ChatAskRequest(
     // A question of a few sentences: at most about 6,000 prompt tokens, $0.002 at the miss price. A
@@ -19,4 +20,5 @@ data class ChatAskRequest(
     @field:Size(max = 1000) val quote: String? = null,
     val turnId: UUID? = null,
     val postVersionId: UUID? = null,
+    val sessionId: UUID? = null,
 )

@@ -39,6 +39,8 @@ class ChatControllerTest(
 ) {
     private val json = JsonMapper()
     private val password = "correct horse battery"
+    private val usage =
+        TokenUsage(cacheHitTokens = 1_400, cacheMissTokens = 200, completionTokens = 300, reasoningTokens = 0)
 
     @BeforeEach
     fun reset() {
@@ -148,10 +150,97 @@ class ChatControllerTest(
                 mapOf("turnId" to UUID.randomUUID()),
             )
         val read = stranger.browser.get("/api/me/books/${reader.book.id}/chat")
+        val listed = stranger.browser.get("/api/me/books/${reader.book.id}/chat/sessions")
         val anonymous = Browser(port).get("/api/me/books/${reader.book.id}/chat")
 
         assertThat(stopped.status).isEqualTo(204)
         assertThat(read.body?.get("messages")?.size()).isZero()
+        assertThat(read.body?.get("sessionId")?.isNull).isTrue()
+        assertThat(listed.body?.size()).isZero()
         assertThat(anonymous.status).isEqualTo(401)
     }
+
+    private fun asked(
+        reader: Reader,
+        body: Map<String, Any?>,
+    ): String {
+        val streamed = reader.browser.postForText("/api/me/books/${reader.book.id}/chat/turns", body)
+        val asked = eventsOf(streamed.body).first { it.name == "asked" }
+        return json.readTree(asked.data).get("sessionId").asString()
+    }
+
+    @Test
+    fun `a reader lists a book's conversations, opens one, goes on with it and deletes it`() {
+        val reader = reader()
+        fakeLlmGateway.answer = { _, _ -> ChatResult("답이에요.", FinishReason.STOP, usage) }
+        val path = "/api/me/books/${reader.book.id}/chat"
+        val first = asked(reader, mapOf("text" to "처음", "itemKey" to reader.book.keys[1]))
+        val again = asked(reader, mapOf("text" to "이어서", "sessionId" to first))
+        val second = asked(reader, mapOf("text" to "새 대화"))
+
+        val listed = reader.browser.get("$path/sessions")
+        val opened = reader.browser.get("$path/sessions/$first")
+        val latest = reader.browser.get(path)
+        val deleted = reader.browser.delete("$path/sessions/$second")
+        val gone = reader.browser.get("$path/sessions/$second")
+        val after = reader.browser.get("$path/sessions")
+
+        assertThat(again).isEqualTo(first)
+        assertThat(second).isNotEqualTo(first)
+        val rows = checkNotNull(listed.body)
+        assertThat((0 until rows.size()).map { rows.get(it).get("id").asString() }).containsExactly(second, first)
+        assertThat(rows.get(1).get("firstQuestion").asString()).isEqualTo("처음")
+        assertThat(rows.get(1).get("itemKey").asString()).isEqualTo(reader.book.keys[1])
+        assertThat(opened.body?.get("messages")?.size()).isEqualTo(4)
+        assertThat(latest.body?.get("sessionId")?.asString()).isEqualTo(second)
+        assertThat(deleted.status).isEqualTo(204)
+        assertThat(gone.status).isEqualTo(404)
+        assertThat(gone.code).isEqualTo("chat.session_not_found")
+        assertThat(after.body?.size()).isEqualTo(1)
+    }
+
+    @Test
+    fun `another reader's conversation is not found, to read, ask on or delete`() {
+        val reader = reader()
+        val stranger = reader()
+        fakeLlmGateway.answer = { _, _ -> ChatResult("답이에요.", FinishReason.STOP, usage) }
+        val session = asked(reader, mapOf("text" to "처음"))
+        val path = "/api/me/books/${reader.book.id}/chat"
+
+        val read = stranger.browser.get("$path/sessions/$session")
+        val deleted = stranger.browser.delete("$path/sessions/$session")
+        val onTheirs =
+            stranger.browser.post(
+                "/api/me/books/${stranger.book.id}/chat/turns",
+                mapOf("text" to "끼어들기", "sessionId" to session),
+            )
+        val kept = reader.browser.get("$path/sessions/$session")
+
+        assertThat(read.status).isEqualTo(404)
+        assertThat(deleted.status).isEqualTo(404)
+        assertThat(onTheirs.status).isEqualTo(404)
+        assertThat(onTheirs.code).isEqualTo("chat.session_not_found")
+        assertThat(kept.body?.get("messages")?.size()).isEqualTo(2)
+    }
+
+    @Test
+    fun `deleting a conversation leaves what its calls cost in the reader's usage`() {
+        val reader = reader()
+        fakeLlmGateway.answer = { _, _ -> ChatResult("답이에요.", FinishReason.STOP, usage) }
+        val session = asked(reader, mapOf("text" to "처음"))
+        val before = ledgerRows(reader)
+
+        val deleted = reader.browser.delete("/api/me/books/${reader.book.id}/chat/sessions/$session")
+
+        assertThat(deleted.status).isEqualTo(204)
+        assertThat(before).isEqualTo(2)
+        assertThat(ledgerRows(reader)).isEqualTo(before)
+    }
+
+    private fun ledgerRows(reader: Reader): Int =
+        jdbc
+            .sql("select count(*) from usage_ledger where account_id = :id")
+            .param("id", reader.book.account)
+            .query(Int::class.java)
+            .single()
 }

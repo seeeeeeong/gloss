@@ -15,7 +15,6 @@ import gloss.domain.chat.domain.repository.ChatSessionRepository
 import gloss.domain.chat.dto.request.ChatAskRequest
 import gloss.domain.chat.dto.request.ChatStopRequest
 import gloss.domain.chat.dto.response.ChatMessageResponse
-import gloss.domain.chat.dto.response.ChatResponse
 import gloss.domain.chat.infrastructure.JdbcChatLines
 import gloss.domain.llm.domain.chat.ChatMessage
 import gloss.domain.llm.domain.chat.Role
@@ -30,28 +29,19 @@ import java.time.Clock
 import java.util.UUID
 
 /**
- * A reader's conversation with the tutor about one book: read whole, a turn kept before its call
- * goes out, and the reply kept once the call has ended. No call is made inside a transaction here.
+ * A turn of a reader's conversation with the tutor about one book: kept before its call goes out,
+ * and the reply kept once the call has ended. A question with no conversation named starts a new
+ * one. No call is made inside a transaction here.
  */
 @Service
 class ChatService(
     private val chatSessionRepository: ChatSessionRepository,
     private val jdbcChatLines: JdbcChatLines,
+    private val chatSessionService: ChatSessionService,
     private val tutorSources: TutorSources,
     private val chatTurns: ChatTurns,
     private val clock: Clock,
 ) {
-    @Transactional(readOnly = true)
-    fun conversation(
-        accountId: UUID,
-        bookId: UUID,
-    ): ChatResponse {
-        val session =
-            chatSessionRepository.findByAccountIdAndBookId(accountId, bookId) ?: return ChatResponse(emptyList())
-        val lines = jdbcChatLines.list(session.id, accountId)
-        return ChatResponse(messages = lines.map(::responseOf), answering = chatTurns.isLive(session.id))
-    }
-
     /**
      * Keeps the reader's message and builds the call that answers it: the rules and the plan, the
      * finished turns as they were sent, then this one, carrying the item's post the first time it
@@ -65,7 +55,8 @@ class ChatService(
     ): Turn {
         val sources = tutorSources.of(accountId, bookId, request.itemKey)
         chatSessionRepository.lockBook(bookId)
-        val session = chatSessionRepository.findByAccountIdAndBookId(accountId, bookId) ?: start(accountId, bookId)
+        val session =
+            request.sessionId?.let { chatSessionService.find(accountId, bookId, it) } ?: start(accountId, bookId)
         val turnId = request.turnId ?: UuidV7.at(clock.instant())
         val stop = chatTurns.start(session.id, accountId, turnId) ?: throw GlossException(ChatError.ANSWERING)
         endUnlessCommitted(session, turnId)
@@ -142,7 +133,7 @@ class ChatService(
                     ),
             )
         jdbcChatLines.append(turn.session, reply)
-        return responseOf(reply)
+        return responseOf(reply, turn.session.id)
     }
 
     /** Stops the turn, now or as soon as it comes; nothing when it has already ended. */
@@ -219,21 +210,22 @@ class ChatService(
         thinking = Thinking.DISABLED,
     )
 
-    private fun responseOf(line: ChatLine): ChatMessageResponse {
-        val failed = line.answered?.takeIf { it.status == ChatStatus.FAILED }
-        val message =
-            failed?.let { answered ->
-                KNOWN.firstOrNull { it.code == answered.errorCode }?.message
-                    ?: NO_ANSWER
-            }
-        return ChatMessageResponse.from(line, message)
-    }
-
     private companion object {
         val BREAKS = Regex("""\s+""")
-        const val NO_ANSWER = "답을 받지 못했어요. 다시 물어 주세요."
-
-        // A reply keeps only the code of what stopped it; the reader is told in that error's own words.
-        val KNOWN: List<ErrorCode> = LlmError.entries + BudgetError.entries + ChatError.entries
     }
+}
+
+private const val NO_ANSWER = "답을 받지 못했어요. 다시 물어 주세요."
+
+// A reply keeps only the code of what stopped it; the reader is told in that error's own words.
+private val KNOWN: List<ErrorCode> = LlmError.entries + BudgetError.entries + ChatError.entries
+
+/** A message of the conversation [sessionId] as the reader sees it; a failed reply in its error's words. */
+internal fun responseOf(
+    line: ChatLine,
+    sessionId: UUID,
+): ChatMessageResponse {
+    val failed = line.answered?.takeIf { it.status == ChatStatus.FAILED }
+    val message = failed?.let { answered -> KNOWN.firstOrNull { it.code == answered.errorCode }?.message ?: NO_ANSWER }
+    return ChatMessageResponse.from(line, sessionId, message)
 }

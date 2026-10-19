@@ -5,11 +5,14 @@ import gloss.common.security.SessionAccount
 import gloss.domain.chat.dto.request.ChatAskRequest
 import gloss.domain.chat.dto.request.ChatStopRequest
 import gloss.domain.chat.dto.response.ChatResponse
+import gloss.domain.chat.dto.response.ChatSessionResponse
 import gloss.domain.chat.service.ChatService
+import gloss.domain.chat.service.ChatSessionService
 import gloss.domain.chat.service.TurnService
 import jakarta.servlet.http.HttpServletResponse
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -24,14 +27,38 @@ import java.util.UUID
 @RequestMapping("/api/me/books/{bookId}/chat")
 class ChatController(
     private val chatService: ChatService,
+    private val chatSessionService: ChatSessionService,
     private val turnService: TurnService,
     private val objectMapper: ObjectMapper,
 ) {
     @GetMapping
-    fun get(
+    fun latest(
         @CurrentAccount account: SessionAccount,
         @PathVariable bookId: UUID,
-    ): ChatResponse = chatService.conversation(account.id, bookId)
+    ): ChatResponse = chatSessionService.latest(account.id, bookId)
+
+    @GetMapping("/sessions")
+    fun sessions(
+        @CurrentAccount account: SessionAccount,
+        @PathVariable bookId: UUID,
+    ): List<ChatSessionResponse> = chatSessionService.sessions(account.id, bookId)
+
+    @GetMapping("/sessions/{sessionId}")
+    fun conversation(
+        @CurrentAccount account: SessionAccount,
+        @PathVariable bookId: UUID,
+        @PathVariable sessionId: UUID,
+    ): ChatResponse = chatSessionService.conversation(account.id, bookId, sessionId)
+
+    @DeleteMapping("/sessions/{sessionId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun delete(
+        @CurrentAccount account: SessionAccount,
+        @PathVariable bookId: UUID,
+        @PathVariable sessionId: UUID,
+    ) {
+        chatSessionService.delete(account.id, bookId, sessionId)
+    }
 
     // Server-sent events once the reader's message is kept; an error before that is a plain error response.
     @PostMapping("/turns")
