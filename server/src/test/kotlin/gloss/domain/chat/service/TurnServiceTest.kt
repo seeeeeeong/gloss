@@ -80,6 +80,9 @@ class TurnServiceTest(
         }
     }
 
+    // The conversation each book's turns go on, named by its first turn's message.
+    private val sessions = mutableMapOf<UUID, UUID>()
+
     private fun ask(
         book: TutorBooks.Shelved,
         text: String = "자원 할당자가 뭔가요?",
@@ -88,12 +91,23 @@ class TurnServiceTest(
         reader: Reader = Reader(),
         turnId: UUID? = null,
     ): Reader {
-        turnService.ask(
-            accountId = book.account,
-            bookId = book.id,
-            request = ChatAskRequest(text = text, itemKey = itemKey, quote = quote, turnId = turnId),
-            stream = reader.stream,
-        )
+        val request =
+            ChatAskRequest(
+                text = text,
+                itemKey = itemKey,
+                quote = quote,
+                turnId = turnId,
+                sessionId = sessions[book.id],
+            )
+        val stream =
+            TurnStream(
+                send = { event ->
+                    if (event is TurnEvent.Asked) sessions.putIfAbsent(book.id, event.message.sessionId)
+                    reader.stream.send(event)
+                },
+                isClosed = reader.stream.isClosed,
+            )
+        turnService.ask(accountId = book.account, bookId = book.id, request = request, stream = stream)
         return reader
     }
 
@@ -110,6 +124,21 @@ class TurnServiceTest(
             ).param("id", account)
             .query(String::class.java)
             .list()
+
+    /** What the reader's conversations hold, in the order it was said. */
+    private fun said(account: UUID): List<String?> =
+        jdbc
+            .sql("select text from chat_message where account_id = :id order by created_at, seq")
+            .param("id", account)
+            .query(String::class.java)
+            .list()
+
+    private fun lastStatus(account: UUID): String? =
+        jdbc
+            .sql("select status from chat_message where account_id = :id order by created_at desc, seq desc limit 1")
+            .param("id", account)
+            .query(String::class.java)
+            .single()
 
     private fun reserves(account: UUID): Int =
         jdbc
@@ -140,7 +169,7 @@ class TurnServiceTest(
         assertThat(reply.seq).isEqualTo(asked.seq + 1)
         assertThat(reply.replyTo).isEqualTo(asked.seq)
         assertThat(asked.replyTo).isNull()
-        assertThat(chatService.conversation(book.account, book.id).messages.map { it.text })
+        assertThat(said(book.account))
             .containsExactly("자원 할당자가 뭔가요?", "자원을 나눠 주는 역할이에요.")
         assertThat(endings(book.account)).containsExactly("settle:stop")
         val call = fakeLlmGateway.requests.single()
@@ -222,9 +251,8 @@ class TurnServiceTest(
 
         ask(book, reader = reader)
 
-        val kept = chatService.conversation(book.account, book.id).messages.last()
-        assertThat(kept.status).isEqualTo("stopped")
-        assertThat(kept.text).isEqualTo("자원을 ")
+        assertThat(said(book.account).last()).isEqualTo("자원을 ")
+        assertThat(lastStatus(book.account)).isEqualTo("stopped")
         assertThat(endings(book.account)).containsExactly("settle:cancelled_after_output")
     }
 
@@ -383,7 +411,7 @@ class TurnServiceTest(
             assertThat(it.error).isEqualTo(ChatError.ANSWERING)
         }
         assertThat(after.status).isEqualTo("done")
-        assertThat(chatService.conversation(book.account, book.id).messages.map { it.text })
+        assertThat(said(book.account))
             .containsExactly("자원 할당자가 뭔가요?", "답이에요.", "다음 질문", "다음 답이에요.")
     }
 
@@ -404,7 +432,7 @@ class TurnServiceTest(
         }.isInstanceOfSatisfying(
             GlossException::class.java,
         ) { assertThat(it.error).isEqualTo(ChatError.BOOK_NOT_READY) }
-        assertThat(chatService.conversation(account, planned.id).messages).isEmpty()
+        assertThat(said(account)).isEmpty()
         assertThat(reserves(account)).isZero()
         // A refused turn leaves the conversation free.
         answers("답이에요.")

@@ -7,7 +7,10 @@ import org.hibernate.annotations.Immutable
 import java.time.Instant
 import java.util.UUID
 
-/** A reader's one conversation with the tutor about a book. Its messages are kept apart, append-only. */
+/**
+ * One of a reader's conversations with the tutor about a book, with a history of its own. Its
+ * messages are kept apart, append-only, and go only with it.
+ */
 @Entity
 @Immutable
 class ChatSession private constructor(
@@ -28,3 +31,16 @@ class ChatSession private constructor(
         ) = ChatSession(id = UuidV7.at(now), accountId = accountId, bookId = bookId, now = now)
     }
 }
+
+/**
+ * A conversation as a list shows it: its first question, the item it started on, the items any of
+ * its turns came from, when it started and when its last message was kept.
+ */
+data class ChatSessionSummary(
+    val id: UUID,
+    val firstQuestion: String,
+    val itemKey: String?,
+    val itemKeys: List<String>,
+    val startedAt: Instant,
+    val lastActivityAt: Instant,
+)

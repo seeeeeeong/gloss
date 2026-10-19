@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.annotation.Transactional
 import java.util.UUID
 
+// V24 lets a reader keep several conversations a book and delete one whole; ChatSessionsSchemaTest has those.
 @SpringBootTest
 @Import(TestcontainersConfiguration::class)
 @Transactional
@@ -140,15 +141,6 @@ class ChatSchemaTest(
     }
 
     @Test
-    fun `a reader has one conversation a book`() {
-        val account = account()
-        val book = book(account)
-        session(account, book)
-
-        refused { session(account, book) }
-    }
-
-    @Test
     fun `a conversation is about a book of its reader's own`() {
         val book = book(account())
 
@@ -204,7 +196,7 @@ class ChatSchemaTest(
     }
 
     @Test
-    fun `a message is never deleted`() {
+    fun `a message is never deleted on its own`() {
         val at = conversation()
         reader(at, 1)
 

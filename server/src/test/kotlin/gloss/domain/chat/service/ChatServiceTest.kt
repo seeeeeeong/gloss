@@ -28,6 +28,7 @@ import java.util.UUID
 )
 class ChatServiceTest(
     @Autowired private val chatService: ChatService,
+    @Autowired private val chatSessionService: ChatSessionService,
     @Autowired private val readers: KeyedReaders,
     @Autowired private val books: TutorBooks,
     @Autowired private val jdbc: JdbcClient,
@@ -35,27 +36,39 @@ class ChatServiceTest(
     private fun done(text: String) =
         Answer(status = ChatStatus.DONE, text = text, finishReason = "stop", model = "deepseek-flash")
 
+    // The conversation each book's turns go on; a book's first turn starts it.
+    private val sessions = mutableMapOf<UUID, UUID>()
+
+    private fun open(
+        book: TutorBooks.Shelved,
+        request: ChatAskRequest,
+    ): Turn {
+        val turn = chatService.open(book.account, book.id, request.copy(sessionId = sessions[book.id]))
+        sessions[book.id] = turn.session.id
+        return turn
+    }
+
     private fun turn(
         book: TutorBooks.Shelved,
         request: ChatAskRequest,
         answer: Answer = done("답이에요."),
     ): Turn {
-        val turn = chatService.open(book.account, book.id, request)
+        val turn = open(book, request)
         chatService.close(turn, answer)
         chatService.end(turn)
         return turn
     }
 
     @Test
-    fun `a reader's conversation is theirs alone, one for each book`() {
+    fun `a reader's conversations are theirs alone, kept for each book`() {
         val book = books.create(readers.create())
         val other = books.create(book.account)
         turn(book, ChatAskRequest(text = "질문", itemKey = book.keys[1]))
         val stranger = readers.create()
 
-        assertThat(chatService.conversation(book.account, book.id).messages).hasSize(2)
-        assertThat(chatService.conversation(book.account, other.id).messages).isEmpty()
-        assertThat(chatService.conversation(stranger, book.id).messages).isEmpty()
+        assertThat(chatSessionService.latest(book.account, book.id).messages).hasSize(2)
+        assertThat(chatSessionService.latest(book.account, other.id).messages).isEmpty()
+        assertThat(chatSessionService.latest(stranger, book.id).messages).isEmpty()
     }
 
     @Test
@@ -66,7 +79,7 @@ class ChatServiceTest(
         val request =
             ChatAskRequest(text = "  무슨 뜻인가요?\n", itemKey = book.keys[1], quote = "자원 \n 할당자로", turnId = turnId)
         val turn = turn(book, request)
-        val asked = chatService.conversation(book.account, book.id).messages.first()
+        val asked = chatSessionService.latest(book.account, book.id).messages.first()
         val prompt =
             jdbc
                 .sql("select prompt from chat_message where account_id = :id and seq = 1")
@@ -145,7 +158,7 @@ class ChatServiceTest(
                 .last()
                 .content,
         ).isEqualTo("질문: 이 책은 누구를 위한 책인가요?")
-        assertThat(chatService.conversation(book.account, book.id).messages.map { it.itemKey }).containsOnlyNulls()
+        assertThat(chatSessionService.latest(book.account, book.id).messages.map { it.itemKey }).containsOnlyNulls()
     }
 
     @Test
@@ -158,7 +171,7 @@ class ChatServiceTest(
         )
         turn(book, ChatAskRequest(text = "둘"), Answer.failed(errorCode = "error", streamed = "", model = "m"))
 
-        val replies = chatService.conversation(book.account, book.id).messages.filter { it.role == "gloss" }
+        val replies = chatSessionService.latest(book.account, book.id).messages.filter { it.role == "gloss" }
 
         assertThat(replies.map { it.message }).containsExactly(
             "요청이 너무 잦아요. 잠시 후 다시 시도해 주세요.",
@@ -170,9 +183,9 @@ class ChatServiceTest(
     @Test
     fun `a conversation is held from a turn's opening to its end, and is free after`() {
         val book = books.create(readers.create())
-        val open = chatService.open(book.account, book.id, ChatAskRequest(text = "하나"))
+        val open = open(book, ChatAskRequest(text = "하나"))
 
-        assertThatThrownBy { chatService.open(book.account, book.id, ChatAskRequest(text = "둘")) }
+        assertThatThrownBy { open(book, ChatAskRequest(text = "둘")) }
             .isInstanceOfSatisfying(GlossException::class.java) { assertThat(it.error).isEqualTo(ChatError.ANSWERING) }
         chatService.close(open, done("답"))
         chatService.end(open)
@@ -180,7 +193,7 @@ class ChatServiceTest(
 
         assertThat(next.asked.seq).isEqualTo(3)
         assertThat(
-            chatService.conversation(book.account, book.id).messages.map {
+            chatSessionService.latest(book.account, book.id).messages.map {
                 it.text
             },
         ).containsExactly("하나", "답", "셋", "답이에요.")
@@ -240,19 +253,38 @@ class ChatServiceTest(
     @Test
     fun `the conversation says a turn is under way until it ends, for any page that reads it`() {
         val book = books.create(readers.create())
-        val before = chatService.conversation(book.account, book.id).answering
-        val open = chatService.open(book.account, book.id, ChatAskRequest(text = "하나"))
+        val before = chatSessionService.latest(book.account, book.id).answering
+        val open = open(book, ChatAskRequest(text = "하나"))
 
-        val during = chatService.conversation(book.account, book.id)
+        val during = chatSessionService.latest(book.account, book.id)
         chatService.close(open, done("답"))
-        val kept = chatService.conversation(book.account, book.id).answering
+        val kept = chatSessionService.latest(book.account, book.id).answering
         chatService.end(open)
-        val after = chatService.conversation(book.account, book.id).answering
+        val after = chatSessionService.latest(book.account, book.id).answering
 
         assertThat(before).isFalse()
         assertThat(during.answering).isTrue()
         assertThat(during.messages.map { it.role }).containsExactly("reader")
         assertThat(kept).isTrue()
         assertThat(after).isFalse()
+    }
+
+    @Test
+    fun `a question with no conversation named starts a new one, which sends no turn of the others`() {
+        val book = books.create(readers.create())
+        val first = turn(book, ChatAskRequest(text = "하나"))
+        turn(book, ChatAskRequest(text = "둘"))
+
+        val fresh = chatService.open(book.account, book.id, ChatAskRequest(text = "새 질문"))
+        chatService.close(fresh, done("새 답"))
+        chatService.end(fresh)
+
+        assertThat(fresh.session.id).isNotEqualTo(first.session.id)
+        assertThat(fresh.asked.seq).isEqualTo(1)
+        assertThat(fresh.call.messages.map { it.role }).containsExactly(Role.SYSTEM, Role.USER)
+        assertThat(chatSessionService.latest(book.account, book.id).sessionId).isEqualTo(fresh.session.id)
+        assertThat(
+            chatSessionService.conversation(book.account, book.id, first.session.id).messages.map { it.text },
+        ).containsExactly("하나", "답이에요.", "둘", "답이에요.")
     }
 }
