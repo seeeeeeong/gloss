@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   booksPath,
   canPick,
   cardItems,
+  chatHref,
   chatKey,
   contentsIntro,
   factsOf,
@@ -15,6 +16,7 @@ import {
   latestBooks,
   listOf,
   liveContents,
+  loadSessions,
   type OfferedBook,
   planPath,
   planProgress,
@@ -22,10 +24,14 @@ import {
   planRunning,
   planWaits,
   readerLine,
+  readOnly,
   type SetupMessage,
   type SetupSession,
+  type SetupSessionSummary,
   type SetupState,
   sessionPath,
+  sessionsPath,
+  showChatAddress,
   shownHold,
   showsTurn,
   startMayHaveLanded,
@@ -213,6 +219,82 @@ describe('chatKey', () => {
 
     expect(chatKey(a)).not.toBe(chatKey(b))
     expect(chatKey(null)).toBe('new')
+  })
+})
+
+describe('chatHref', () => {
+  it('gives a conversation its own address under the screen that starts one', () => {
+    expect(chatHref('0199a3b2-7c4e-7d10-9b1f-2a3c4d5e6f70')).toBe(
+      '/books/new/0199a3b2-7c4e-7d10-9b1f-2a3c4d5e6f70',
+    )
+  })
+})
+
+describe('showChatAddress', () => {
+  it('replaces the fresh screen with the conversation, adding no step to go back through', () => {
+    const replaced: unknown[][] = []
+    showChatAddress('a', { replaceState: (...args: unknown[]) => replaced.push(args) })
+
+    expect(replaced).toEqual([[null, '', '/books/new/a']])
+  })
+})
+
+describe('readOnly', () => {
+  it('only reads a conversation whose book is made, and continues the rest', () => {
+    const at = (state: SetupState): SetupSession => ({
+      id: 'a',
+      revision: 0,
+      state,
+      searching: false,
+      bookId: state === 'confirmed' ? 'b' : null,
+      held: null,
+      messages: [],
+    })
+
+    expect(readOnly(at('confirmed'))).toBe(true)
+    expect(readOnly(at('book_chosen'))).toBe(false)
+    expect(readOnly(at('searching'))).toBe(false)
+    expect(readOnly(null)).toBe(false)
+  })
+})
+
+describe('sessionsPath', () => {
+  it('lists every conversation, or the one book was chosen in', () => {
+    expect(sessionsPath()).toBe('/api/me/setup-sessions')
+    expect(sessionsPath('b1')).toBe('/api/me/setup-sessions?bookId=b1')
+  })
+})
+
+describe('loadSessions', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it("asks for the reader's conversations and reads them as they come", async () => {
+    const listed: SetupSessionSummary[] = [
+      {
+        id: 'a',
+        state: 'confirmed',
+        title: '오브젝트',
+        bookId: 'b1',
+        createdAt: '2026-10-17T00:00:00Z',
+        lastActivityAt: '2026-10-17T00:05:00Z',
+      },
+    ]
+    const fetch = vi.fn(async () => new Response(JSON.stringify(listed), { status: 200 }))
+    vi.stubGlobal('fetch', fetch)
+
+    const result = await loadSessions()
+
+    expect(fetch).toHaveBeenCalledWith('/api/me/setup-sessions')
+    expect(result).toEqual({ ok: true, data: listed })
+  })
+
+  it('says why when the server refuses', async () => {
+    const refused = { code: 'common.unauthorized', message: '로그인이 필요해요.' }
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify(refused), { status: 401 }))
+
+    expect(await loadSessions()).toEqual({ ok: false, status: 401, ...refused })
   })
 })
 

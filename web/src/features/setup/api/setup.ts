@@ -1,3 +1,4 @@
+import { type ApiResult, load } from '@/lib/api'
 import { authorsLine, type BookCandidate, editionOf, isBookId } from '@/lib/books'
 import { type Level, levelLabel, type Voice, voiceLabel } from '@/lib/styles'
 
@@ -110,8 +111,46 @@ export const sessionPath = (
   step?: 'messages' | 'pick' | 'typed-contents' | 'contents' | 'confirm',
 ) => `${SETUP_PATH}/${id}${step ? `/${step}` : ''}`
 
-/** The page keeps the session in its address, so a reload or a link comes back to the same thread. */
+/** Where a new conversation starts. */
+export const NEW_CHAT = '/books/new'
+
+/** A conversation's own address, so a reload, a return or a link comes back to the same thread. */
+export const chatHref = (id: string) => `${NEW_CHAT}/${id}`
+
+/** Where a conversation once sat, in the query of the screen that starts one; read only to send it on. */
 export const SESSION_PARAM = 's'
+
+/**
+ * Puts a conversation just started in the address without a reload, so a refresh or coming back
+ * reopens it rather than a fresh screen.
+ */
+export function showChatAddress(
+  id: string,
+  history: Pick<History, 'replaceState'> = window.history,
+) {
+  history.replaceState(null, '', chatHref(id))
+}
+
+/** One of the reader's conversations, as GET /api/me/setup-sessions lists them. */
+export type SetupSessionSummary = {
+  id: string
+  state: SetupState
+  /** The book held or made, else what the reader first asked. */
+  title: string
+  bookId: string | null
+  createdAt: string
+  lastActivityAt: string
+}
+
+/** The reader's conversations they wrote in, latest activity first; one book's alone when named. */
+export const sessionsPath = (bookId?: string) =>
+  bookId ? `${SETUP_PATH}?bookId=${encodeURIComponent(bookId)}` : SETUP_PATH
+
+export const loadSessions = (): Promise<ApiResult<SetupSessionSummary[]>> =>
+  load<SetupSessionSummary[]>(sessionsPath())
+
+/** A book's conversation is only read: the thread as it was, with no way to add to it. */
+export const readOnly = (session: SetupSession | null) => session?.state === 'confirmed'
 
 export const booksPath = (id: string, seq: number) => `${SETUP_PATH}/${id}/messages/${seq}/books`
 

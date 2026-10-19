@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
-import { ContentsTree } from '@/features/reader/components/ReaderContents'
+import { ContentsTree, ReaderContents } from '@/features/reader/components/ReaderContents'
+import type { ReaderBook } from '@/features/reader/components/ReaderPages'
 import type { ItemView } from '@/features/reader/utils/reader'
 import type { TocItem } from '@/lib/books'
 
@@ -92,5 +93,35 @@ describe('ContentsTree', () => {
     const out = tree(null)
     expect(out).not.toContain('aria-current')
     expect(out).not.toContain('item=s11')
+  })
+})
+
+describe('ReaderContents', () => {
+  const head = (book: ReaderBook) =>
+    renderToStaticMarkup(
+      <ReaderContents
+        book={book}
+        items={ITEMS}
+        current="s11"
+        phone={false}
+        viewOf={viewOf}
+        marked={new Set()}
+        talked={new Set()}
+        onGo={() => {}}
+      />,
+    )
+
+  it('leads from the book to the conversation it was chosen in', () => {
+    const out = head({ id: 'b1', title: '오브젝트', setupHref: '/books/new/s1' })
+    expect(out).toContain(
+      '<a class="ibtn sm tert" aria-label="이 책을 고른 대화" data-tip="이 책을 고른 대화" href="/books/new/s1">',
+    )
+  })
+
+  it('leaves the head alone for a book chosen in none', () => {
+    expect(head({ id: 'b1', title: '오브젝트', setupHref: null })).not.toContain(
+      '이 책을 고른 대화',
+    )
+    expect(head({ id: 'b1', title: '오브젝트' })).not.toContain('/books/new')
   })
 })
