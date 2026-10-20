@@ -17,10 +17,13 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPat
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
 import org.springframework.test.web.servlet.setup.MockMvcBuilders
 import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import java.time.Duration
+import java.util.UUID
 
 @ExtendWith(OutputCaptureExtension::class)
 class GlobalExceptionHandlerTest {
@@ -45,6 +48,16 @@ class GlobalExceptionHandlerTest {
         fun named(
             @Valid @RequestBody request: SampleRequest,
         ) = request.name
+
+        @GetMapping("/books/{bookId}")
+        fun book(
+            @PathVariable bookId: UUID,
+        ) = bookId.toString()
+
+        @GetMapping("/pages")
+        fun pages(
+            @RequestParam page: Int,
+        ) = page
 
         @GetMapping("/broken")
         fun broken(): Unit = error("database password is hunter2")
@@ -94,6 +107,17 @@ class GlobalExceptionHandlerTest {
             .perform(post("/named").contentType(MediaType.APPLICATION_JSON).content("{"))
             .andExpect(status().isBadRequest)
             .andExpect(jsonPath("$.code").value("common.invalid_input"))
+    }
+
+    @Test
+    fun `a path or query value that cannot be read, or one left out, is an invalid input`() {
+        for (request in listOf(get("/books/not-a-uuid"), get("/pages").param("page", "first"), get("/pages"))) {
+            mvc
+                .perform(request)
+                .andExpect(status().isBadRequest)
+                .andExpect(jsonPath("$.code").value("common.invalid_input"))
+                .andExpect(jsonPath("$.message").value("입력값을 확인해 주세요"))
+        }
     }
 
     @Test
