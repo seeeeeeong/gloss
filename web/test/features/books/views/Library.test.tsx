@@ -9,6 +9,8 @@ const book = (id: string, changes: Partial<BookSummary> = {}): BookSummary => ({
   authors: ['Abraham Silberschatz', 'Peter B. Galvin'],
   publisher: '퍼스트북',
   isbn13: null,
+  publishedOn: '2020-02-28',
+  kind: '도서',
   source: 'yes24',
   sourceUrl: null,
   confirmed: true,
@@ -19,14 +21,19 @@ const book = (id: string, changes: Partial<BookSummary> = {}): BookSummary => ({
 describe('Library', () => {
   it('heads the shelf with its count and 책 추가, and lists every book as a cover', () => {
     const out = renderToStaticMarkup(
-      <Library books={[book('a'), book('b', { title: '클린 코드', publisher: null })]} />,
+      <Library
+        books={[
+          book('a'),
+          book('b', { title: '클린 코드', publisher: null, publishedOn: null, kind: null }),
+        ]}
+      />,
     )
     expect(out).toContain('<h1>내 서재<span class="count">2</span></h1>')
     expect(out).toMatch(/<a class="btn primary" href="\/books\/new">.*책 추가<\/a>/)
     expect(out).toContain('모든 책<span>2</span>')
     expect(out).toContain('<ul class="shelf-books grid">')
     expect(out).toContain('<a class="book-card" href="/books/a">')
-    expect(out).toContain('<div class="book-meta"><span>퍼스트북</span></div>')
+    expect(out).toContain('<div class="book-meta"><span>퍼스트북</span><span>2020</span></div>')
     expect(out.match(/class="book-meta"/g)).toHaveLength(1)
   })
 

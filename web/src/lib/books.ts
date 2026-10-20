@@ -5,6 +5,9 @@ export type BookSummary = {
   authors: string[]
   publisher: string | null
   isbn13: string | null
+  /** When it came out and what the source sells it as (도서, eBook); null for a book typed in. */
+  publishedOn: string | null
+  kind: string | null
   source: string
   sourceUrl: string | null
   confirmed: boolean
@@ -37,6 +40,8 @@ export type Book = {
   authors: string[]
   publisher: string | null
   isbn13: string | null
+  publishedOn: string | null
+  kind: string | null
   source: string
   sourceUrl: string | null
   currentTocId: string | null
@@ -90,9 +95,12 @@ export function bylineOf(book: Pick<BookSummary, 'authors' | 'publisher'>): stri
 
 const SOURCES: Record<string, string> = { yes24: 'YES24' }
 
+/** The source's name, null for a book the reader typed in. */
+export const sourceNameOf = (source: string): string | null => SOURCES[source] ?? null
+
 /** Null for a book the reader typed in: there is no one to credit. The source's terms ask for it. */
 export function creditOf(source: string): string | null {
-  const name = SOURCES[source]
+  const name = sourceNameOf(source)
   return name ? `출처 ${name}` : null
 }
 
@@ -105,6 +113,19 @@ export function editionOf(
   return [bylineOf(candidate), candidate.publishedOn?.slice(0, 4) ?? '', kind]
     .filter((part) => part.length > 0)
     .join(' · ')
+}
+
+// A printed book in Korean is what a reader expects; any other kind is worth naming.
+const PLAIN_KIND = '도서'
+
+/** What tells a book on the shelf from another edition of it: its publisher, its year, an unusual kind. */
+export function editionParts(
+  book: Pick<BookSummary, 'publisher' | 'publishedOn' | 'kind'>,
+): string[] {
+  const kind = book.kind === PLAIN_KIND ? null : book.kind
+  return [book.publisher, book.publishedOn?.slice(0, 4) ?? null, kind].filter(
+    (part): part is string => part !== null && part.length > 0,
+  )
 }
 
 export const searchPath = (query: string) =>

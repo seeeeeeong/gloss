@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { Cover } from '@/components/ui/Cover'
 import { Icon } from '@/components/ui/Icon'
 import { type Bookmark, markText } from '@/lib/bookmarks'
-import { authorsLine, type BookSummary } from '@/lib/books'
+import { authorsLine, type BookSummary, editionParts } from '@/lib/books'
 import { readerHref } from '@/lib/posts'
 import { matching, placeOf, type RecentRead } from '@/lib/shelf'
 
@@ -237,6 +237,7 @@ function LastMark({ mark }: { mark: Bookmark }) {
 }
 
 function BookCard({ book }: { book: BookSummary }) {
+  const edition = editionParts(book)
   return (
     <Link className="book-card" href={`/books/${book.id}`}>
       <div className="book-stage">
@@ -248,9 +249,11 @@ function BookCard({ book }: { book: BookSummary }) {
       <div className="book-details">
         <h3>{book.title}</h3>
         <p>{authorsLine(book.authors)}</p>
-        {book.publisher && (
+        {edition.length > 0 && (
           <div className="book-meta">
-            <span>{book.publisher}</span>
+            {edition.map((part) => (
+              <span key={part}>{part}</span>
+            ))}
           </div>
         )}
       </div>

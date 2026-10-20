@@ -3,8 +3,14 @@ import type { ItemView } from '@/features/reader/utils/reader'
 import type { Book } from '@/lib/books'
 import { Prose } from './Prose'
 
-/** [setupHref] is the conversation the book was chosen in, when it was chosen in one. */
-export type ReaderBook = Pick<Book, 'id' | 'title'> & { setupHref?: string | null }
+/**
+ * [setupHref] is the conversation the book was chosen in, when it was chosen in one. The edition's
+ * details and its source's page are shown in the contents' head, where present.
+ */
+export type ReaderBook = Pick<Book, 'id' | 'title'> &
+  Partial<Pick<Book, 'publisher' | 'publishedOn' | 'kind' | 'source' | 'sourceUrl'>> & {
+    setupHref?: string | null
+  }
 
 export const KEY_HREF = '/me#api-key-head'
 export const USAGE_HREF = '/me#usage'

@@ -5,6 +5,7 @@ import {
   bylineOf,
   creditOf,
   editionOf,
+  editionParts,
   isBookId,
   searchPath,
   type TocItem,
@@ -119,5 +120,18 @@ describe('searchPath', () => {
     expect(searchPath('Real MySQL 8.0 & more')).toBe(
       '/api/me/books/search?query=Real%20MySQL%208.0%20%26%20more',
     )
+  })
+})
+
+describe('editionParts', () => {
+  const book = { publisher: '위키북스', publishedOn: '2021-09-08', kind: '도서' }
+
+  it('names the publisher and the year, and the kind only when it is not a printed book', () => {
+    expect(editionParts(book)).toEqual(['위키북스', '2021'])
+    expect(editionParts({ ...book, kind: 'eBook' })).toEqual(['위키북스', '2021', 'eBook'])
+  })
+
+  it('leaves out what is not known', () => {
+    expect(editionParts({ publisher: null, publishedOn: null, kind: null })).toEqual([])
   })
 })
