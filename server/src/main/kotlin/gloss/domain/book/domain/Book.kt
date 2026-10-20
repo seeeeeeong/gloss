@@ -9,6 +9,7 @@ import jakarta.persistence.Converter
 import jakarta.persistence.Entity
 import org.hibernate.annotations.DynamicUpdate
 import java.time.Instant
+import java.time.LocalDate
 import java.util.UUID
 
 @Entity
@@ -31,6 +32,10 @@ class Book private constructor(
     var isbn13: String? = draft.isbn13?.value
         protected set
     var edition: String? = null
+        protected set
+    var publishedOn: LocalDate? = null
+        protected set
+    var kind: String? = null
         protected set
 
     @Convert(converter = BookSource.Column::class)
@@ -81,7 +86,10 @@ class Book private constructor(
             now: Instant,
         ) = Book(id = UuidV7.at(now), accountId = accountId, draft = draft, source = BookSource.MANUAL, now = now)
 
-        /** Found in a source: which item it is there and its page are kept with it. */
+        /**
+         * Found in a source: which item it is there and its page are kept with it, and when it came out
+         * and in what kind, which tell it from another edition of the same title.
+         */
         fun createSourced(
             accountId: UUID,
             draft: BookDraft,
@@ -90,6 +98,8 @@ class Book private constructor(
         ) = Book(id = UuidV7.at(now), accountId = accountId, draft = draft, source = sourced.source, now = now).also {
             it.sourceRef = sourced.ref
             it.sourceUrl = sourced.url
+            it.publishedOn = sourced.publishedOn
+            it.kind = sourced.kind
         }
     }
 }

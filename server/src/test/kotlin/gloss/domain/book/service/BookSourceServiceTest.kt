@@ -20,6 +20,7 @@ import org.springframework.context.annotation.Import
 import org.springframework.jdbc.core.simple.JdbcClient
 import org.springframework.transaction.annotation.Transactional
 import java.time.Clock
+import java.time.LocalDate
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -104,7 +105,10 @@ class BookSourceServiceTest(
 
         assertThat(book.title).isEqualTo("오브젝트")
         assertThat(book.authors).containsExactly("조영호 저")
+        assertThat(book.publisher).isEqualTo("위키북스")
         assertThat(book.isbn13).isEqualTo("9788966262472")
+        assertThat(book.publishedOn).isEqualTo(LocalDate.of(2019, 6, 17))
+        assertThat(book.kind).isEqualTo("도서")
         assertThat(book.source).isEqualTo("yes24")
         assertThat(book.sourceUrl).isEqualTo("https://www.yes24.com/product/goods/101")
         assertThat(book.currentTocId).isNull()
@@ -121,6 +125,9 @@ class BookSourceServiceTest(
                 .query { row, _ -> row.getString(1) to row.getString(2) }
                 .single()
         assertThat(kept).isEqualTo("101" to "https://www.yes24.com/product/goods/101")
+        val shelved = bookService.list(account).single()
+        assertThat(shelved.publishedOn).isEqualTo(LocalDate.of(2019, 6, 17))
+        assertThat(shelved.kind).isEqualTo("도서")
     }
 
     @Test

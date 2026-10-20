@@ -3,6 +3,7 @@ package gloss.domain.book.dto.response
 import gloss.domain.book.domain.Book
 import gloss.domain.book.domain.Toc
 import gloss.domain.book.domain.TocItem
+import java.time.LocalDate
 import java.util.UUID
 
 /** The book with its latest contents, which may be a draft newer than the one in use. */
@@ -12,6 +13,8 @@ data class BookResponse(
     val authors: List<String>,
     val publisher: String?,
     val isbn13: String?,
+    val publishedOn: LocalDate?,
+    val kind: String?,
     val source: String,
     val sourceUrl: String?,
     val currentTocId: UUID?,
@@ -30,6 +33,8 @@ data class BookResponse(
             authors = book.authors.toList(),
             publisher = book.publisher,
             isbn13 = book.isbn13,
+            publishedOn = book.publishedOn,
+            kind = book.kind,
             source = book.source.code,
             sourceUrl = book.sourceUrl,
             currentTocId = book.currentTocId,
