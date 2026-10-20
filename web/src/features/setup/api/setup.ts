@@ -1,5 +1,5 @@
 import { type ApiResult, load } from '@/lib/api'
-import { authorsLine, type BookCandidate, editionOf, isBookId } from '@/lib/books'
+import { authorsLine, type BookCandidate, editionOf, editionParts, isBookId } from '@/lib/books'
 import { type Level, levelLabel, type Voice, voiceLabel } from '@/lib/styles'
 
 /** An edition a search in a setup session found, as the source describes it now: none of it is kept. */
@@ -330,9 +330,7 @@ export const itemsCount = (count: number) => `${count}개 항목`
 /** The facts under the book's title: who wrote it, which edition, and how many items. */
 export function factsOf(held: HeldContents): string[] {
   const authors = authorsLine(held.book?.authors ?? held.authors)
-  const edition = [held.book?.publisher ?? '', held.book?.publishedOn?.slice(0, 4) ?? '']
-    .filter((part) => part.length > 0)
-    .join(' ')
+  const edition = held.book ? editionParts(held.book).join(' ') : ''
   return [
     authors && `저자: ${authors}`,
     edition && `판본: ${edition}`,

@@ -555,6 +555,11 @@ describe('factsOf', () => {
     ])
   })
 
+  it('names a kind other than a printed book', () => {
+    const ebook = { ...held, book: held.book && { ...held.book, kind: 'eBook' } }
+    expect(factsOf(ebook)).toContain('판본: 퍼스트북 2020 eBook')
+  })
+
   it('leaves out what a book typed in does not have', () => {
     expect(factsOf({ ...held, book: null, authors: ['김민준'] })).toEqual([
       '저자: 김민준',

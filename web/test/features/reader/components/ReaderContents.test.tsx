@@ -126,6 +126,26 @@ describe('ReaderContents', () => {
     expect(out).not.toContain('서재에서 뺄까요?')
   })
 
+  it('names the edition under the title, and its source with a link to its page', () => {
+    const out = head({
+      id: 'b1',
+      title: '오브젝트',
+      publisher: '위키북스',
+      publishedOn: '2019-06-17',
+      kind: 'eBook',
+      source: 'yes24',
+      sourceUrl: 'https://www.yes24.com/product/goods/101',
+    })
+    expect(out).toContain(
+      '<span class="bt-edition"><span>위키북스 · 2019 · eBook</span><span class="bt-source"> · <a class="dl" href="https://www.yes24.com/product/goods/101" target="_blank" rel="noopener noreferrer">YES24</a></span></span>',
+    )
+  })
+
+  it('names nothing under the title of a book typed in', () => {
+    const out = head({ id: 'b1', title: '오브젝트', source: 'manual', sourceUrl: null })
+    expect(out).not.toContain('bt-edition')
+  })
+
   it('leaves the head alone for a book chosen in none', () => {
     expect(head({ id: 'b1', title: '오브젝트', setupHref: null })).not.toContain(
       '이 책을 고른 대화',

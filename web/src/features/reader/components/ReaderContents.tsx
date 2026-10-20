@@ -21,7 +21,7 @@ import {
   type ItemView,
 } from '@/features/reader/utils/reader'
 import { useDismiss } from '@/hooks/useDismiss'
-import type { TocItem } from '@/lib/books'
+import { editionParts, sourceNameOf, type TocItem } from '@/lib/books'
 import { headingOf, readerHref } from '@/lib/posts'
 import { toneOf } from '@/lib/shelf'
 import { ArchiveBook } from './ArchiveBook'
@@ -154,7 +154,7 @@ export function ReaderContents(props: Props) {
           <div ref={aside} id={CONTENTS_ID} className={className}>
             <div className="tree-head">
               <span className={`spine tone-${toneOf(book.id)}`} aria-hidden="true" />
-              <span className="bt">{book.title}</span>
+              <BookTitle book={book} />
               {book.setupHref && (
                 <Link
                   className="ibtn sm tert"
@@ -379,5 +379,35 @@ function RowMarks({ live, talked, marked }: { live: boolean; talked: boolean; ma
         </span>
       )}
     </span>
+  )
+}
+
+/** The title, and under it what tells this edition from another, its source named and linked. */
+function BookTitle({ book }: { book: ReaderBook }) {
+  const edition = editionParts({
+    publisher: book.publisher ?? null,
+    publishedOn: book.publishedOn ?? null,
+    kind: book.kind ?? null,
+  }).join(' · ')
+  // The source's terms ask for its name and a link wherever its details show.
+  const source = book.source ? sourceNameOf(book.source) : null
+  const credit = source && book.sourceUrl ? { name: source, url: book.sourceUrl } : null
+  return (
+    <div className="bt">
+      <span className="bt-title">{book.title}</span>
+      {(edition || credit) && (
+        <span className="bt-edition">
+          {edition && <span>{edition}</span>}
+          {credit && (
+            <span className="bt-source">
+              {edition && ' · '}
+              <a className="dl" href={credit.url} target="_blank" rel="noopener noreferrer">
+                {credit.name}
+              </a>
+            </span>
+          )}
+        </span>
+      )}
+    </div>
   )
 }

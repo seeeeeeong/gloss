@@ -47,12 +47,33 @@
 }
 .tree-head .bt {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   min-width: 0;
+}
+.bt-title,
+.bt-edition > span:first-child {
   overflow: hidden;
-  font: 590 13px / 18px var(--font);
-  color: var(--tx);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.bt-title {
+  font: 590 13px / 18px var(--font);
+  color: var(--tx);
+}
+.bt-edition {
+  display: flex;
+  min-width: 0;
+  font: 400 11px / 16px var(--font);
+  color: var(--tx3);
+}
+/* The source's credit stays whole: its terms ask for it wherever the details show. */
+.bt-source {
+  flex: none;
+  white-space: pre;
+}
+.bt-source .dl {
+  text-underline-offset: 3px;
 }
 /* The head's buttons sit together, apart from the title. */
 .tree-head .ibtn + .ibtn {
