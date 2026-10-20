@@ -8,17 +8,22 @@ import org.springframework.data.jpa.repository.Query
 import java.util.UUID
 
 interface BookRepository : JpaRepository<Book, UUID> {
-    fun findByIdAndAccountIdAndDeletedAtIsNull(
+    fun findByIdAndAccountIdAndArchivedAtIsNull(
         id: UUID,
         accountId: UUID,
     ): Book?
 
-    fun findAllByAccountIdAndDeletedAtIsNullOrderByCreatedAtDesc(accountId: UUID): List<Book>
+    fun findAllByAccountIdAndArchivedAtIsNullOrderByCreatedAtDesc(accountId: UUID): List<Book>
 
-    fun existsByAccountIdAndIsbn13AndDeletedAtIsNull(
+    fun existsByAccountIdAndIsbn13AndArchivedAtIsNull(
         accountId: UUID,
         isbn13: String,
     ): Boolean
+
+    fun findFirstByAccountIdAndIsbn13AndArchivedAtIsNotNullOrderByArchivedAtDesc(
+        accountId: UUID,
+        isbn13: String,
+    ): Book?
 
     // Held until commit, so two adds to one shelf check for the same isbn in turn.
     @Query(
@@ -29,7 +34,7 @@ interface BookRepository : JpaRepository<Book, UUID> {
 
     // Held until commit, so two edits of the same contents number their versions in turn.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select b from Book b where b.id = :id and b.accountId = :accountId and b.deletedAt is null")
+    @Query("select b from Book b where b.id = :id and b.accountId = :accountId and b.archivedAt is null")
     fun findForUpdate(
         id: UUID,
         accountId: UUID,

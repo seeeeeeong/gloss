@@ -8,6 +8,7 @@ import gloss.domain.book.domain.BookSourceFailed
 import gloss.domain.book.domain.event.TocConfirmed
 import gloss.domain.book.service.BookError
 import gloss.domain.book.service.BookService
+import gloss.domain.book.service.BookShelfService
 import gloss.domain.book.service.EditionCache
 import gloss.domain.setup.TitleSearchModel
 import gloss.domain.setup.domain.BooksFound
@@ -44,10 +45,13 @@ import java.util.concurrent.TimeUnit
 @Import(TestcontainersConfiguration::class, FakeBookSourceGateway.Config::class, TitleSearchModel.Config::class)
 @Transactional
 @RecordApplicationEvents
+// A test's constructor is what Spring injects into it.
+@Suppress("LongParameterList")
 class SetupSessionServiceTest(
     @Autowired private val setupSessionService: SetupSessionService,
     @Autowired private val setupMessageService: SetupMessageService,
     @Autowired private val bookService: BookService,
+    @Autowired private val bookShelfService: BookShelfService,
     @Autowired private val fakeBookSourceGateway: FakeBookSourceGateway,
     @Autowired private val editionCache: EditionCache,
     @Autowired private val jdbc: JdbcClient,
@@ -402,6 +406,22 @@ class SetupSessionServiceTest(
         }
         assertThat(setupSessionService.get(account, chosen.id).state).isEqualTo("book_chosen")
         assertThat(books(account)).isEqualTo(1)
+    }
+
+    @Test
+    fun `a book taken off the shelf is put back as it was when it is started again`() {
+        val account = accountId()
+        val first = picked(account).let { setupSessionService.confirm(account, it.id, seen(account, it.id)) }
+        val bookId = checkNotNull(first.bookId)
+        bookShelfService.archive(account, bookId)
+        val chosen = picked(account)
+
+        val again = setupSessionService.confirm(account, chosen.id, seen(account, chosen.id))
+
+        assertThat(again.state).isEqualTo("confirmed")
+        assertThat(again.bookId).isEqualTo(bookId)
+        assertThat(books(account)).isEqualTo(1)
+        assertThat(bookService.get(account, bookId).currentTocId).isNotNull()
     }
 
     @Test

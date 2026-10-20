@@ -98,6 +98,27 @@ class BookControllerTest(
     }
 
     @Test
+    fun `a reader takes a book off their shelf, and no one else can`() {
+        val reader = signedIn()
+        val stranger = signedIn()
+        val created = reader.post("/api/me/books", mapOf("title" to "오브젝트", "toc" to "1장 객체"))
+        val bookId = created.body?.get("id")?.asString()
+
+        val theirs = stranger.delete("/api/me/books/$bookId")
+        val archived = reader.delete("/api/me/books/$bookId")
+        val gone = reader.get("/api/me/books/$bookId")
+        val shelf = reader.get("/api/me/books")
+        val again = reader.delete("/api/me/books/$bookId")
+
+        assertThat(theirs.status).isEqualTo(404)
+        assertThat(theirs.code).isEqualTo("book.not_found")
+        assertThat(archived.status).isEqualTo(204)
+        assertThat(gone.status).isEqualTo(404)
+        assertThat(shelf.body?.size()).isZero()
+        assertThat(again.status).isEqualTo(404)
+    }
+
+    @Test
     fun `a book without a title or contents is a bad request`() {
         val answer = signedIn().post("/api/me/books", mapOf("title" to "", "toc" to "1장"))
 

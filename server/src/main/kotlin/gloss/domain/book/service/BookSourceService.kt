@@ -25,6 +25,7 @@ class BookSourceService(
     private val bookSourceGateway: BookSourceGateway,
     private val bookSourceThrottle: BookSourceThrottle,
     private val bookService: BookService,
+    private val bookShelfService: BookShelfService,
     private val tocService: TocService,
     private val editionCache: EditionCache,
 ) {
@@ -107,6 +108,8 @@ class BookSourceService(
         contents: String,
         style: WritingStyle,
     ): ContentsVersion {
+        // Taken off the shelf before: it comes back with its own contents and style, as it was read.
+        bookShelfService.restore(accountId, edition.book.isbn13)?.let { return it }
         val source = edition.contents
         val added =
             bookService.add(

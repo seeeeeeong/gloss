@@ -147,6 +147,20 @@ class BookReadServiceTest(
     }
 
     @Test
+    fun `a book taken off the shelf leaves the books read lately, and comes back with its place`() {
+        val book = book()
+        read(book)
+        jdbc.sql("update book set archived_at = now() where id = :id").param("id", book.id).update()
+
+        val hidden = bookReadService.recent(book.account)
+        assertFails(BookError.NOT_READ) { bookReadService.find(book.account, book.id) }
+        jdbc.sql("update book set archived_at = null where id = :id").param("id", book.id).update()
+
+        assertThat(hidden).isEmpty()
+        assertThat(bookReadService.recent(book.account).map { it.bookId }).containsExactly(book.id)
+    }
+
+    @Test
     fun `only the ten books read last are listed`() {
         val account = accountId()
         val books =

@@ -8,8 +8,10 @@ import gloss.domain.book.dto.response.BookResponse
 import gloss.domain.book.dto.response.BookSummaryResponse
 import gloss.domain.book.dto.response.TocResponse
 import gloss.domain.book.service.BookService
+import gloss.domain.book.service.BookShelfService
 import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
+import org.springframework.web.bind.annotation.DeleteMapping
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
@@ -23,6 +25,7 @@ import java.util.UUID
 @RequestMapping("/api/me/books")
 class BookController(
     private val bookService: BookService,
+    private val bookShelfService: BookShelfService,
 ) {
     @GetMapping
     fun list(
@@ -41,6 +44,16 @@ class BookController(
         @CurrentAccount account: SessionAccount,
         @PathVariable bookId: UUID,
     ): BookResponse = bookService.get(account.id, bookId)
+
+    // Off the reader's shelf, not deleted: its posts and what they cost stay, and adding it again restores it.
+    @DeleteMapping("/{bookId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun archive(
+        @CurrentAccount account: SessionAccount,
+        @PathVariable bookId: UUID,
+    ) {
+        bookShelfService.archive(account.id, bookId)
+    }
 
     @GetMapping("/{bookId}/toc/current")
     fun currentToc(

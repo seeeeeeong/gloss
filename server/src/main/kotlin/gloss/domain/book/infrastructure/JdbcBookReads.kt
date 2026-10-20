@@ -38,7 +38,7 @@ class JdbcBookReads(
         bookId: UUID,
     ): BookRead? =
         jdbcClient
-            .sql("$READS where r.account_id = :account and r.book_id = :book and b.deleted_at is null")
+            .sql("$READS where r.account_id = :account and r.book_id = :book and b.archived_at is null")
             .param("account", accountId)
             .param("book", bookId)
             .query { row, _ -> readOf(row) }
@@ -52,7 +52,7 @@ class JdbcBookReads(
     ): List<BookRead> =
         jdbcClient
             .sql(
-                "$READS where r.account_id = :account and b.deleted_at is null" +
+                "$READS where r.account_id = :account and b.archived_at is null" +
                     " order by r.read_at desc, r.book_id desc limit :limit",
             ).param("account", accountId)
             .param("limit", limit)
