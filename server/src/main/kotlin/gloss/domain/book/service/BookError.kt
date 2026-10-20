@@ -23,6 +23,8 @@ enum class BookError(
     BOOK_NOT_FOUND(HttpStatus.NOT_FOUND, "book.not_found", "책을 찾을 수 없습니다"),
     TOC_NOT_FOUND(HttpStatus.NOT_FOUND, "book.toc_not_found", "목차를 찾을 수 없습니다"),
     TOC_NOT_CONFIRMED(HttpStatus.NOT_FOUND, "book.toc_not_confirmed", "아직 확정한 목차가 없습니다"),
+    ITEM_NOT_FOUND(HttpStatus.NOT_FOUND, "book.item_not_found", "확정한 목차에 없는 항목입니다"),
+    NOT_READ(HttpStatus.NOT_FOUND, "book.not_read", "아직 읽은 항목이 없습니다"),
     TOC_OUTDATED(HttpStatus.CONFLICT, "book.toc_outdated", "더 새로운 목차가 있습니다. 새로 고친 뒤 다시 확정해 주세요"),
     INVALID_QUERY(HttpStatus.BAD_REQUEST, "book.invalid_query", "검색어는 1~100자로 입력해 주세요"),
     SEARCH_TOO_OFTEN(HttpStatus.TOO_MANY_REQUESTS, "book.search_too_often", "검색을 너무 자주 했습니다. 잠시 후 다시 시도해 주세요"),

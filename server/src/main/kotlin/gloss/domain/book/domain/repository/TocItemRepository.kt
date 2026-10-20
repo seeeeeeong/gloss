@@ -14,4 +14,10 @@ interface TocItemRepository : JpaRepository<TocItem, UUID> {
         tocId: UUID,
         accountId: UUID,
     ): Long
+
+    fun existsByTocIdAndAccountIdAndItemKey(
+        tocId: UUID,
+        accountId: UUID,
+        itemKey: String,
+    ): Boolean
 }
