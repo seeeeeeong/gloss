@@ -25,7 +25,7 @@ import {
 } from '@/features/setup/api/setup'
 import { useDismiss } from '@/hooks/useDismiss'
 import { load } from '@/lib/api'
-import { creditOf, editionOf } from '@/lib/books'
+import { authorsLine, creditOf } from '@/lib/books'
 import { ContentsCard, Cover, SetupContents, type ShownContents } from './SetupContents'
 import { SetupPlan } from './SetupPlan'
 
@@ -206,11 +206,18 @@ function FoundBooks(props: ListProps) {
     <Listed sessionId={props.sessionId} seq={props.seq} latest={props.latest}>
       {(books) => (
         <>
-          <div className="books">
-            {books.map((book) => (
-              <BookRow key={book.ref} book={book} showKind={kindTells(book, books)} {...props} />
+          <section className="books" aria-label="책 · 판본">
+            <BooksHead label="책 · 판본" count={books.length} />
+            {books.map((book, i) => (
+              <BookRow
+                key={book.ref}
+                book={book}
+                showKind={kindTells(book, books)}
+                rank={i + 1}
+                {...props}
+              />
             ))}
-          </div>
+          </section>
           <Credit books={books} />
           <p>어떤 책으로 학습할까요?</p>
         </>
@@ -230,7 +237,8 @@ function Recommendation({ picks, ...props }: ListProps & { picks: RecommendedBoo
         })
         return (
           <>
-            <div className="books">
+            <section className="books" aria-label="살펴볼 책">
+              <BooksHead label="살펴볼 책" count={shown.length} />
               {shown.map(({ pick, book }, i) => (
                 <BookRow
                   key={book.ref}
@@ -242,13 +250,22 @@ function Recommendation({ picks, ...props }: ListProps & { picks: RecommendedBoo
                   {...props}
                 />
               ))}
-            </div>
+            </section>
             <Credit books={books} />
             <p>어떤 책으로 학습할까요?</p>
           </>
         )
       }}
     </Listed>
+  )
+}
+
+function BooksHead({ label, count }: { label: string; count: number }) {
+  return (
+    <p className="books-head" aria-hidden="true">
+      <span>{label}</span>
+      <span>{count}권</span>
+    </p>
   )
 }
 
@@ -325,50 +342,52 @@ type RowProps = {
   onPick: (book: OfferedBook) => void
   /** Whether the kind (도서, eBook) is needed to tell this edition from another in its list. */
   showKind?: boolean
-  /** A recommendation's place, its reason and the pages it cited. */
+  /** The row's place in its list; a recommendation's is its rank. */
   rank?: number
+  /** A recommendation's reason and the pages it cited. */
   reason?: string
   sources?: CitedPage[]
 }
 
+/** One edition as the prototype lists it: its place, a small cover, then the title, who, which edition. */
 export function BookRow(props: RowProps) {
   const { book, state, busy, onPick, showKind = false, rank, reason, sources } = props
-  const meta = [editionOf(book, showKind), book.hasContents ? '' : '목차 없음']
+  const edition = [
+    book.publisher ?? '',
+    book.publishedOn?.slice(0, 4) ?? '',
+    showKind ? (book.kind ?? '') : '',
+    book.hasContents ? '' : '목차 없음',
+  ]
     .filter(Boolean)
     .join(' · ')
+  const authors = authorsLine(book.authors)
   const pickable = canPick(state, book)
   return (
     <article className="bk">
-      <div className="bk-in">
-        {book.cover && (
-          <div className="bk-cover">
-            <Cover src={book.cover} />
-          </div>
+      {rank !== undefined && <span className="bk-no">{String(rank).padStart(2, '0')}</span>}
+      <div className="bk-cover">{book.cover && <Cover src={book.cover} />}</div>
+      <div className="bk-body">
+        <h3 className="bk-title">
+          <a className="dl" href={book.url} target="_blank" rel="noopener noreferrer">
+            {book.title}
+          </a>
+        </h3>
+        {authors && <p className="bk-by">{authors}</p>}
+        {edition && <p className="bk-meta">{edition}</p>}
+        {reason && <p className="bk-why">{reason}</p>}
+        {sources && sources.length > 0 && <Sources pages={sources} />}
+        {pickable && (
+          <button
+            type="button"
+            className="bk-pick"
+            disabled={busy}
+            aria-label={`${book.title}, 이 책으로 학습`}
+            onClick={() => onPick(book)}
+          >
+            이 책으로 학습
+            <Icon name="arrowR" size={14} />
+          </button>
         )}
-        <div className="bk-body">
-          <div className="bk-title">
-            <p>
-              {rank !== undefined && `${rank}. `}
-              <a className="dl" href={book.url} target="_blank" rel="noopener noreferrer">
-                {book.title}
-              </a>
-            </p>
-            {pickable && (
-              <button
-                type="button"
-                className="pick"
-                disabled={busy}
-                aria-label={`${book.title}, 이 책으로 학습`}
-                onClick={() => onPick(book)}
-              >
-                이 책으로 학습
-              </button>
-            )}
-          </div>
-          <p className="bk-meta">{meta}</p>
-          {reason && <p className="bk-why">{reason}</p>}
-          {sources && sources.length > 0 && <Sources pages={sources} />}
-        </div>
       </div>
     </article>
   )
