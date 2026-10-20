@@ -52,6 +52,21 @@ class ChatSessionService(
     ): List<ChatSessionResponse> = jdbcChatSessions.list(accountId, bookId).map(ChatSessionResponse::from)
 
     /**
+     * The few conversations with the newest activity in each of [bookIds], newest first across them;
+     * another reader's books have none.
+     */
+    @Transactional(readOnly = true)
+    fun latestOf(
+        accountId: UUID,
+        bookIds: List<UUID>,
+    ): List<ChatSessionResponse> {
+        val books = bookIds.distinct()
+        if (books.size > MAX_BOOKS) throw GlossException(ChatError.TOO_MANY_BOOKS)
+        if (books.isEmpty()) return emptyList()
+        return jdbcChatSessions.latestOf(accountId, books, PER_BOOK).map(ChatSessionResponse::from)
+    }
+
+    /**
      * Deletes the conversation with its messages; refused while a turn of it is under way, which
      * holds its reservation until the reply is kept. What its calls cost stays in the ledger.
      */
@@ -75,4 +90,10 @@ class ChatSessionService(
     ): ChatSession =
         chatSessionRepository.findByIdAndAccountIdAndBookId(sessionId, accountId, bookId)
             ?: throw GlossException(ChatError.SESSION_NOT_FOUND)
+
+    private companion object {
+        // The sidebar's books read lately, and the conversations it shows under each.
+        const val MAX_BOOKS = 20
+        const val PER_BOOK = 3
+    }
 }

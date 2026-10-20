@@ -80,6 +80,17 @@ class ChatSessionServiceTest(
     }
 
     @Test
+    fun `the latest conversations of no books are none, and of too many books are refused`() {
+        val account = readers.create()
+
+        assertThat(chatSessionService.latestOf(account, emptyList())).isEmpty()
+        assertThatThrownBy { chatSessionService.latestOf(account, List(21) { UUID.randomUUID() }) }
+            .isInstanceOfSatisfying(GlossException::class.java) {
+                assertThat(it.error).isEqualTo(ChatError.TOO_MANY_BOOKS)
+            }
+    }
+
+    @Test
     fun `before any question there is no conversation`() {
         val book = books.create(readers.create())
 

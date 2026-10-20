@@ -58,6 +58,21 @@ class JdbcChatSessionsTest(
         return Shelf(account, book)
     }
 
+    /** Another book on the same reader's shelf. */
+    private fun another(shelf: Shelf): Shelf {
+        val book = UUID.randomUUID()
+        jdbc
+            .sql(
+                """
+                insert into book (id, version, account_id, title, authors, source, created_at)
+                values (:id, 0, :account, '책', '{}', 'manual', now())
+                """.trimIndent(),
+            ).param("id", book)
+            .param("account", shelf.account)
+            .update()
+        return Shelf(shelf.account, book)
+    }
+
     private fun session(
         shelf: Shelf,
         at: Instant,
@@ -148,5 +163,28 @@ class JdbcChatSessionsTest(
 
         assertThat(jdbcChatSessions.list(shelf.account, shelf.book)).isEmpty()
         assertThat(jdbcChatSessions.latest(shelf.account, shelf.book)).isNull()
+    }
+
+    @Test
+    fun `the latest conversations of several books are the few newest of each, newest first across them`() {
+        val shelf = shelf()
+        val other = another(shelf)
+        val asked =
+            List(4) {
+                session(shelf, now).also { session ->
+                    turn(
+                        session,
+                        Asked(seq = 1, text = "질문 $it", itemKey = null, at = now.plus(Duration.ofHours(it * 2L))),
+                    )
+                }
+            }
+        val theirs = session(other, now)
+        turn(theirs, Asked(seq = 1, text = "다른 책", itemKey = "1", at = now.plus(Duration.ofHours(5))))
+
+        val latest = jdbcChatSessions.latestOf(shelf.account, listOf(shelf.book, other.book), perBook = 3)
+
+        assertThat(latest.map { it.id }).containsExactly(asked[3].id, theirs.id, asked[2].id, asked[1].id)
+        assertThat(latest.map { it.bookId }).containsExactly(shelf.book, other.book, shelf.book, shelf.book)
+        assertThat(jdbcChatSessions.latestOf(UUID.randomUUID(), listOf(shelf.book), perBook = 3)).isEmpty()
     }
 }
