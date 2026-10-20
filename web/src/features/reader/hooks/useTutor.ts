@@ -24,6 +24,7 @@ import {
   tutorReducer,
 } from '@/features/reader/utils/tutor'
 import { changeHeaders, load, readResult, send, UNREACHED } from '@/lib/api'
+import { announceRecent } from '@/lib/reads'
 
 // After a stop the server ends the answer within a second; past this the page lets go of it.
 const STOP_GRACE_MS = 5000
@@ -118,6 +119,7 @@ export function useTutor(bookId: string) {
       if (gone) {
         dispatch({ type: 'removed', bookId, sessionId })
         if (at.current.sessionId === sessionId) open(null)
+        announceRecent()
       }
       void list()
       return result
@@ -177,6 +179,7 @@ export function useTutor(bookId: string) {
       if (controller.current === abort) controller.current = null
       await finish(outcome, { text, quote, turnId }, open)
       void list()
+      announceRecent()
     },
     [bookId, finish, list],
   )

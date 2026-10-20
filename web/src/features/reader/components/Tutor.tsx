@@ -1,6 +1,7 @@
 'use client'
 
 import './tutor.css'
+import { useSearchParams } from 'next/navigation'
 import {
   type CSSProperties,
   type PointerEvent,
@@ -32,6 +33,7 @@ import {
 } from '@/features/reader/utils/tutor'
 import type { TocItem } from '@/lib/books'
 import { headingOf } from '@/lib/posts'
+import { CHAT_PARAM } from '@/lib/reads'
 import { TutorComposer } from './TutorComposer'
 import { DeleteChatDialog, TutorHistory } from './TutorHistory'
 import { TutorThread } from './TutorThread'
@@ -87,6 +89,25 @@ export function Tutor(props: Props) {
     setOpen(docked, 'tutor')
   }, [docked, setOpen])
   useEffect(() => () => setOpen(false), [setOpen])
+
+  // A conversation the address names opens once the book is laid out, then leaves the address.
+  const named = useSearchParams().get(CHAT_PARAM)
+  const [asked, setAsked] = useState<string | null>(null)
+  useEffect(() => {
+    if (named) setAsked(named)
+  }, [named])
+  const openSession = tutor.open
+  const showDocked = docking.show
+  useEffect(() => {
+    if (!asked || width === 0) return
+    setAsked(null)
+    openSession(asked)
+    if (phone) setSheet(true)
+    else showDocked()
+    const address = new URL(location.href)
+    address.searchParams.delete(CHAT_PARAM)
+    history.replaceState(null, '', address)
+  }, [asked, width, phone, openSession, showDocked])
 
   // A turn the server refused gives the reader their words back.
   const { refused } = tutor

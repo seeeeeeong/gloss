@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it, vi } from 'vitest'
 import { AppShell } from '@/app/(app)/_components/AppShell'
+import type { Recent } from '@/lib/reads'
 
 const nav = vi.hoisted(() => ({ path: '/me' }))
 vi.mock('next/navigation', () => ({ usePathname: () => nav.path }))
@@ -15,11 +16,32 @@ const me = {
 }
 
 const books = [{ id: '0199a3b2-7c4e-7d10-9b1f-2a3c4d5e6f70', title: '운영체제' }]
+const bookId = '0199a3b2-7c4e-7d10-9b1f-2a3c4d5e6f70'
+const recent: Recent = {
+  books: [
+    {
+      bookId,
+      title: '운영체제',
+      itemKey: '1 > 1.1',
+      itemNumber: '1.1',
+      itemTitle: '프로세스',
+      readAt: '2026-10-20T00:00:00Z',
+    },
+  ],
+  chats: [
+    {
+      id: 's1',
+      bookId,
+      firstQuestion: '커널이 뭐예요?',
+      lastActivityAt: '2026-10-20T00:00:00Z',
+    },
+  ],
+}
 
-function render(path: string) {
+function render(path: string, read: Recent = recent) {
   nav.path = path
   return renderToStaticMarkup(
-    <AppShell me={me} books={books} marks={2}>
+    <AppShell me={me} books={books} recent={read} marks={2}>
       <p>page</p>
     </AppShell>,
   )
@@ -39,13 +61,23 @@ describe('AppShell', () => {
     expect(out.slice(out.indexOf('class="sb-rail"'))).toContain('aria-label="책갈피"')
   })
 
-  it('lists the books under 내 책 with their count and a spine in their tone', () => {
+  it('lists the books read lately under 최근, each with a spine and its latest conversations', () => {
     const out = render('/me')
-    expect(out).toContain('내 책<span>1</span>')
+    expect(out).toContain('<div class="sb-sec" id="recent">최근</div>')
     expect(out).toMatch(
       /<span class="spine tone-(sage|clay|ink|apricot)" aria-hidden="true"><\/span>/,
     )
-    expect(out).toContain('<span class="lbl-t">운영체제</span>')
+    expect(out).toContain(`<a class="row" title="운영체제" href="/books/${bookId}">`)
+    expect(out).toContain(
+      `<ul class="sb-chats"><li><a class="row" title="커널이 뭐예요?" href="/books/${bookId}?chat=s1"><span class="lbl-t">커널이 뭐예요?</span></a></li></ul>`,
+    )
+    expect(out).not.toContain('내 책')
+  })
+
+  it('leaves 최근 out until a book is read', () => {
+    const out = render('/me', { books: [], chats: [] })
+    expect(out).not.toContain('최근')
+    expect(out).not.toContain('class="sb-books"')
   })
 
   it('marks the current page in the sidebar, but not on the rail', () => {

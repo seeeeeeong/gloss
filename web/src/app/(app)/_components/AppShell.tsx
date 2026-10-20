@@ -8,8 +8,9 @@ import { ShellTitleContext } from '@/components/layouts/ShellTitle'
 import { Icon } from '@/components/ui/Icon'
 import { Tooltip } from '@/components/ui/Tooltip'
 import { useDarkTheme } from '@/hooks/useDarkTheme'
+import type { Recent } from '@/lib/reads'
 import type { Me } from '@/lib/session'
-import { toneOf } from '@/lib/shelf'
+import { RecentNav } from './RecentNav'
 import { ShelfSearch } from './ShelfSearch'
 import { ShellActions } from './ShellActions'
 import { type Crumb, crumbOf } from './shell'
@@ -29,13 +30,16 @@ const READING = /^\/books\/(?!new$)[^/]+$/
 
 type Props = {
   me: Me
+  /** Every book on the shelf, for the search. */
   books: ShelfBook[]
+  /** The books read lately, with their latest conversations. */
+  recent: Recent
   /** How many bookmarks the reader keeps. */
   marks: number
   children: ReactNode
 }
 
-export function AppShell({ me, books, marks, children }: Props) {
+export function AppShell({ me, books, recent, marks, children }: Props) {
   const path = usePathname()
   const [drawer, setDrawer] = useState(false)
   const [search, setSearch] = useState(false)
@@ -176,25 +180,7 @@ export function AppShell({ me, books, marks, children }: Props) {
                 </button>
               )}
             </nav>
-            <div className="sb-sec" id="shelf">
-              내 책<span>{books.length}</span>
-            </div>
-            <ul className="sb-books" aria-labelledby="shelf">
-              {books.map((book) => (
-                <li key={book.id}>
-                  <Link
-                    className="row"
-                    href={`/books/${book.id}`}
-                    title={book.title}
-                    aria-current={within(`/books/${book.id}`)}
-                    onClick={leave}
-                  >
-                    <span className={`spine tone-${toneOf(book.id)}`} aria-hidden="true" />
-                    <span className="lbl-t">{book.title}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <RecentNav initial={recent} within={within} onLeave={leave} />
           </div>
           <div className="sb-foot">
             {reading && <ThemeRow />}

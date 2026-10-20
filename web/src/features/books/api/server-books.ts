@@ -2,6 +2,15 @@ import { unstable_rethrow } from 'next/navigation'
 import { cache } from 'react'
 import { BOOKMARKS_PATH, type Bookmark } from '@/lib/bookmarks'
 import { type Book, type BookSummary, isBookId, type Toc } from '@/lib/books'
+import {
+  type BookRead,
+  RECENT_BOOKS_PATH,
+  type Recent,
+  type RecentBook,
+  type RecentChat,
+  readPath,
+  recentChatsPath,
+} from '@/lib/reads'
 import { serverFind, serverGet } from '@/lib/server-session'
 
 /** Once a request: the sidebar and the shelf list the same books. */
@@ -20,6 +29,35 @@ export async function bookmarksBeside(): Promise<Bookmark[]> {
   } catch (error) {
     unstable_rethrow(error)
     return []
+  }
+}
+
+/**
+ * Once a request, as the sidebar and the shelf list the same: the books read lately and the latest
+ * conversations about each, or none of either when the server cannot list them, so the page still opens.
+ */
+export const recentBeside = cache(async (): Promise<Recent> => {
+  try {
+    const books = await serverGet<RecentBook[]>(RECENT_BOOKS_PATH)
+    if (books.length === 0) return { books, chats: [] }
+    const chats = await serverGet<RecentChat[]>(recentChatsPath(books.map((book) => book.bookId)))
+    return { books, chats }
+  } catch (error) {
+    unstable_rethrow(error)
+    return { books: [], chats: [] }
+  }
+})
+
+/**
+ * Where the reader last was in a book: null before they have read in it, or when the server cannot
+ * say, so the book still opens at its first item.
+ */
+export async function lastReadOf(bookId: string): Promise<BookRead | null> {
+  try {
+    return await serverFind<BookRead>(readPath(bookId))
+  } catch (error) {
+    unstable_rethrow(error)
+    return null
   }
 }
 

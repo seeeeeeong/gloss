@@ -428,6 +428,23 @@ svg {
   min-height: 34px;
   padding: 6px 12px;
 }
+/* A book's latest conversations, under it and in line with its title */
+.sb-chats {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1px;
+  margin-top: 1px;
+}
+.sb-books .sb-chats .row {
+  min-height: 28px;
+  padding: 4px 12px 4px 33px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--tx3);
+}
+.sb-books .sb-chats .row:hover {
+  color: var(--tx2);
+}
 /* A book's spine, in its shelf tone; the tones are the covers' own, the same in both themes */
 .spine {
   flex: none;

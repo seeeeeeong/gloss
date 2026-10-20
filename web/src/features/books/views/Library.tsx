@@ -8,7 +8,7 @@ import { Icon } from '@/components/ui/Icon'
 import { type Bookmark, markText } from '@/lib/bookmarks'
 import { authorsLine, type BookSummary } from '@/lib/books'
 import { readerHref } from '@/lib/posts'
-import { matching, placeOf, RECENT_KEY, type RecentRead, readsFrom } from '@/lib/shelf'
+import { matching, placeOf, type RecentRead } from '@/lib/shelf'
 
 type Filter = 'all' | 'recent'
 type Look = 'grid' | 'list'
@@ -17,6 +17,10 @@ const LOOK_KEY = 'gloss.shelf.look'
 
 type Props = {
   books: BookSummary[]
+  /** The books read lately, newest first. */
+  recent?: string[]
+  /** The item read last, to go back to. */
+  latest?: RecentRead
   /** The bookmark kept last, shown beside the item last read. */
   mark?: Bookmark
 }
@@ -25,16 +29,14 @@ type Props = {
  * 내 서재: the item last read to go back to and the bookmark kept last, then every book, or the ones
  * read lately, as covers or as a list, narrowed by a search.
  */
-export function Library({ books, mark }: Props) {
-  const [reads, setReads] = useState<RecentRead[]>([])
+export function Library({ books, recent = [], latest, mark }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
   const [look, setLook] = useState<Look>('grid')
   const [query, setQuery] = useState('')
 
-  // What the reader read and how they like the shelf live in this browser, so they arrive after it renders.
+  // How the reader likes the shelf lives in this browser, so it arrives after the shelf renders.
   useEffect(() => {
     try {
-      setReads(readsFrom(localStorage.getItem(RECENT_KEY)))
       if (localStorage.getItem(LOOK_KEY) === 'list') setLook('list')
     } catch {}
   }, [])
@@ -47,9 +49,8 @@ export function Library({ books, mark }: Props) {
   }
 
   const byId = new Map(books.map((book) => [book.id, book]))
-  const recent = reads.flatMap((read) => byId.get(read.bookId) ?? [])
-  const latest = reads.find((read) => byId.has(read.bookId))
-  const listed = matching(filter === 'all' ? books : recent, query)
+  const read = recent.flatMap((bookId) => byId.get(bookId) ?? [])
+  const listed = matching(filter === 'all' ? books : read, query)
 
   return (
     <div className="scroll">
