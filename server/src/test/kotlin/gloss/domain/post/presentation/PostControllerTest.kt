@@ -102,6 +102,30 @@ class PostControllerTest(
     }
 
     @Test
+    fun `a reader counts the posts of every book on their shelf`() {
+        val browser = signedIn()
+        val bookId = bookWithPost(browser)
+
+        val counts = browser.get("/api/me/post-counts")
+
+        assertThat(counts.status).isEqualTo(200)
+        assertThat(counts.body?.size()).isEqualTo(1)
+        assertThat(
+            counts.body
+                ?.get(0)
+                ?.get("bookId")
+                ?.asString(),
+        ).isEqualTo(bookId)
+        assertThat(
+            counts.body
+                ?.get(0)
+                ?.get("posts")
+                ?.asLong(),
+        ).isEqualTo(1L)
+        assertThat(signedIn().get("/api/me/post-counts").body?.size()).isEqualTo(0)
+    }
+
+    @Test
     fun `a section without a post is not found`() {
         val browser = signedIn()
         val bookId = bookWithPost(browser)

@@ -140,6 +140,20 @@ class PostServiceTest(
     }
 
     @Test
+    fun `a shelf's posts are counted per book, for its reader alone`() {
+        val shelf = Shelf()
+        val other = Shelf()
+        postService.publish(shelf.writing())
+        postService.publish(shelf.writing(content = "# 객체\n\n다시 쓴 본문이다."))
+        postService.publish(shelf.writing(key = "2장 설계"))
+        postService.publish(other.writing())
+
+        val counts = postService.counts(shelf.account)
+
+        assertThat(counts.map { it.bookId to it.posts }).containsExactly(shelf.book to 2L)
+    }
+
+    @Test
     fun `a section has a post once one is published, for its reader alone`() {
         val shelf = Shelf()
         val before = postService.freshness(shelf.account, shelf.book, itemKey)
