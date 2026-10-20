@@ -118,6 +118,14 @@ describe('ReaderContents', () => {
     )
   })
 
+  it('offers to take the book off the shelf, as a quiet icon', () => {
+    const out = head({ id: 'b1', title: '오브젝트', setupHref: null })
+    expect(out).toContain(
+      '<button type="button" class="ibtn sm tert" aria-label="서재에서 빼기" data-tip="서재에서 빼기">',
+    )
+    expect(out).not.toContain('서재에서 뺄까요?')
+  })
+
   it('leaves the head alone for a book chosen in none', () => {
     expect(head({ id: 'b1', title: '오브젝트', setupHref: null })).not.toContain(
       '이 책을 고른 대화',

@@ -24,6 +24,7 @@ import { useDismiss } from '@/hooks/useDismiss'
 import type { TocItem } from '@/lib/books'
 import { headingOf, readerHref } from '@/lib/posts'
 import { toneOf } from '@/lib/shelf'
+import { ArchiveBook } from './ArchiveBook'
 import type { ReaderBook } from './ReaderPages'
 
 export const CONTENTS_ID = 'reader-contents'
@@ -164,6 +165,7 @@ export function ReaderContents(props: Props) {
                   <Icon name="chat" />
                 </Link>
               )}
+              <ArchiveBook bookId={book.id} />
               {phone ? (
                 <button
                   type="button"
