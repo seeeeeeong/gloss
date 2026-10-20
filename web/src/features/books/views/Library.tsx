@@ -23,13 +23,15 @@ type Props = {
   latest?: RecentRead
   /** The bookmark kept last, shown beside the item last read. */
   mark?: Bookmark
+  /** How many posts each book has, by its id; a book missing has none. */
+  posts?: Record<string, number>
 }
 
 /**
  * 내 서재: the item last read to go back to and the bookmark kept last, then every book, or the ones
  * read lately, as covers or as a list, narrowed by a search.
  */
-export function Library({ books, recent = [], latest, mark }: Props) {
+export function Library({ books, recent = [], latest, mark, posts = {} }: Props) {
   const [filter, setFilter] = useState<Filter>('all')
   const [look, setLook] = useState<Look>('grid')
   const [query, setQuery] = useState('')
@@ -118,7 +120,7 @@ export function Library({ books, recent = [], latest, mark }: Props) {
             <ul className={`shelf-books ${look}`}>
               {listed.map((book) => (
                 <li key={book.id}>
-                  <BookCard book={book} />
+                  <BookCard book={book} posts={posts[book.id] ?? 0} />
                 </li>
               ))}
             </ul>
@@ -236,8 +238,9 @@ function LastMark({ mark }: { mark: Bookmark }) {
   )
 }
 
-function BookCard({ book }: { book: BookSummary }) {
-  const edition = editionParts(book)
+/** A book by its cover, its year and how many posts it has; the publisher shows beside the reader. */
+function BookCard({ book, posts }: { book: BookSummary; posts: number }) {
+  const meta = [...editionParts({ ...book, publisher: null }), `${posts}개 글`]
   return (
     <Link className="book-card" href={`/books/${book.id}`}>
       <div className="book-stage">
@@ -249,13 +252,11 @@ function BookCard({ book }: { book: BookSummary }) {
       <div className="book-details">
         <h3>{book.title}</h3>
         <p>{authorsLine(book.authors)}</p>
-        {edition.length > 0 && (
-          <div className="book-meta">
-            {edition.map((part) => (
-              <span key={part}>{part}</span>
-            ))}
-          </div>
-        )}
+        <div className="book-meta">
+          {meta.map((part) => (
+            <span key={part}>{part}</span>
+          ))}
+        </div>
       </div>
     </Link>
   )

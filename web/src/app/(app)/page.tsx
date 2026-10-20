@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import {
   bookmarksBeside,
   bookOf,
+  postCountsBeside,
   recentBeside,
   shelfOf,
   tocInUse,
@@ -14,10 +15,11 @@ import type { RecentRead } from '@/lib/shelf'
 export const metadata: Metadata = { title: '내 서재' }
 
 export default async function Shelf() {
-  const [books, bookmarks, recent] = await Promise.all([
+  const [books, bookmarks, recent, posts] = await Promise.all([
     shelfOf(),
     bookmarksBeside(),
     recentBeside(),
+    postCountsBeside(),
   ])
   const latest = await placeOf(recent.books[0])
   return (
@@ -26,6 +28,7 @@ export default async function Shelf() {
       recent={recent.books.map((read) => read.bookId)}
       latest={latest}
       mark={bookmarks[0]}
+      posts={posts}
     />
   )
 }

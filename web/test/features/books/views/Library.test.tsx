@@ -26,6 +26,7 @@ describe('Library', () => {
           book('a'),
           book('b', { title: '클린 코드', publisher: null, publishedOn: null, kind: null }),
         ]}
+        posts={{ a: 12 }}
       />,
     )
     expect(out).toContain('<h1>내 서재<span class="count">2</span></h1>')
@@ -33,8 +34,9 @@ describe('Library', () => {
     expect(out).toContain('모든 책<span>2</span>')
     expect(out).toContain('<ul class="shelf-books grid">')
     expect(out).toContain('<a class="book-card" href="/books/a">')
-    expect(out).toContain('<div class="book-meta"><span>퍼스트북</span><span>2020</span></div>')
-    expect(out.match(/class="book-meta"/g)).toHaveLength(1)
+    expect(out).toContain('<div class="book-meta"><span>2020</span><span>12개 글</span></div>')
+    expect(out).toContain('<div class="book-meta"><span>0개 글</span></div>')
+    expect(out).not.toContain('퍼스트북')
   })
 
   it('offers 책 추가 on an empty shelf, with nothing to search', () => {
