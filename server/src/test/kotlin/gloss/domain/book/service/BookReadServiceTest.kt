@@ -7,7 +7,7 @@ import gloss.common.error.GlossException
 import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookCreateRequest
 import gloss.domain.book.dto.request.BookReadRequest
-import gloss.domain.book.dto.request.TocReviseRequest
+import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.BeforeEach
@@ -29,6 +29,7 @@ class BookReadServiceTest(
     @Autowired private val tocService: TocService,
     @Autowired private val clock: MutableClock,
     @Autowired private val jdbc: JdbcClient,
+    @Autowired private val entityManager: EntityManager,
 ) {
     private val contents = "1장 객체\n1.1 티켓 판매\n2장 설계"
 
@@ -178,8 +179,10 @@ class BookReadServiceTest(
     fun `an item the contents in use left out is named by the last part of its key`() {
         val book = book()
         read(book)
-        val revised = bookService.reviseToc(book.account, book.id, TocReviseRequest("1장 객체\n1.1 티켓 판매하기\n2장 설계"))
-        bookService.confirmToc(book.account, book.id, revised.toc.id)
+        val revised = bookService.reviseToc(book.account, book.id, "1장 객체\n1.1 티켓 판매하기\n2장 설계")
+        tocService.confirmContents(book.account, book.id, revised.toc.id)
+        // The list reads past the persistence context, as a later request would.
+        entityManager.flush()
 
         val listed = bookReadService.recent(book.account).single()
 

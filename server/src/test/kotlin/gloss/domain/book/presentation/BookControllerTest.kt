@@ -3,6 +3,9 @@ package gloss.domain.book.presentation
 import gloss.TestcontainersConfiguration
 import gloss.domain.account.Browser
 import gloss.domain.account.Members
+import gloss.domain.book.ConfirmedBooks
+import gloss.domain.book.service.BookService
+import gloss.domain.book.service.TocService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -20,34 +23,23 @@ class BookControllerTest(
     @Autowired jdbc: JdbcClient,
     @Autowired encoder: PasswordEncoder,
     @Autowired clock: Clock,
+    @Autowired bookService: BookService,
+    @Autowired tocService: TocService,
 ) {
     private val members = Members(jdbc, encoder, clock)
+    private val confirmedBooks = ConfirmedBooks(jdbc, bookService, tocService)
 
     private fun signedIn() = Browser(port).also { it.signIn(members.create(), members.password) }
 
     @Test
-    fun `a book is added, edited, confirmed and listed on the reader's shelf`() {
+    fun `a book is added and listed on the reader's shelf`() {
         val browser = signedIn()
 
-        val created = browser.post("/api/me/books", mapOf("title" to "오브젝트", "toc" to "1장 객체\n1.1 티켓"))
+        val created = browser.post("/api/me/books", mapOf("title" to "오브젝트", "toc" to "1장 객체\n1.1 티켓\n1.2 문제"))
         val bookId = created.body?.get("id")?.asString()
-        val revised = browser.post("/api/me/books/$bookId/toc", mapOf("toc" to "1장 객체\n1.1 티켓\n1.2 문제"))
-        val tocId =
-            revised.body
-                ?.get("toc")
-                ?.get("id")
-                ?.asString()
-        val confirmed = browser.post("/api/me/books/$bookId/toc/$tocId/confirm")
         val shelf = browser.get("/api/me/books")
 
         assertThat(created.status).isEqualTo(201)
-        assertThat(
-            revised.body
-                ?.get("toc")
-                ?.get("versionNo")
-                ?.asInt(),
-        ).isEqualTo(2)
-        assertThat(confirmed.body?.get("currentTocId")?.asString()).isEqualTo(tocId)
         assertThat(shelf.body?.size()).isEqualTo(1)
         assertThat(
             shelf.body
@@ -69,16 +61,12 @@ class BookControllerTest(
     fun `the contents in use are served once confirmed, and not before`() {
         val browser = signedIn()
         val created = browser.post("/api/me/books", mapOf("title" to "오브젝트", "toc" to "1장 객체\n1.1 티켓"))
-        val bookId = created.body?.get("id")?.asString()
-        val tocId =
-            created.body
-                ?.get("toc")
-                ?.get("id")
-                ?.asString()
+        val book = checkNotNull(created.body)
+        val bookId = book.get("id").asString()
+        val tocId = book.get("toc").get("id").asString()
 
         val before = browser.get("/api/me/books/$bookId/toc/current")
-        browser.post("/api/me/books/$bookId/toc/$tocId/confirm")
-        browser.post("/api/me/books/$bookId/toc", mapOf("toc" to "1장 다시 쓴 목차"))
+        confirmedBooks.confirm(bookId, tocId)
         val current = browser.get("/api/me/books/$bookId/toc/current")
 
         assertThat(before.status).isEqualTo(404)

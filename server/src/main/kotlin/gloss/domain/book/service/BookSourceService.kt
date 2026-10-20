@@ -10,7 +10,6 @@ import gloss.domain.book.domain.TocParser
 import gloss.domain.book.domain.TocText
 import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookSourceAddRequest
-import gloss.domain.book.dto.request.TocReviseRequest
 import gloss.domain.book.dto.response.BookCandidateResponse
 import gloss.domain.book.dto.response.BookResponse
 import org.springframework.stereotype.Service
@@ -122,7 +121,7 @@ class BookSourceService(
             if (source == null || contents == source) {
                 added
             } else {
-                bookService.reviseToc(accountId, added.id, TocReviseRequest(contents))
+                bookService.reviseToc(accountId, added.id, contents)
             }
         return tocService.confirmContents(accountId, book.id, book.toc.id)
     }

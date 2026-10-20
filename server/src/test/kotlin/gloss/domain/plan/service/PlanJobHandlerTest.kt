@@ -2,10 +2,9 @@ package gloss.domain.plan.service
 
 import gloss.TestcontainersConfiguration
 import gloss.domain.apikey.FakeKeyCheckGateway
+import gloss.domain.book.ConfirmedBooks
 import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookCreateRequest
-import gloss.domain.book.dto.request.TocReviseRequest
-import gloss.domain.book.service.BookService
 import gloss.domain.book.service.TypedBook
 import gloss.domain.generation.infrastructure.JdbcJobQueue
 import gloss.domain.generation.service.JobRunner
@@ -40,9 +39,10 @@ import java.util.UUID
     FakeKeyCheckGateway.Config::class,
     FakeLlmGateway.Config::class,
     KeyedReaders.Config::class,
+    ConfirmedBooks.Config::class,
 )
 class PlanJobHandlerTest(
-    @Autowired private val bookService: BookService,
+    @Autowired private val confirmedBooks: ConfirmedBooks,
     @Autowired private val jobRunner: JobRunner,
     @Autowired private val jdbcJobQueue: JdbcJobQueue,
     @Autowired private val fakeLlmGateway: FakeLlmGateway,
@@ -101,8 +101,7 @@ class PlanJobHandlerTest(
         account: UUID,
         toc: String = contents,
     ): Confirmed {
-        val book = bookService.create(account, BookCreateRequest(title = "오브젝트", authors = listOf("조영호"), toc = toc))
-        bookService.confirmToc(account, book.id, book.toc.id)
+        val book = confirmedBooks.add(account, BookCreateRequest(title = "오브젝트", authors = listOf("조영호"), toc = toc))
         awaitJobs(account, 1)
         return Confirmed(account = account, bookId = book.id, tocId = book.toc.id)
     }
@@ -204,7 +203,7 @@ class PlanJobHandlerTest(
         val account = readers.create()
         val typed = TypedBook.of(title = "오브젝트", authors = emptyList(), toc = contents)
         val style = WritingStyle(WritingStyle.Level.INTRO, WritingStyle.Voice.EXPLAIN)
-        val book = bookService.createConfirmed(account, typed, style)
+        val book = confirmedBooks.addTyped(account, typed, style)
         awaitJobs(account, 1)
         fakeLlmGateway.answer = { _, _ ->
             ChatResult(reply(entry(0, "overview"), entry(1), entry(2), entry(3)), FinishReason.STOP, usage)
@@ -263,8 +262,7 @@ class PlanJobHandlerTest(
     fun `contents confirmed anew leave the older job nothing to write, and it asks nothing`() {
         val account = readers.create()
         val book = confirmed(account)
-        val revised = bookService.reviseToc(account, book.bookId, TocReviseRequest("1장 다시 쓴 목차"))
-        bookService.confirmToc(account, book.bookId, revised.toc.id)
+        confirmedBooks.revise(account, book.bookId, "1장 다시 쓴 목차")
         awaitJobs(account, 2)
 
         assertThat(runNext()).isEqualTo(Ending("failed", "plan.superseded"))
@@ -276,8 +274,7 @@ class PlanJobHandlerTest(
         val account = readers.create()
         val book = confirmed(account)
         fakeLlmGateway.answer = { _, _ ->
-            val revised = bookService.reviseToc(account, book.bookId, TocReviseRequest("1장 다시 쓴 목차"))
-            bookService.confirmToc(account, book.bookId, revised.toc.id)
+            confirmedBooks.revise(account, book.bookId, "1장 다시 쓴 목차")
             ChatResult(reply(entry(0), entry(1), entry(2), entry(3)), FinishReason.STOP, usage)
         }
 

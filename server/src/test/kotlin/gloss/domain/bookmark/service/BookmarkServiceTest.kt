@@ -6,7 +6,6 @@ import gloss.common.error.ErrorCode
 import gloss.common.error.GlossException
 import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookCreateRequest
-import gloss.domain.book.dto.request.TocReviseRequest
 import gloss.domain.book.service.BookService
 import gloss.domain.book.service.BookShelfService
 import gloss.domain.book.service.TocService
@@ -195,8 +194,8 @@ class BookmarkServiceTest(
     fun `an item the contents in use left out is named by the last part of its key`() {
         val book = book()
         save(book, quote = "관람객의 가방")
-        val revised = bookService.reviseToc(book.account, book.id, TocReviseRequest("1장 객체\n1.1 티켓 판매하기\n2장 설계"))
-        bookService.confirmToc(book.account, book.id, revised.toc.id)
+        val revised = bookService.reviseToc(book.account, book.id, "1장 객체\n1.1 티켓 판매하기\n2장 설계")
+        tocService.confirmContents(book.account, book.id, revised.toc.id)
 
         val listed = bookmarkService.list(book.account).single()
 

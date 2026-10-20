@@ -3,7 +3,6 @@ package gloss.domain.book.service
 import gloss.TestcontainersConfiguration
 import gloss.common.error.GlossException
 import gloss.domain.book.dto.request.BookCreateRequest
-import gloss.domain.book.dto.request.TocReviseRequest
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.awaitility.Awaitility.await
@@ -57,7 +56,7 @@ class TocServiceTest(
     fun `the outline is the book and its confirmed contents in order, each item under its parent's place`() {
         val account = accountId()
         val created = book(account)
-        bookService.confirmToc(account, created.id, created.toc.id)
+        tocService.confirmContents(account, created.id, created.toc.id)
 
         val outline = checkNotNull(tocService.outline(account, created.id))
 
@@ -77,8 +76,8 @@ class TocServiceTest(
     fun `a draft edited since does not change the outline`() {
         val account = accountId()
         val created = book(account)
-        bookService.confirmToc(account, created.id, created.toc.id)
-        bookService.reviseToc(account, created.id, TocReviseRequest("1장 전혀 다른 목차"))
+        tocService.confirmContents(account, created.id, created.toc.id)
+        bookService.reviseToc(account, created.id, "1장 전혀 다른 목차")
 
         val outline = checkNotNull(tocService.outline(account, created.id))
 
@@ -93,7 +92,7 @@ class TocServiceTest(
         val unconfirmed = book(account)
         val other = accountId()
         val theirs = book(other)
-        bookService.confirmToc(other, theirs.id, theirs.toc.id)
+        tocService.confirmContents(other, theirs.id, theirs.toc.id)
 
         assertThat(tocService.outline(account, unconfirmed.id)).isNull()
         assertThat(tocService.outline(account, theirs.id)).isNull()
@@ -107,8 +106,8 @@ class TocServiceTest(
     fun `a confirm of another version waits for whoever holds the contents in use`() {
         val account = accountId()
         val created = book(account)
-        bookService.confirmToc(account, created.id, created.toc.id)
-        val revised = bookService.reviseToc(account, created.id, TocReviseRequest("1장 다시 쓴 목차"))
+        tocService.confirmContents(account, created.id, created.toc.id)
+        val revised = bookService.reviseToc(account, created.id, "1장 다시 쓴 목차")
         val pool = Executors.newSingleThreadExecutor()
 
         val confirming =
@@ -116,12 +115,7 @@ class TocServiceTest(
                 val held = tocService.holdCurrentTocId(account, created.id)
                 val other =
                     pool.submit<UUID?> {
-                        bookService
-                            .confirmToc(
-                                account,
-                                created.id,
-                                revised.toc.id,
-                            ).currentTocId
+                        tocService.confirmContents(account, created.id, revised.toc.id).tocId
                     }
                 await().atMost(Duration.ofSeconds(10)).until { waitingOnALock() }
                 assertThat(held).isEqualTo(created.toc.id)

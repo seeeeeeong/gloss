@@ -3,6 +3,9 @@ package gloss.domain.plan.presentation
 import gloss.TestcontainersConfiguration
 import gloss.domain.account.Browser
 import gloss.domain.account.Members
+import gloss.domain.book.ConfirmedBooks
+import gloss.domain.book.service.BookService
+import gloss.domain.book.service.TocService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -20,8 +23,11 @@ class PlanControllerTest(
     @Autowired jdbc: JdbcClient,
     @Autowired encoder: PasswordEncoder,
     @Autowired clock: Clock,
+    @Autowired bookService: BookService,
+    @Autowired tocService: TocService,
 ) {
     private val members = Members(jdbc, encoder, clock)
+    private val confirmedBooks = ConfirmedBooks(jdbc, bookService, tocService)
 
     private fun signedIn() = Browser(port).also { it.signIn(members.create(), members.password) }
 
@@ -35,7 +41,7 @@ class PlanControllerTest(
                 ?.get("toc")
                 ?.get("id")
                 ?.asString()
-        browser.post("/api/me/books/$bookId/toc/$tocId/confirm", emptyMap<String, String>())
+        confirmedBooks.confirm(checkNotNull(bookId), checkNotNull(tocId))
 
         val status = browser.get("/api/me/books/$bookId/plan")
         val stranger = signedIn().get("/api/me/books/$bookId/plan")

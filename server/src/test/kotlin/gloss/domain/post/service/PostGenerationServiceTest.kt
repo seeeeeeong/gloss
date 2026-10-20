@@ -4,6 +4,7 @@ import gloss.TestcontainersConfiguration
 import gloss.common.error.GlossException
 import gloss.domain.book.dto.request.BookCreateRequest
 import gloss.domain.book.service.BookService
+import gloss.domain.book.service.TocService
 import gloss.domain.llm.service.LlmError
 import gloss.domain.post.dto.response.PostGenerationResponse
 import org.assertj.core.api.Assertions.assertThat
@@ -24,6 +25,7 @@ class PostGenerationServiceTest(
     @Autowired private val postGenerationService: PostGenerationService,
     @Autowired private val postService: PostService,
     @Autowired private val bookService: BookService,
+    @Autowired private val tocService: TocService,
     @Autowired private val jdbc: JdbcClient,
 ) {
     /**
@@ -54,7 +56,7 @@ class PostGenerationServiceTest(
                     account,
                     BookCreateRequest(title = "오브젝트", toc = "1장 객체, 설계\n1.1 티켓 판매\n1.2 무엇이 문제인가\n찾아보기"),
                 )
-            bookService.confirmToc(account, created.id, created.toc.id)
+            tocService.confirmContents(account, created.id, created.toc.id)
             book = created.id
             toc = created.toc.id
             keys = created.toc.items.map { it.itemKey }
