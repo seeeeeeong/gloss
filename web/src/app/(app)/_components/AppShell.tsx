@@ -14,6 +14,7 @@ import { RecentNav } from './RecentNav'
 import { ShelfSearch } from './ShelfSearch'
 import { ShellActions } from './ShellActions'
 import { type Crumb, crumbOf } from './shell'
+import { TabBar } from './TabBar'
 
 export type ShelfBook = { id: string; title: string }
 
@@ -236,6 +237,7 @@ export function AppShell({ me, books, recent, marks, children }: Props) {
           <ShellTitleContext value={title}>{children}</ShellTitleContext>
         </ShellPanelContext>
       </main>
+      {!reading && <TabBar path={path} />}
       <aside ref={setPanelSlot} className="panel" hidden={panelOpen === null} />
       {search && <ShelfSearch books={books} onClose={closeSearch} />}
       <Tooltip />

@@ -1,0 +1,38 @@
+/* A phone's tab bar under the main area, as the prototype has it; the drawer keeps the rest */
+.tabbar {
+  display: none;
+}
+@media (max-width: 767px) {
+  .app:has(> .tabbar) {
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .tabbar {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    justify-content: space-around;
+    height: calc(62px + env(safe-area-inset-bottom));
+    padding: 6px 20px calc(6px + env(safe-area-inset-bottom));
+    background: var(--page);
+    border-top: 1px solid var(--b-light);
+  }
+  .tabbar a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 64px;
+    border-radius: 8px;
+    font: 400 10px / 14px var(--font);
+    color: var(--tx3);
+  }
+  .tabbar a[aria-current="page"] {
+    color: var(--selected-tx);
+    font-weight: 590;
+  }
+  /* The tab bar has 새 책, so the header's own button for it steps aside. */
+  .app:has(> .tabbar) .top-new {
+    display: none;
+  }
+}
