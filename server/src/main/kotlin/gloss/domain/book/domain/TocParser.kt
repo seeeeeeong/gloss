@@ -174,8 +174,10 @@ object TocParser {
         // The ranks of the numbered items still open above the next one: its depth is how many enclose it.
         val open = ArrayDeque<Int>()
         val placed = mutableListOf<Placed>()
-        // The last item at each depth, the parent of the next one below it.
+        // The last item at each depth, the parent of the next one below it. A numbered item goes under
+        // the last numbered one instead, past the unnumbered lines its number says it is not part of.
         val lastAt = arrayOfNulls<Int>(MAX_DEPTH + 1)
+        val lastNumberedAt = arrayOfNulls<Int>(MAX_DEPTH + 1)
         val children = HashMap<Int?, Int>()
         for ((ord, line) in lines.withIndex()) {
             // No level is skipped: an item is at most one below the one before it.
@@ -183,11 +185,20 @@ object TocParser {
             val depth = wanted.coerceAtMost((placed.lastOrNull()?.depth ?: 0) + 1)
             // Too deep by its place, or by its own number, as a first line of 1.2.3.4.5.6.7 says.
             if (depth > MAX_DEPTH || (line.rank ?: 0) > MAX_DEPTH) return null
-            val parent = if (depth == 1) null else lastAt[depth - 1]
+            val parent =
+                when {
+                    depth == 1 -> null
+                    line.rank != null -> lastNumberedAt[depth - 1] ?: lastAt[depth - 1]
+                    else -> lastAt[depth - 1]
+                }
             val position = children.getOrDefault(parent, 0)
             children[parent] = position + 1
             lastAt[depth] = ord
-            for (deeper in depth + 1..MAX_DEPTH) lastAt[deeper] = null
+            if (line.rank != null) lastNumberedAt[depth] = ord
+            for (deeper in depth + 1..MAX_DEPTH) {
+                lastAt[deeper] = null
+                lastNumberedAt[deeper] = null
+            }
             placed += Placed(parent = parent, position = position, depth = depth)
         }
         val entries = lines.mapIndexed { ord, line -> ItemKeyPolicy.Entry(line.number, line.title, placed[ord].parent) }

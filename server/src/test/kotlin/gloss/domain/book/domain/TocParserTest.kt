@@ -105,6 +105,24 @@ class TocParserTest {
     }
 
     @Test
+    fun `a numbered section goes under the section its number names, past an unnumbered sibling`() {
+        val items = parsed("1장 시작\n1.1 설치\n팁\n1.1.1 확인\n1.2 실행")
+
+        assertThat(items.map { it.depth }).containsExactly(1, 2, 2, 3, 2)
+        assertThat(items.map { it.parent }).containsExactly(null, 0, 0, 1, 0)
+        assertThat(items.map { it.position }).containsExactly(0, 0, 1, 0, 2)
+    }
+
+    @Test
+    fun `an unnumbered line right under a chapter is its section, and so is the numbered one after it`() {
+        val items = parsed("1장 시작\n팁\n1.1 설치\n1.1.1 확인")
+
+        assertThat(items.map { it.depth }).containsExactly(1, 2, 2, 3)
+        assertThat(items.map { it.parent }).containsExactly(null, 0, 0, 2)
+        assertThat(items.map { it.position }).containsExactly(0, 0, 1, 0)
+    }
+
+    @Test
     fun `back matter after the last chapter returns to the top, a chapter's own closing section does not`() {
         assertThat(outline("1장 시작\n설치\n마치며\n2장 끝\n배포\n마치며\n용어집\n찾아보기")).containsExactly(
             "1장 시작",
