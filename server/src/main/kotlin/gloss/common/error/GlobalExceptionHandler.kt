@@ -9,6 +9,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException
 import org.springframework.web.bind.MethodArgumentNotValidException
 import org.springframework.web.bind.annotation.ExceptionHandler
 import org.springframework.web.bind.annotation.RestControllerAdvice
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
 import java.util.UUID
 import org.springframework.web.ErrorResponse as SpringErrorResponse
 
@@ -30,7 +31,11 @@ class GlobalExceptionHandler {
             .body(exception.error.toResponse())
     }
 
-    @ExceptionHandler(MethodArgumentNotValidException::class, HttpMessageNotReadableException::class)
+    @ExceptionHandler(
+        MethodArgumentNotValidException::class,
+        HttpMessageNotReadableException::class,
+        MethodArgumentTypeMismatchException::class,
+    )
     fun handleInvalidInput(): ResponseEntity<ErrorResponse> = CommonError.INVALID_INPUT.toResponseEntity()
 
     @ExceptionHandler(Exception::class)
