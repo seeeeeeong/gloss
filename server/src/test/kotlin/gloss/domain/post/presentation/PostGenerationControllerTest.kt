@@ -3,6 +3,9 @@ package gloss.domain.post.presentation
 import gloss.TestcontainersConfiguration
 import gloss.domain.account.Browser
 import gloss.domain.account.Members
+import gloss.domain.book.ConfirmedBooks
+import gloss.domain.book.service.BookService
+import gloss.domain.book.service.TocService
 import org.assertj.core.api.Assertions.assertThat
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.AfterEach
@@ -24,8 +27,11 @@ class PostGenerationControllerTest(
     @Autowired private val jdbc: JdbcClient,
     @Autowired encoder: PasswordEncoder,
     @Autowired clock: Clock,
+    @Autowired bookService: BookService,
+    @Autowired tocService: TocService,
 ) {
     private val members = Members(jdbc, encoder, clock)
+    private val confirmedBooks = ConfirmedBooks(jdbc, bookService, tocService)
 
     // The worker does not run in tests, so the jobs asked for here wait; another test's worker would take them.
     @AfterEach
@@ -44,13 +50,13 @@ class PostGenerationControllerTest(
             .query(Int::class.java)
             .single()
 
-    /** A book added and confirmed over HTTP; the confirm's own plan job is waited for, so none arrives later. */
+    /** A book added and its contents confirmed; the confirm's own plan job is waited for, so none arrives later. */
     private fun confirmedBook(browser: Browser): Pair<String, String> {
         val created = browser.post("/api/me/books", mapOf("title" to "오브젝트", "toc" to "1장 객체\n1.1 TCP/IP"))
         val book = checkNotNull(created.body)
         val bookId = book.get("id").asString()
         val toc = book.get("toc")
-        browser.post("/api/me/books/$bookId/toc/${toc.get("id").asString()}/confirm", null)
+        confirmedBooks.confirm(bookId, toc.get("id").asString())
         // A delivery takes milliseconds; the margin is for a loaded CI runner, so only a lost event fails.
         await().atMost(Duration.ofSeconds(10)).until { planJobs(bookId) == 1 }
         return bookId to

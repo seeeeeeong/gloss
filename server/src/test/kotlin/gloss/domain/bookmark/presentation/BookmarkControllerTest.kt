@@ -3,6 +3,9 @@ package gloss.domain.bookmark.presentation
 import gloss.TestcontainersConfiguration
 import gloss.domain.account.Browser
 import gloss.domain.account.Members
+import gloss.domain.book.ConfirmedBooks
+import gloss.domain.book.service.BookService
+import gloss.domain.book.service.TocService
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
@@ -20,8 +23,11 @@ class BookmarkControllerTest(
     @Autowired jdbc: JdbcClient,
     @Autowired encoder: PasswordEncoder,
     @Autowired clock: Clock,
+    @Autowired bookService: BookService,
+    @Autowired tocService: TocService,
 ) {
     private val members = Members(jdbc, encoder, clock)
+    private val confirmedBooks = ConfirmedBooks(jdbc, bookService, tocService)
 
     private class Reader(
         val browser: Browser,
@@ -31,25 +37,14 @@ class BookmarkControllerTest(
 
     private fun Browser.Response.field(name: String): String? = body?.get(name)?.asString()
 
-    /** Signed in over HTTP, with a book added and its contents confirmed as the page does it. */
+    /** Signed in over HTTP, with a book added and its contents confirmed. */
     private fun reader(): Reader {
         val browser = Browser(port).also { it.signIn(members.create(), members.password) }
         val created = browser.post("/api/me/books", mapOf("title" to "오브젝트", "toc" to "1장 객체\n1.1 티켓 판매\n2장 설계"))
+        val toc = checkNotNull(created.body).get("toc")
         val bookId = checkNotNull(created.field("id"))
-        val tocId =
-            checkNotNull(
-                created.body
-                    ?.get("toc")
-                    ?.get("id")
-                    ?.asString(),
-            )
-        val confirmed = browser.post("/api/me/books/$bookId/toc/$tocId/confirm")
-        val items =
-            checkNotNull(
-                confirmed.body
-                    ?.get("toc")
-                    ?.get("items"),
-            )
+        confirmedBooks.confirm(bookId, toc.get("id").asString())
+        val items = toc.get("items")
         val keys = (0 until items.size()).map { items.get(it).get("itemKey").asString() }
         return Reader(browser, bookId, keys)
     }

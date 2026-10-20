@@ -5,7 +5,6 @@ import gloss.common.error.ErrorCode
 import gloss.common.error.GlossException
 import gloss.domain.book.domain.Isbn13
 import gloss.domain.book.dto.request.BookCreateRequest
-import gloss.domain.book.dto.request.TocReviseRequest
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -78,8 +77,8 @@ class BookShelfServiceTest(
         val account = accountId()
         val isbn = checkNotNull(Isbn13.of("9788966262472"))
         val created = bookService.create(account, request(isbn13 = isbn.value))
-        bookService.confirmToc(account, created.id, created.toc.id)
-        bookService.reviseToc(account, created.id, TocReviseRequest("1장 고친 목차"))
+        tocService.confirmContents(account, created.id, created.toc.id)
+        bookService.reviseToc(account, created.id, "1장 고친 목차")
 
         assertThat(bookShelfService.restore(account, isbn)).isNull()
         bookShelfService.archive(account, created.id)

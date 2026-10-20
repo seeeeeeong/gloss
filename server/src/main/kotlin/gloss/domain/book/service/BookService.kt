@@ -15,7 +15,6 @@ import gloss.domain.book.domain.repository.TocItemRepository
 import gloss.domain.book.domain.repository.TocRepository
 import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookCreateRequest
-import gloss.domain.book.dto.request.TocReviseRequest
 import gloss.domain.book.dto.response.BookResponse
 import gloss.domain.book.dto.response.BookSummaryResponse
 import gloss.domain.book.dto.response.TocResponse
@@ -121,24 +120,13 @@ class BookService(
     fun reviseToc(
         accountId: UUID,
         bookId: UUID,
-        request: TocReviseRequest,
+        toc: String,
     ): BookResponse {
-        val contents = read(request.toc)
+        val contents = read(toc)
         val book = bookRepository.findForUpdate(bookId, accountId) ?: throw GlossException(BookError.BOOK_NOT_FOUND)
         val versionNo = tocRepository.lastVersionNo(book.id, book.accountId) + 1
         val edited = Toc.createManual(book = book, versionNo = versionNo, text = contents.text, now = clock.instant())
         return keep(book = book, toc = edited, items = contents.items)
-    }
-
-    /** Only the latest version: a reader who saw an older one confirms what they saw, or nothing. */
-    @Transactional
-    fun confirmToc(
-        accountId: UUID,
-        bookId: UUID,
-        tocId: UUID,
-    ): BookResponse {
-        val confirmed = tocService.confirmContents(accountId, bookId, tocId)
-        return get(accountId, confirmed.bookId)
     }
 
     /**

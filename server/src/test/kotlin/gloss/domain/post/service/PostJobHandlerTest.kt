@@ -2,9 +2,8 @@ package gloss.domain.post.service
 
 import gloss.TestcontainersConfiguration
 import gloss.domain.apikey.FakeKeyCheckGateway
+import gloss.domain.book.ConfirmedBooks
 import gloss.domain.book.dto.request.BookCreateRequest
-import gloss.domain.book.dto.request.TocReviseRequest
-import gloss.domain.book.service.BookService
 import gloss.domain.generation.infrastructure.JdbcJobQueue
 import gloss.domain.generation.service.JobRunner
 import gloss.domain.generation.service.RunningJob
@@ -40,9 +39,10 @@ import java.util.UUID
     FakeKeyCheckGateway.Config::class,
     FakeLlmGateway.Config::class,
     KeyedReaders.Config::class,
+    ConfirmedBooks.Config::class,
 )
 class PostJobHandlerTest(
-    @Autowired private val bookService: BookService,
+    @Autowired private val confirmedBooks: ConfirmedBooks,
     @Autowired private val jobRunner: JobRunner,
     @Autowired private val jdbcJobQueue: JdbcJobQueue,
     @Autowired private val fakeLlmGateway: FakeLlmGateway,
@@ -173,11 +173,10 @@ class PostJobHandlerTest(
 
     private fun confirmed(account: UUID): Planned {
         val book =
-            bookService.create(
+            confirmedBooks.add(
                 account,
                 BookCreateRequest(title = "오브젝트", authors = listOf("조영호"), toc = contents),
             )
-        bookService.confirmToc(account, book.id, book.toc.id)
         awaitJob(account)
         return Planned(
             account = account,
@@ -478,8 +477,7 @@ class PostJobHandlerTest(
         val book = planned()
         ask(book)
         fakeLlmGateway.answer = { _, _ ->
-            val revised = bookService.reviseToc(book.account, book.bookId, TocReviseRequest("1장 다시 쓴 목차"))
-            bookService.confirmToc(book.account, book.bookId, revised.toc.id)
+            confirmedBooks.revise(book.account, book.bookId, "1장 다시 쓴 목차")
             ChatResult("본문이다.", FinishReason.STOP, usage)
         }
 
@@ -533,8 +531,7 @@ class PostJobHandlerTest(
         val book = planned()
         ask(book)
         fakeLlmGateway.answer = { _, _ ->
-            val revised = bookService.reviseToc(book.account, book.bookId, TocReviseRequest("1장 다시 쓴 목차"))
-            bookService.confirmToc(book.account, book.bookId, revised.toc.id)
+            confirmedBooks.revise(book.account, book.bookId, "1장 다시 쓴 목차")
             ChatResult(written, FinishReason.STOP, usage)
         }
 

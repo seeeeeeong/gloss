@@ -6,7 +6,6 @@ import gloss.common.error.GlossException
 import gloss.domain.book.domain.event.TocConfirmed
 import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookCreateRequest
-import gloss.domain.book.dto.request.TocReviseRequest
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -92,7 +91,7 @@ class BookServiceTest(
         val first = bookService.create(account, request(title = "첫 책"))
         bookService.create(account, request(title = "둘째 책"))
         bookService.create(accountId(), request(title = "남의 책"))
-        bookService.confirmToc(account, first.id, first.toc.id)
+        tocService.confirmContents(account, first.id, first.toc.id)
 
         val shelf = bookService.list(account)
 
@@ -104,19 +103,19 @@ class BookServiceTest(
     fun `an edit is a new draft, and the confirmed version stays in use until another is confirmed`() {
         val account = accountId()
         val created = bookService.create(account, request())
-        val confirmed = bookService.confirmToc(account, created.id, created.toc.id)
+        tocService.confirmContents(account, created.id, created.toc.id)
 
-        val revised = bookService.reviseToc(account, created.id, TocReviseRequest("1장 객체, 설계\n1.1 티켓 판매"))
+        val revised = bookService.reviseToc(account, created.id, "1장 객체, 설계\n1.1 티켓 판매")
 
         assertThat(revised.toc.versionNo).isEqualTo(2)
         assertThat(revised.toc.status).isEqualTo("draft")
-        assertThat(revised.currentTocId).isEqualTo(confirmed.toc.id)
+        assertThat(revised.currentTocId).isEqualTo(created.toc.id)
         assertThat(
             revised.toc.items
                 .first()
                 .itemKey,
         ).isEqualTo(
-            confirmed.toc.items
+            created.toc.items
                 .first()
                 .itemKey,
         )
@@ -128,8 +127,8 @@ class BookServiceTest(
         val account = accountId()
         val created = bookService.create(account, request())
         val unconfirmed = runCatching { bookService.currentToc(account, created.id) }.exceptionOrNull()
-        bookService.confirmToc(account, created.id, created.toc.id)
-        bookService.reviseToc(account, created.id, TocReviseRequest("1장 다시 쓴 목차"))
+        tocService.confirmContents(account, created.id, created.toc.id)
+        bookService.reviseToc(account, created.id, "1장 다시 쓴 목차")
 
         val current = bookService.currentToc(account, created.id)
 
@@ -146,31 +145,19 @@ class BookServiceTest(
         val account = accountId()
         val created = bookService.create(account, request())
 
-        val confirmed = bookService.confirmToc(account, created.id, created.toc.id)
-        val again = bookService.confirmToc(account, created.id, created.toc.id)
-
-        assertThat(confirmed.currentTocId).isEqualTo(created.toc.id)
-        assertThat(confirmed.toc.status).isEqualTo("confirmed")
-        assertThat(again.toc.confirmedAt).isEqualTo(confirmed.toc.confirmedAt)
-        val said = events.stream(TocConfirmed::class.java).toList().single()
-        assertThat(listOf(said.accountId, said.bookId, said.tocId)).containsExactly(account, created.id, created.toc.id)
-    }
-
-    @Test
-    fun `another module confirms the same way, and learns which version it confirmed`(
-        @Autowired events: ApplicationEvents,
-    ) {
-        val account = accountId()
-        val created = bookService.create(account, request())
-
         val confirmed = tocService.confirmContents(account, created.id, created.toc.id)
+        val first = bookService.get(account, created.id)
+        val again = tocService.confirmContents(account, created.id, created.toc.id)
 
         assertThat(
             confirmed,
         ).isEqualTo(ContentsVersion(bookId = created.id, tocId = created.toc.id, versionNo = 1, items = 4))
-        assertThat(bookService.get(account, created.id).currentTocId).isEqualTo(created.toc.id)
-        assertThat(events.stream(TocConfirmed::class.java).toList()).hasSize(1)
-        assertFails(BookError.TOC_NOT_FOUND) { tocService.confirmContents(account, created.id, UUID.randomUUID()) }
+        assertThat(again).isEqualTo(confirmed)
+        assertThat(first.currentTocId).isEqualTo(created.toc.id)
+        assertThat(first.toc.status).isEqualTo("confirmed")
+        assertThat(bookService.get(account, created.id).toc.confirmedAt).isEqualTo(first.toc.confirmedAt)
+        val said = events.stream(TocConfirmed::class.java).toList().single()
+        assertThat(listOf(said.accountId, said.bookId, said.tocId)).containsExactly(account, created.id, created.toc.id)
     }
 
     @Test
@@ -205,10 +192,10 @@ class BookServiceTest(
     fun `only the latest version is confirmed, so a reader confirms what they saw`() {
         val account = accountId()
         val created = bookService.create(account, request())
-        bookService.reviseToc(account, created.id, TocReviseRequest("1장 다시 쓴 목차"))
+        bookService.reviseToc(account, created.id, "1장 다시 쓴 목차")
 
-        assertFails(BookError.TOC_OUTDATED) { bookService.confirmToc(account, created.id, created.toc.id) }
-        assertFails(BookError.TOC_NOT_FOUND) { bookService.confirmToc(account, created.id, UUID.randomUUID()) }
+        assertFails(BookError.TOC_OUTDATED) { tocService.confirmContents(account, created.id, created.toc.id) }
+        assertFails(BookError.TOC_NOT_FOUND) { tocService.confirmContents(account, created.id, UUID.randomUUID()) }
     }
 
     @Test
@@ -218,8 +205,8 @@ class BookServiceTest(
 
         assertFails(BookError.BOOK_NOT_FOUND) { bookService.get(stranger, created.id) }
         assertFails(BookError.BOOK_NOT_FOUND) { bookService.currentToc(stranger, created.id) }
-        assertFails(BookError.BOOK_NOT_FOUND) { bookService.reviseToc(stranger, created.id, TocReviseRequest("x")) }
-        assertFails(BookError.BOOK_NOT_FOUND) { bookService.confirmToc(stranger, created.id, created.toc.id) }
+        assertFails(BookError.BOOK_NOT_FOUND) { bookService.reviseToc(stranger, created.id, "x") }
+        assertFails(BookError.BOOK_NOT_FOUND) { tocService.confirmContents(stranger, created.id, created.toc.id) }
     }
 
     @Test
@@ -235,7 +222,7 @@ class BookServiceTest(
     fun `adding a book taken off the shelf again puts it back as it was, not a second copy`() {
         val account = accountId()
         val created = bookService.create(account, request(isbn13 = "9788966262472"))
-        bookService.confirmToc(account, created.id, created.toc.id)
+        tocService.confirmContents(account, created.id, created.toc.id)
         bookShelfService.archive(account, created.id)
 
         val again = bookService.create(account, request(isbn13 = "9788966262472", toc = "다른 목차"))

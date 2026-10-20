@@ -7,7 +7,6 @@ import gloss.domain.book.FakeBookSourceGateway
 import gloss.domain.book.domain.BookSourceFailed
 import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookSourceAddRequest
-import gloss.domain.book.dto.request.TocReviseRequest
 import jakarta.persistence.EntityManager
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -136,7 +135,7 @@ class BookSourceServiceTest(
         val account = accountId()
         val added = bookSourceService.add(account, BookSourceAddRequest(ref = "101"))
 
-        val revised = bookService.reviseToc(account, added.id, TocReviseRequest(toc = "1장 객체, 설계\n2장 객체지향"))
+        val revised = bookService.reviseToc(account, added.id, "1장 객체, 설계\n2장 객체지향")
 
         assertThat(revised.toc.versionNo).isEqualTo(2)
         assertThat(revised.toc.origin).isEqualTo("manual")
