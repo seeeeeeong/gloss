@@ -113,12 +113,7 @@ export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
   })
 
   const ready = layout !== null
-  useReadingPlace({
-    bookId: book.id,
-    items,
-    index,
-    current: ready ? currentKey : undefined,
-  })
+  useReadingPlace({ bookId: book.id, current: ready ? currentKey : undefined })
 
   function turn(direction: -1 | 1) {
     if (spreads.turn(direction)) setFocus(null)

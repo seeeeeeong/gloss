@@ -40,7 +40,7 @@ export function PostReader({ book, items, posts, start, bookmarks }: ReaderProps
 
   const [current, setCurrent] = useState<string | null>(start)
   const at = current === null ? undefined : index.get(current)
-  useReadingPlace({ bookId: book.id, items, index, current })
+  useReadingPlace({ bookId: book.id, current })
 
   // Resting on an item not yet written asks for it; its post and those either side are read.
   const resting = useRef<ReturnType<typeof dwell> | null>(null)

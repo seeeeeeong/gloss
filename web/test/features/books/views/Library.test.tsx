@@ -47,6 +47,17 @@ describe('Continue', () => {
   })
 })
 
+describe('Library with a read', () => {
+  it('offers the item read last, wherever it was read', () => {
+    const latest = { bookId: 'b', itemKey: 'k', title: '스레드', position: 2, total: 5 }
+    const out = renderToStaticMarkup(
+      <Library books={[book('a'), book('b')]} recent={['b', 'a']} latest={latest} />,
+    )
+    expect(out).toContain('<a class="continue" href="/books/b?item=k">')
+    expect(out).toContain('02 / 05')
+  })
+})
+
 describe('Library with a bookmark', () => {
   it('shows the bookmark kept last, which opens every bookmark', () => {
     const mark = {
