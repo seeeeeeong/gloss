@@ -8,6 +8,7 @@ import gloss.domain.book.domain.style.WritingStyle
 import gloss.domain.book.dto.request.BookCreateRequest
 import gloss.domain.book.dto.request.TocReviseRequest
 import gloss.domain.book.service.BookService
+import gloss.domain.book.service.BookShelfService
 import gloss.domain.book.service.TocService
 import gloss.domain.book.service.TypedBook
 import gloss.domain.bookmark.dto.request.BookmarkCreateRequest
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit
 class BookmarkServiceTest(
     @Autowired private val bookmarkService: BookmarkService,
     @Autowired private val bookService: BookService,
+    @Autowired private val bookShelfService: BookShelfService,
     @Autowired private val tocService: TocService,
     @Autowired private val clock: MutableClock,
     @Autowired private val jdbc: JdbcClient,
@@ -204,16 +206,16 @@ class BookmarkServiceTest(
     }
 
     @Test
-    fun `a bookmark of a book no longer on the shelf is still listed, named by its key`() {
+    fun `a book taken off the shelf takes its bookmarks with it until it is back`() {
         val book = book()
-        save(book, quote = "관람객의 가방")
-        jdbc.sql("update book set deleted_at = now() where id = :id").param("id", book.id).update()
+        val saved = save(book, quote = "관람객의 가방")
+        bookShelfService.archive(book.account, book.id)
 
-        val listed = bookmarkService.list(book.account).single()
+        val hidden = bookmarkService.list(book.account)
+        jdbc.sql("update book set archived_at = null where id = :id").param("id", book.id).update()
 
-        assertThat(listed.bookTitle).isEmpty()
-        assertThat(listed.itemNumber).isNull()
-        assertThat(listed.itemTitle).isEqualTo("1.1 티켓 판매")
+        assertThat(hidden).isEmpty()
+        assertThat(bookmarkService.list(book.account)).containsExactly(saved)
     }
 
     @Test

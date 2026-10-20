@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit
 class BookServiceTest(
     @Autowired private val bookService: BookService,
     @Autowired private val tocService: TocService,
+    @Autowired private val bookShelfService: BookShelfService,
     @Autowired private val jdbc: JdbcClient,
     @Autowired private val entityManager: EntityManager,
 ) {
@@ -228,6 +229,20 @@ class BookServiceTest(
 
         assertFails(BookError.ISBN_TAKEN) { bookService.create(account, request(isbn13 = "978-89-6626-247-2")) }
         assertThat(bookService.create(accountId(), request(isbn13 = "9788966262472")).isbn13).isNotNull()
+    }
+
+    @Test
+    fun `adding a book taken off the shelf again puts it back as it was, not a second copy`() {
+        val account = accountId()
+        val created = bookService.create(account, request(isbn13 = "9788966262472"))
+        bookService.confirmToc(account, created.id, created.toc.id)
+        bookShelfService.archive(account, created.id)
+
+        val again = bookService.create(account, request(isbn13 = "9788966262472", toc = "다른 목차"))
+
+        assertThat(again.id).isEqualTo(created.id)
+        assertThat(again.toc.id).isEqualTo(created.toc.id)
+        assertThat(bookService.list(account).map { it.id }).containsExactly(created.id)
     }
 
     @Test

@@ -20,11 +20,12 @@ class BookmarkService(
     private val tocService: TocService,
     private val clock: Clock,
 ) {
+    /** A book taken off the shelf takes its bookmarks with it, and brings them back when it is added again. */
     @Transactional(readOnly = true)
     fun list(accountId: UUID): List<BookmarkResponse> {
         val bookmarks = bookmarkRepository.findAllByAccountIdOrderByCreatedAtDescIdDesc(accountId)
         val outlines = bookmarks.map { it.bookId }.distinct().associateWith { tocService.outline(accountId, it) }
-        return bookmarks.map { responseOf(it, outlines[it.bookId]) }
+        return bookmarks.mapNotNull { bookmark -> outlines[bookmark.bookId]?.let { responseOf(bookmark, it) } }
     }
 
     /** One already saved is returned as it is, so a save the page sent twice keeps one bookmark. */
@@ -77,12 +78,12 @@ class BookmarkService(
     // A key is the path to its item, so its last part still names an item the contents in use left out.
     private fun responseOf(
         bookmark: Bookmark,
-        outline: BookOutline?,
+        outline: BookOutline,
     ): BookmarkResponse {
-        val item = outline?.items?.firstOrNull { it.itemKey == bookmark.itemKey }
+        val item = outline.items.firstOrNull { it.itemKey == bookmark.itemKey }
         return BookmarkResponse.from(
             bookmark = bookmark,
-            bookTitle = outline?.title.orEmpty(),
+            bookTitle = outline.title,
             itemNumber = item?.number,
             itemTitle = item?.title ?: bookmark.itemKey.substringAfterLast(PATH),
         )

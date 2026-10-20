@@ -52,10 +52,20 @@ class Book private constructor(
         protected set
     var createdAt: Instant = now
         protected set
-    var deletedAt: Instant? = null
+    var archivedAt: Instant? = null
         protected set
 
     val style: WritingStyle get() = WritingStyle(level, voice)
+
+    /** Off the reader's shelf: hidden, never deleted, since its posts and what they cost stay. */
+    fun archive(at: Instant) {
+        archivedAt = archivedAt ?: at
+    }
+
+    /** Back on the shelf as it was, with its contents, posts and conversations. */
+    fun restore() {
+        archivedAt = null
+    }
 
     /** The version the reader confirmed is the one plans and posts are made from. */
     fun use(toc: Toc) {

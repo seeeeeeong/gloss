@@ -305,6 +305,7 @@ class BookSourceServiceTest(
                 bookSourceGateway = fakeBookSourceGateway,
                 bookSourceThrottle = BookSourceThrottle(perMinute = 20, perSecond = 1, perDay = 100, clock = clock),
                 bookService = bookService,
+                bookShelfService = applicationContext.getBean(BookShelfService::class.java),
                 tocService = applicationContext.getBean(TocService::class.java),
                 editionCache = EditionCache(clock),
             )
@@ -371,6 +372,7 @@ class BookSourceServiceTest(
                 bookSourceGateway = fakeBookSourceGateway,
                 bookSourceThrottle = paced,
                 bookService = bookService,
+                bookShelfService = applicationContext.getBean(BookShelfService::class.java),
                 tocService = applicationContext.getBean(TocService::class.java),
                 editionCache = EditionCache(clock),
             )

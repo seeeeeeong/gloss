@@ -53,7 +53,7 @@ class BookReadService(
         bookId: UUID,
     ): UUID {
         val book =
-            bookRepository.findByIdAndAccountIdAndDeletedAtIsNull(bookId, accountId)
+            bookRepository.findByIdAndAccountIdAndArchivedAtIsNull(bookId, accountId)
                 ?: throw GlossException(BookError.BOOK_NOT_FOUND)
         return book.currentTocId ?: throw GlossException(BookError.TOC_NOT_CONFIRMED)
     }

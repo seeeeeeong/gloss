@@ -33,6 +33,7 @@ class BookService(
     private val tocRepository: TocRepository,
     private val tocItemRepository: TocItemRepository,
     private val tocService: TocService,
+    private val bookShelfService: BookShelfService,
     private val clock: Clock,
 ) {
     /** A book typed in by the reader, with its contents as a first draft. */
@@ -63,9 +64,11 @@ class BookService(
         val isbn13 = draft.isbn13
         if (isbn13 != null) {
             bookRepository.lockShelf(accountId)
-            if (bookRepository.existsByAccountIdAndIsbn13AndDeletedAtIsNull(accountId, isbn13.value)) {
+            if (bookRepository.existsByAccountIdAndIsbn13AndArchivedAtIsNull(accountId, isbn13.value)) {
                 throw GlossException(BookError.ISBN_TAKEN)
             }
+            // Taken off the shelf before: it comes back as it was, rather than as a second copy.
+            bookShelfService.restored(accountId, isbn13)?.let { return get(accountId, it.id) }
         }
         val now = clock.instant()
         val book =
@@ -83,7 +86,7 @@ class BookService(
 
     fun list(accountId: UUID): List<BookSummaryResponse> =
         bookRepository
-            .findAllByAccountIdAndDeletedAtIsNullOrderByCreatedAtDesc(accountId)
+            .findAllByAccountIdAndArchivedAtIsNullOrderByCreatedAtDesc(accountId)
             .map(BookSummaryResponse::from)
 
     // One snapshot for the book and its contents, so a confirm in between never shows half done.
@@ -93,7 +96,7 @@ class BookService(
         bookId: UUID,
     ): BookResponse {
         val book =
-            bookRepository.findByIdAndAccountIdAndDeletedAtIsNull(bookId, accountId)
+            bookRepository.findByIdAndAccountIdAndArchivedAtIsNull(bookId, accountId)
                 ?: throw GlossException(BookError.BOOK_NOT_FOUND)
         val toc = checkNotNull(tocRepository.findTopByBookIdAndAccountIdOrderByVersionNoDesc(book.id, accountId))
         return BookResponse.from(book, toc, tocItemRepository.findAllByTocIdAndAccountIdOrderByOrd(toc.id, accountId))
@@ -106,7 +109,7 @@ class BookService(
         bookId: UUID,
     ): TocResponse {
         val book =
-            bookRepository.findByIdAndAccountIdAndDeletedAtIsNull(bookId, accountId)
+            bookRepository.findByIdAndAccountIdAndArchivedAtIsNull(bookId, accountId)
                 ?: throw GlossException(BookError.BOOK_NOT_FOUND)
         val tocId = book.currentTocId ?: throw GlossException(BookError.TOC_NOT_CONFIRMED)
         val toc = checkNotNull(tocRepository.findByIdAndAccountId(tocId, accountId))

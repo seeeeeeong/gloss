@@ -77,7 +77,7 @@ class TocService(
         bookId: UUID,
     ): ContentsInUse? {
         val tocId =
-            bookRepository.findByIdAndAccountIdAndDeletedAtIsNull(bookId, accountId)?.currentTocId ?: return null
+            bookRepository.findByIdAndAccountIdAndArchivedAtIsNull(bookId, accountId)?.currentTocId ?: return null
         val toc = checkNotNull(tocRepository.findByIdAndAccountId(tocId, accountId))
         return ContentsInUse(tocId = toc.id, confirmedAt = checkNotNull(toc.confirmedAt))
     }
@@ -88,7 +88,7 @@ class TocService(
         accountId: UUID,
         bookId: UUID,
     ): BookOutline? {
-        val book = bookRepository.findByIdAndAccountIdAndDeletedAtIsNull(bookId, accountId) ?: return null
+        val book = bookRepository.findByIdAndAccountIdAndArchivedAtIsNull(bookId, accountId) ?: return null
         val tocId = book.currentTocId ?: return null
         return BookOutline.of(book, tocId, tocItemRepository.findAllByTocIdAndAccountIdOrderByOrd(tocId, accountId))
     }
