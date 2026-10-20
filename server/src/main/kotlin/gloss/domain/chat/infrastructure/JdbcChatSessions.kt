@@ -19,18 +19,41 @@ class JdbcChatSessions(
         jdbcClient
             .sql(
                 """
-                select s.id, s.created_at, first.text as first_question, first.item_key,
-                       max(m.created_at) as last_activity_at,
-                       array_remove(array_agg(distinct m.item_key), null) as item_keys
-                from chat_session s
-                join chat_message first on first.session_id = s.id and first.seq = 1
-                join chat_message m on m.session_id = s.id
+                $SUMMARIES
                 where s.account_id = :account and s.book_id = :book
-                group by s.id, s.created_at, first.text, first.item_key
+                group by s.id, s.book_id, s.created_at, first.text, first.item_key
                 order by last_activity_at desc, s.id desc
                 """.trimIndent(),
             ).param("account", accountId)
             .param("book", bookId)
+            .query { row, _ -> summaryOf(row) }
+            .list()
+
+    /** The [perBook] conversations of each book with the newest activity, newest first across them all. */
+    fun latestOf(
+        accountId: UUID,
+        bookIds: Collection<UUID>,
+        perBook: Int,
+    ): List<ChatSessionSummary> =
+        jdbcClient
+            .sql(
+                """
+                select * from (
+                    select summary.*, row_number() over (
+                        partition by book_id order by last_activity_at desc, id desc
+                    ) as place
+                    from (
+                        $SUMMARIES
+                        where s.account_id = :account and s.book_id in (:books)
+                        group by s.id, s.book_id, s.created_at, first.text, first.item_key
+                    ) summary
+                ) ranked
+                where place <= :perBook
+                order by last_activity_at desc, id desc
+                """.trimIndent(),
+            ).param("account", accountId)
+            .param("books", bookIds)
+            .param("perBook", perBook)
             .query { row, _ -> summaryOf(row) }
             .list()
 
@@ -61,11 +84,24 @@ class JdbcChatSessions(
         val itemKeys = (row.getArray("item_keys").array as Array<String>).toList()
         return ChatSessionSummary(
             id = row.getObject("id", UUID::class.java),
+            bookId = row.getObject("book_id", UUID::class.java),
             firstQuestion = row.getString("first_question"),
             itemKey = row.getString("item_key"),
             itemKeys = itemKeys,
             startedAt = row.getTimestamp("created_at").toInstant(),
             lastActivityAt = row.getTimestamp("last_activity_at").toInstant(),
         )
+    }
+
+    private companion object {
+        val SUMMARIES =
+            """
+            select s.id, s.book_id, s.created_at, first.text as first_question, first.item_key,
+                   max(m.created_at) as last_activity_at,
+                   array_remove(array_agg(distinct m.item_key), null) as item_keys
+            from chat_session s
+            join chat_message first on first.session_id = s.id and first.seq = 1
+            join chat_message m on m.session_id = s.id
+            """.trimIndent()
     }
 }

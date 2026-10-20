@@ -10,6 +10,7 @@ import java.util.UUID
  */
 data class ChatSessionResponse(
     val id: UUID,
+    val bookId: UUID,
     val firstQuestion: String,
     val itemKey: String?,
     val itemKeys: List<String>,
@@ -20,6 +21,7 @@ data class ChatSessionResponse(
         fun from(summary: ChatSessionSummary) =
             ChatSessionResponse(
                 id = summary.id,
+                bookId = summary.bookId,
                 firstQuestion = summary.firstQuestion,
                 itemKey = summary.itemKey,
                 itemKeys = summary.itemKeys,

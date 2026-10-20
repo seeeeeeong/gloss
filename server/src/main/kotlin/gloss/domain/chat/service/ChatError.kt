@@ -14,5 +14,6 @@ enum class ChatError(
     EMPTY_ANSWER(HttpStatus.BAD_GATEWAY, "chat.empty_answer", "답이 비어 있었어요. 다시 물어 주세요."),
     ANSWERING(HttpStatus.CONFLICT, "chat.answering", "앞의 질문에 답하는 중이에요. 답이 끝난 뒤 다시 물어 주세요."),
     SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "chat.session_not_found", "대화를 찾을 수 없어요."),
+    TOO_MANY_BOOKS(HttpStatus.BAD_REQUEST, "chat.too_many_books", "책은 20권까지 한 번에 볼 수 있어요."),
     STILL_ANSWERING(HttpStatus.CONFLICT, "chat.still_answering", "답하는 중인 대화예요. 답이 끝난 뒤 삭제해 주세요."),
 }

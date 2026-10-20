@@ -38,6 +38,7 @@ class ChatSession private constructor(
  */
 data class ChatSessionSummary(
     val id: UUID,
+    val bookId: UUID,
     val firstQuestion: String,
     val itemKey: String?,
     val itemKeys: List<String>,
