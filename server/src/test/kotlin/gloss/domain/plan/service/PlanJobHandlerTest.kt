@@ -179,6 +179,27 @@ class PlanJobHandlerTest(
     }
 
     @Test
+    fun `front and back matter is left out of the plan, and the cap is of the items planned`() {
+        val book = confirmed(readers.create(), toc = "들어가며\n1장 객체, 설계\n1.1 티켓 판매 애플리케이션\n2장 역할\n찾아보기")
+        fakeLlmGateway.answer = { _, _ ->
+            ChatResult(reply(entry(0, "none"), entry(1, "overview"), entry(2), entry(3)), FinishReason.STOP, usage)
+        }
+
+        val ending = runNext()
+
+        assertThat(ending).isEqualTo(Ending("succeeded", null))
+        val sent = fakeLlmGateway.requests.single()
+        assertThat(sent.maxTokens).isEqualTo(4_900)
+        assertThat(sent.messages[1].content.substringAfter("목차\n")).isEqualTo(
+            "1\t-\t1\t1장\t객체, 설계\n2\t1\t2\t1.1\t티켓 판매 애플리케이션\n3\t-\t1\t2장\t역할\n",
+        )
+        val kept = checkNotNull(plans(book.tocId).single())
+        assertThat(Regex(""""i":(\d+)""").findAll(kept).map { it.groupValues[1] }.toList())
+            .containsExactly("1", "2", "3")
+        assertThat(kept).doesNotContain("들어가며").doesNotContain("찾아보기")
+    }
+
+    @Test
     fun `a book started in the level and voice the reader chose is planned for them, and its plan carries both`() {
         val account = readers.create()
         val typed = TypedBook.of(title = "오브젝트", authors = emptyList(), toc = contents)

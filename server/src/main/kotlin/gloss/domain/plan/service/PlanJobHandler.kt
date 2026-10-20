@@ -25,8 +25,9 @@ import org.springframework.stereotype.Component
 import java.util.UUID
 
 /**
- * Writes the plan of a book's confirmed contents in one model call. The reply is kept only if it
- * plans every item; one that does not fails the job rather than stand as a plan with holes.
+ * Writes the plan of a book's confirmed contents in one model call, of the items the book is read
+ * in. The reply is kept only if it plans every one; one that does not fails the job rather than
+ * stand as a plan with holes.
  */
 @Component
 class PlanJobHandler(
@@ -75,7 +76,7 @@ class PlanJobHandler(
         subject: PlanPrompt.Subject,
     ): PlanPolicy.Plan {
         val draft = planJson.read(reply) ?: throw JobFailed(NOT_JSON, retryable = false)
-        return when (val decision = PlanPolicy.accept(draft, subject.lines.map { it.parent })) {
+        return when (val decision = PlanPolicy.accept(draft, subject.lines)) {
             is PlanDecision.Accepted -> decision.plan
             is PlanDecision.Refused -> throw JobFailed(decision.reason.code, retryable = false)
         }
@@ -87,8 +88,9 @@ class PlanJobHandler(
             authors = outline.authors,
             level = levelOf(outline.style.level),
             voice = voiceOf(outline.style.voice),
+            // Front and back matter is never read, so it is not planned: every post's prompt carries the plan.
             lines =
-                outline.items.map {
+                outline.readableItems.map {
                     PlanPrompt.Line(
                         ord = it.ord,
                         parent = it.parent,

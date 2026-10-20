@@ -59,9 +59,9 @@ class PlanJsonTest {
     }
 
     @Test
-    fun `a kept plan gives each item's kind back, in order`() {
+    fun `a kept plan gives each item's kind back, by its ord`() {
         assertThat(planJson.kinds(planJson.write(subject, plan)))
-            .containsExactly(PlanPolicy.Kind.OVERVIEW, PlanPolicy.Kind.LESSON)
+            .containsExactlyEntriesOf(mapOf(0 to PlanPolicy.Kind.OVERVIEW, 1 to PlanPolicy.Kind.LESSON))
     }
 
     @Test

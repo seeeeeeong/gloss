@@ -23,17 +23,26 @@ class PlanPolicyTest {
         glossary: List<DraftTerm> = emptyList(),
     ) = Draft(audience = audience, glossary = glossary, items = items)
 
+    // Lines for the ords, in order, under the parents a test gives.
+    private fun lines(
+        ords: List<Int>,
+        parents: List<Int?> = ords.map { null },
+    ) = ords.zip(parents) { ord, parent ->
+        PlanPrompt.Line(ord = ord, parent = parent, depth = 1, number = null, title = "항목 $ord")
+    }
+
     // Contents of [itemCount] items at one level, unless a test gives each item's parent.
     private fun accepted(
         draft: Draft,
         itemCount: Int,
         parents: List<Int?> = List(itemCount) { null },
-    ): PlanPolicy.Plan = (PlanPolicy.accept(draft, parents) as PlanDecision.Accepted).plan
+    ): PlanPolicy.Plan =
+        (PlanPolicy.accept(draft, lines(List(itemCount) { it }, parents)) as PlanDecision.Accepted).plan
 
     private fun refused(
         draft: Draft,
         itemCount: Int,
-    ): PlanDecision.Reason = (PlanPolicy.accept(draft, List(itemCount) { null }) as PlanDecision.Refused).reason
+    ): PlanDecision.Reason = (PlanPolicy.accept(draft, lines(List(itemCount) { it })) as PlanDecision.Refused).reason
 
     @Test
     fun `the cap grows with the contents, and contents past the bound get none`() {
@@ -171,5 +180,37 @@ class PlanPolicyTest {
             PlanPolicy.Term(term = "캡슐화", en = "encapsulation", means = "구현을 감추는 일", at = 1),
             PlanPolicy.Term(term = "다형성", en = null, means = "여러 형태", at = null),
         )
+    }
+
+    @Test
+    fun `contents planned from past their first item are planned by their own ords, and only those`() {
+        val excludes = listOf(DraftExclude("서문의 내용", 0), DraftExclude("다음 장", 4))
+        val glossary =
+            listOf(
+                DraftTerm(term = "객체", en = null, means = "상태와 행동을 가진 것", at = 0),
+                DraftTerm(term = "역할", en = null, means = "협력에서 맡는 책임의 묶음", at = 4),
+            )
+        val reply =
+            draft(
+                items = listOf(item(0), item(i = 3, kind = "overview"), item(4, excludes = excludes), item(5)),
+                glossary = glossary,
+            )
+
+        val plan =
+            (
+                PlanPolicy.accept(
+                    reply,
+                    lines(listOf(3, 4), parents = listOf(null, 3)),
+                ) as PlanDecision.Accepted
+            ).plan
+
+        assertThat(plan.items.map { it.ord to it.kind }).containsExactly(3 to Kind.OVERVIEW, 4 to Kind.LESSON)
+        assertThat(plan.items[1].excludes).containsExactly(
+            PlanPolicy.Exclude("서문의 내용", null),
+            PlanPolicy.Exclude("다음 장", null),
+        )
+        assertThat(plan.glossary.map { it.at }).containsExactly(null, 4)
+        assertThat(PlanPolicy.accept(draft(listOf(item(3))), lines(listOf(3, 4))))
+            .isEqualTo(PlanDecision.Refused(PlanDecision.Reason.MISSING_ITEM))
     }
 }
