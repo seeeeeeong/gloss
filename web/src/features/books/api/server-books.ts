@@ -61,6 +61,22 @@ export async function lastReadOf(bookId: string): Promise<BookRead | null> {
   }
 }
 
+type PostCount = { bookId: string; posts: number }
+
+/**
+ * How many posts each book on the shelf has, by its id; a book with none is missing. Empty when the
+ * server cannot count them, so the shelf still opens. A lost session still goes to sign-in.
+ */
+export async function postCountsBeside(): Promise<Record<string, number>> {
+  try {
+    const counts = await serverGet<PostCount[]>('/api/me/post-counts')
+    return Object.fromEntries(counts.map((count) => [count.bookId, count.posts]))
+  } catch (error) {
+    unstable_rethrow(error)
+    return {}
+  }
+}
+
 /** Once a request: the title and the page ask for the same book. */
 export const bookOf = cache(async (bookId: string) =>
   isBookId(bookId) ? serverFind<Book>(`/api/me/books/${bookId}`) : null,
