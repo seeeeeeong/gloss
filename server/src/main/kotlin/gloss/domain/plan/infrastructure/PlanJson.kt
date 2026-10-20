@@ -105,9 +105,11 @@ class PlanJson {
         return json.writeValueAsString(root)
     }
 
-    /** Each item's kind as a kept plan has it, in the contents' order. */
-    fun kinds(canonicalJson: String): List<PlanPolicy.Kind> =
-        json.readTree(canonicalJson).objects("items").map { checkNotNull(PlanPolicy.Kind.of(it.text("kind"))) }
+    /** Each planned item's kind as a kept plan has it, by the item's ord. */
+    fun kinds(canonicalJson: String): Map<Int, PlanPolicy.Kind> =
+        json.readTree(canonicalJson).objects("items").associate {
+            checkNotNull(it.int("i")) to checkNotNull(PlanPolicy.Kind.of(it.text("kind")))
+        }
 
     private fun ObjectNode.putInt(
         name: String,

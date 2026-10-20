@@ -169,7 +169,9 @@ class PlanServiceTest(
 
         assertThat(plan.id).isEqualTo(id)
         assertThat(plan.canonicalJson).isEqualTo(json)
-        assertThat(plan.kinds).containsExactly(PlanItemKind.OVERVIEW, PlanItemKind.NONE, PlanItemKind.LESSON)
+        assertThat(plan.kinds).containsExactlyEntriesOf(
+            mapOf(0 to PlanItemKind.OVERVIEW, 1 to PlanItemKind.NONE, 2 to PlanItemKind.LESSON),
+        )
         assertThat(planService.find(UUID.randomUUID(), shelf.toc)).isNull()
         assertThat(planService.find(shelf.account, shelf.newerToc())).isNull()
     }

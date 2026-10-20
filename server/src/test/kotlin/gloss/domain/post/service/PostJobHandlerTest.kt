@@ -51,12 +51,15 @@ class PostJobHandlerTest(
 ) {
     // Only stamped on the job as when it started; due times and leases run on the database's clock.
     private val now = Instant.parse("2026-10-14T00:00:00Z")
-    private val contents = "1장 객체, 설계\n1.1 티켓 판매 애플리케이션\n찾아보기"
+    private val contents = "1장 객체, 설계\n1.1 티켓 판매 애플리케이션\n1.2 감사의 글\n찾아보기"
+
+    // The index is back matter, so the plan leaves it out whatever the reply says of it.
     private val planReply =
         """{"audience":"객체지향을 처음 배우는 개발자","glossary":[],"items":[""" +
             """{"i":0,"kind":"overview","covers":["장의 흐름"],"excludes":[],"example":""},""" +
             """{"i":1,"kind":"lesson","covers":["의존성 문제"],"excludes":[],"example":"영화관"},""" +
-            """{"i":2,"kind":"none","covers":[],"excludes":[],"example":""}]}"""
+            """{"i":2,"kind":"none","covers":[],"excludes":[],"example":""},""" +
+            """{"i":3,"kind":"lesson","covers":["찾아보기"],"excludes":[],"example":""}]}"""
     private val written = lesson("본문이다.")
     private val usage =
         TokenUsage(cacheHitTokens = 700, cacheMissTokens = 200, completionTokens = 300, reasoningTokens = 0)
@@ -211,7 +214,7 @@ class PostJobHandlerTest(
                 bookId = book.bookId,
                 tocId = book.tocId,
                 canonicalJson = "{}",
-                kinds = emptyList(),
+                kinds = emptyMap(),
             )
         jdbcJobQueue.enqueue(PostJobHandler.jobFor(accountId = book.account, plan = plan, itemKey = key), now)
     }
@@ -501,10 +504,11 @@ class PostJobHandlerTest(
     }
 
     @Test
-    fun `a section with nothing to learn from is sent nowhere`() {
+    fun `a section with nothing to learn from, or back matter the plan leaves out, is sent nowhere`() {
         val book = planned()
         ask(book, key = book.keys[2])
-
+        assertThat(runNext()).isEqualTo(Ending("failed", "post.nothing_to_write"))
+        ask(book, key = book.keys[3])
         assertThat(runNext()).isEqualTo(Ending("failed", "post.nothing_to_write"))
         assertThat(fakeLlmGateway.requests).isEmpty()
     }

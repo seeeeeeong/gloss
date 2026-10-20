@@ -77,12 +77,18 @@ class PostJobHandler(
         val plan =
             planService.find(accountId, outline.tocId)?.takeIf { it.id == asked.planId }
                 ?: throw JobFailed(PLAN_GONE, retryable = false)
-        return Section(bookId = asked.bookId, item = item, plan = plan).also(::requireSomethingToWrite)
+        val section = Section(bookId = asked.bookId, item = item, plan = plan)
+        requireSomethingToWrite(section, readable = item in outline.readableItems)
+        return section
     }
 
-    private fun requireSomethingToWrite(section: Section) {
-        val nothing = section.plan.kinds.getOrNull(section.item.ord) == PlanItemKind.NONE
-        if (nothing) throw JobFailed(NOTHING_TO_WRITE, retryable = false)
+    // Front and back matter is never read, and an item the plan leaves out has nothing to write from.
+    private fun requireSomethingToWrite(
+        section: Section,
+        readable: Boolean,
+    ) {
+        val kind = section.plan.kinds[section.item.ord]
+        if (!readable || kind == null || kind == PlanItemKind.NONE) throw JobFailed(NOTHING_TO_WRITE, retryable = false)
     }
 
     /**
@@ -136,7 +142,7 @@ class PostJobHandler(
 
     // An overview is the plan's only other kind with a post; a section with none never gets here.
     private fun formOf(section: Section): PostCheck.Form =
-        if (section.plan.kinds.getOrNull(section.item.ord) == PlanItemKind.OVERVIEW) {
+        if (section.plan.kinds[section.item.ord] == PlanItemKind.OVERVIEW) {
             PostCheck.Form.OVERVIEW
         } else {
             PostCheck.Form.LESSON

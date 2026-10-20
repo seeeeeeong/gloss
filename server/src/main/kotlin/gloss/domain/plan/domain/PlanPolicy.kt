@@ -60,7 +60,7 @@ object PlanPolicy {
         val see: Int?,
     )
 
-    /** [items] has one entry for each item of the contents, in their order. */
+    /** [items] has one entry for each item planned, in the contents' order. */
     data class Plan(
         val audience: String,
         val glossary: List<Term>,
@@ -107,14 +107,13 @@ object PlanPolicy {
         }
     }
 
-    /** [parents] has, for each item of the contents by ord, the ord of the item it sits under. */
+    /** [lines] are the items the plan is asked for, in the contents' order. */
     fun accept(
         draft: Draft,
-        parents: List<Int?>,
+        lines: List<PlanPrompt.Line>,
     ): PlanDecision {
-        val itemCount = parents.size
-        val ords = 0 until itemCount
-        val withItems = parents.filterNotNull().toSet()
+        val ords = lines.map { it.ord }.toSet()
+        val withItems = lines.mapNotNull { it.parent }.toSet()
         val audience = clean(draft.audience, MAX_SENTENCE)
         // An ord the contents do not have is dropped, and one given twice is read the first time.
         val given =
@@ -126,7 +125,7 @@ object PlanPolicy {
         val reason =
             when {
                 audience == null -> PlanDecision.Reason.NO_AUDIENCE
-                given.size < itemCount -> PlanDecision.Reason.MISSING_ITEM
+                given.size < lines.size -> PlanDecision.Reason.MISSING_ITEM
                 items.size < given.size -> PlanDecision.Reason.UNKNOWN_KIND
                 items.any { it.kind == Kind.LESSON && it.covers.isEmpty() } -> PlanDecision.Reason.EMPTY_LESSON
                 else -> return PlanDecision.Accepted(Plan(audience, termsOf(draft.glossary, ords), items))
@@ -136,7 +135,7 @@ object PlanPolicy {
 
     private fun itemOf(
         given: DraftItem,
-        ords: IntRange,
+        ords: Set<Int>,
         withItems: Set<Int>,
     ): Item? {
         val ord = checkNotNull(given.i)
@@ -167,7 +166,7 @@ object PlanPolicy {
 
     private fun termsOf(
         given: List<DraftTerm>,
-        ords: IntRange,
+        ords: Set<Int>,
     ): List<Term> =
         given
             .mapNotNull {

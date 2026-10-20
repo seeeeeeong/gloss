@@ -4,14 +4,14 @@ import java.util.UUID
 
 /**
  * A book's plan as a post is written from it. [canonicalJson] goes into a post's prompt byte for
- * byte; [kinds] has one for each item of the contents, in their order.
+ * byte; [kinds] has each planned item's kind by its ord, and none for an item left out of the plan.
  */
 data class PlanView(
     val id: UUID,
     val bookId: UUID,
     val tocId: UUID,
     val canonicalJson: String,
-    val kinds: List<PlanItemKind>,
+    val kinds: Map<Int, PlanItemKind>,
 )
 
 enum class PlanItemKind {

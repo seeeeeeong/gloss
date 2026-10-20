@@ -75,7 +75,7 @@ class PlanService(
             bookId = plan.bookId,
             tocId = plan.tocId,
             canonicalJson = plan.canonicalJson,
-            kinds = planJson.kinds(plan.canonicalJson).map { PlanItemKind.valueOf(it.name) },
+            kinds = planJson.kinds(plan.canonicalJson).mapValues { PlanItemKind.valueOf(it.value.name) },
         )
     }
 

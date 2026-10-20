@@ -26,13 +26,17 @@ class PostGenerationServiceTest(
     @Autowired private val bookService: BookService,
     @Autowired private val jdbc: JdbcClient,
 ) {
-    /** A reader's book with confirmed contents: a chapter, two sections and an index. */
-    private inner class Shelf {
+    /**
+     * A reader's book with confirmed contents: a chapter, two sections and an index. Its plan gives
+     * each item the kind in [kinds], and leaves out one whose kind is null.
+     */
+    private inner class Shelf(
+        private val kinds: List<String?> = listOf("overview", "lesson", "lesson", "none"),
+    ) {
         val account: UUID = UUID.randomUUID()
         val book: UUID
         val toc: UUID
         val keys: List<String>
-        private val kinds = listOf("overview", "lesson", "lesson", "none")
 
         init {
             jdbc
@@ -59,6 +63,7 @@ class PostGenerationServiceTest(
         /** A plan as the plan job would have kept it: the index has nothing to learn from. */
         fun plan(versionNo: Int = 1): UUID {
             val id = UUID.randomUUID()
+            val planned = kinds.withIndex().filter { it.value != null }
             jdbc
                 .sql(
                     """
@@ -71,8 +76,10 @@ class PostGenerationServiceTest(
                 .param("book", book)
                 .param("toc", toc)
                 .param("versionNo", versionNo)
-                .param("json", """{"items":[${kinds.joinToString(",") { """{"kind":"$it"}""" }}]}""")
-                .update()
+                .param(
+                    "json",
+                    """{"items":[${planned.joinToString(",") { """{"i":${it.index},"kind":"${it.value}"}""" }}]}""",
+                ).update()
             return id
         }
 
@@ -231,12 +238,25 @@ class PostGenerationServiceTest(
     }
 
     @Test
-    fun `a section the plan found nothing to learn from gets no post`() {
-        val shelf = Shelf()
+    fun `a section the plan found nothing to learn from, or left out, gets no post`() {
+        val shelf = Shelf(kinds = listOf("overview", "none", null, null))
         shelf.plan()
 
-        assertThat(shelf.ask(key = shelf.keys[3])).isEqualTo(PostGenerationResponse.NONE)
+        assertThat(shelf.ask(key = shelf.keys[1])).isEqualTo(PostGenerationResponse.NONE)
+        assertThat(shelf.ask(key = shelf.keys[2])).isEqualTo(PostGenerationResponse.NONE)
         assertThat(shelf.jobs()).isEmpty()
+    }
+
+    @Test
+    fun `front and back matter gets no post, nor a plan, even under a plan that would write it`() {
+        val unplanned = Shelf()
+        val planned = Shelf(kinds = listOf("overview", "lesson", "lesson", "lesson"))
+        planned.plan()
+
+        assertThat(unplanned.ask(key = unplanned.keys[3])).isEqualTo(PostGenerationResponse.NONE)
+        assertThat(planned.ask(key = planned.keys[3])).isEqualTo(PostGenerationResponse.NONE)
+        assertThat(unplanned.jobs()).isEmpty()
+        assertThat(planned.jobs()).isEmpty()
     }
 
     @Test

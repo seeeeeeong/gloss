@@ -43,6 +43,8 @@ class PostGenerationService(
         val item =
             outline?.items?.firstOrNull { it.itemKey == itemKey }
                 ?: throw GlossException(PostError.SECTION_NOT_FOUND)
+        // Front and back matter is never read, so it is never written, even under a plan that has it.
+        if (item !in outline.readableItems) return PostGenerationResponse.NONE
         val freshness = postService.freshness(accountId, bookId, itemKey)
         if (freshness == PostFreshness.FRESH) return PostGenerationResponse.READY
         val plan = planService.find(accountId, outline.tocId)
@@ -54,7 +56,7 @@ class PostGenerationService(
                     }
                 }
 
-                plan.kinds.getOrNull(item.ord) == PlanItemKind.NONE -> {
+                plan.kinds[item.ord] in NOTHING_TO_WRITE -> {
                     return PostGenerationResponse.NONE
                 }
 
@@ -107,6 +109,8 @@ class PostGenerationService(
     }
 
     private companion object {
+        // An item the plan leaves out has no kind: it has nothing to write either.
+        val NOTHING_TO_WRITE = setOf(PlanItemKind.NONE, null)
         const val UNKNOWN = "error"
         const val FAILED = "글을 만들지 못했습니다. 다시 시도해 주세요"
 

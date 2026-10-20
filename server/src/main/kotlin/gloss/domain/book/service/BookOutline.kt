@@ -1,6 +1,7 @@
 package gloss.domain.book.service
 
 import gloss.domain.book.domain.Book
+import gloss.domain.book.domain.ReadablePolicy
 import gloss.domain.book.domain.TocItem
 import gloss.domain.book.domain.style.WritingStyle
 import java.util.UUID
@@ -14,6 +15,13 @@ data class BookOutline(
     val style: WritingStyle,
     val items: List<OutlineItem>,
 ) {
+    /** The items the book is read in, as the reader's contents show them: front and back matter left out. */
+    val readableItems: List<OutlineItem> get() {
+        val places = items.withIndex().associate { (place, item) -> item.ord to place }
+        val entries = items.map { ReadablePolicy.Entry(parent = it.parent?.let(places::get), number = it.number) }
+        return ReadablePolicy.readable(entries).map(items::get)
+    }
+
     companion object {
         internal fun of(
             book: Book,
