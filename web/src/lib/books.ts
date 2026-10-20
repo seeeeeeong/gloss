@@ -67,6 +67,9 @@ const BOOK_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 /** The server answers a path that is no id with an error, not a 404, so it is never asked. */
 export const isBookId = (value: string) => BOOK_ID.test(value)
 
+/** The reader's book; a DELETE takes it off their shelf, and adding it again puts it back. */
+export const bookPath = (bookId: string) => `/api/me/books/${bookId}`
+
 /** Authors typed into one field, separated by commas. */
 export function authorsOf(raw: string): string[] {
   return raw
