@@ -7,6 +7,7 @@ import gloss.domain.post.domain.PostVersion
 import gloss.domain.post.domain.PostVersionDraft
 import gloss.domain.post.domain.repository.PostRepository
 import gloss.domain.post.domain.repository.PostVersionRepository
+import gloss.domain.post.dto.response.PostCountResponse
 import gloss.domain.post.dto.response.PostResponse
 import gloss.domain.post.dto.response.PostSummaryResponse
 import org.springframework.stereotype.Service
@@ -34,6 +35,10 @@ class PostService(
                 .associateBy { it.postId }
         return posts.mapNotNull { post -> versions[post.id]?.let { PostSummaryResponse.from(post, it) } }
     }
+
+    /** Every book of the reader's that has posts, counted in one query for the whole shelf. */
+    fun counts(accountId: UUID): List<PostCountResponse> =
+        postRepository.countWrittenByBook(accountId).map(PostCountResponse::from)
 
     fun get(
         accountId: UUID,
