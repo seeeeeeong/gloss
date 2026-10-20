@@ -100,8 +100,12 @@ describe('BookRow', () => {
       />,
     )
 
-    expect(out).toContain('1. <a class="dl" href="https://www.yes24.com/product/goods/101"')
-    expect(out).toContain('<p class="bk-meta">Silberschatz 저 · 퍼스트북 · 2020</p>')
+    expect(out).toContain('<span class="bk-no">01</span>')
+    expect(out).toContain(
+      '<h3 class="bk-title"><a class="dl" href="https://www.yes24.com/product/goods/101"',
+    )
+    expect(out).toContain('<p class="bk-by">Silberschatz 저</p>')
+    expect(out).toContain('<p class="bk-meta">퍼스트북 · 2020</p>')
     expect(out).toContain('<p class="bk-why">전공 수업에서 많이 써요.</p>')
     expect(out).toContain('<span>OSC 10판 공식 사이트</span>')
     expect(out).toContain('href="https://os-book.com/ten"')
@@ -112,7 +116,7 @@ describe('BookRow', () => {
     expect(out).toContain('aria-label="운영체제, 이 책으로 학습"')
   })
 
-  it('offers nothing to press for a book without contents, and no rank or reason in a plain list', () => {
+  it('offers nothing to press for a book without contents, and no place, reason or pages unless given', () => {
     const out = renderToStaticMarkup(
       <BookRow
         book={{ ...book, hasContents: false }}
@@ -122,7 +126,8 @@ describe('BookRow', () => {
       />,
     )
 
-    expect(out).toContain('목차 없음')
+    expect(out).toContain('<p class="bk-meta">퍼스트북 · 2020 · 목차 없음</p>')
+    expect(out).not.toContain('bk-no')
     expect(out).not.toContain('직접 입력')
     expect(out).not.toContain('이 책으로 학습')
     expect(out).not.toContain('bk-why')
