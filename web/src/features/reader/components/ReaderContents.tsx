@@ -21,7 +21,7 @@ import {
   type ItemView,
 } from '@/features/reader/utils/reader'
 import { useDismiss } from '@/hooks/useDismiss'
-import { editionParts, sourceNameOf, type TocItem } from '@/lib/books'
+import { editionParts, sourceLinkOf, type TocItem } from '@/lib/books'
 import { headingOf, readerHref } from '@/lib/posts'
 import { toneOf } from '@/lib/shelf'
 import { ArchiveBook } from './ArchiveBook'
@@ -390,8 +390,7 @@ function BookTitle({ book }: { book: ReaderBook }) {
     kind: book.kind ?? null,
   }).join(' · ')
   // The source's terms ask for its name and a link wherever its details show.
-  const source = book.source ? sourceNameOf(book.source) : null
-  const credit = source && book.sourceUrl ? { name: source, url: book.sourceUrl } : null
+  const credit = sourceLinkOf(book)
   return (
     <div className="bt">
       <span className="bt-title">{book.title}</span>

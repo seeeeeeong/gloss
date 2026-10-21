@@ -39,7 +39,7 @@ import { lineOf } from '@/features/reader/utils/reading'
 import { talkedItems } from '@/features/reader/utils/tutor'
 import { useBookmarks } from '@/hooks/useBookmarks'
 import type { Bookmark } from '@/lib/bookmarks'
-import type { TocItem } from '@/lib/books'
+import { type SourceLink, sourceLinkOf, type TocItem } from '@/lib/books'
 import type { PostSummary } from '@/lib/posts'
 
 // A swipe shorter than this springs back.
@@ -68,6 +68,9 @@ export type ReaderProps = {
 export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
   const index = useMemo(() => new Map(items.map((item, i) => [item.itemKey, i])), [items])
   const { viewOf, texts, versions, arrive, prefetch, retry } = useBookPosts(book.id, posts)
+  const { source, sourceUrl } = book
+  // One object for the book, so the memoised pages are not rendered again on a turn.
+  const credit = useMemo(() => sourceLinkOf({ source, sourceUrl }), [source, sourceUrl])
   const stage = useRef<HTMLDivElement>(null)
   const flow = useRef<HTMLDivElement>(null)
   const [size] = useReadingSize()
@@ -173,7 +176,13 @@ export function Reader({ book, items, posts, start, bookmarks }: ReaderProps) {
             style={{ transform: `translateX(${-first * (geo?.pw ?? 0) + spreads.drag}px)` }}
           >
             <div ref={flow} className="flow" style={flowStyle(geo, size, line)}>
-              <BookPages items={items} viewOf={viewOf} texts={texts} onRetry={retry} />
+              <BookPages
+                items={items}
+                viewOf={viewOf}
+                texts={texts}
+                credit={credit}
+                onRetry={retry}
+              />
             </div>
             {geo && layout && (
               <PageChrome
@@ -229,11 +238,13 @@ type BookPagesProps = {
   items: TocItem[]
   viewOf: (key: string) => ItemView
   texts: ReadonlyMap<string, string>
+  credit: SourceLink | null
   onRetry: (key: string) => void
 }
 
 /** The flow's items in order; rendered again only when what they show changes, not on a turn. */
-const BookPages = memo(function BookPages({ items, viewOf, texts, onRetry }: BookPagesProps) {
+const BookPages = memo(function BookPages(props: BookPagesProps) {
+  const { items, viewOf, texts, credit, onRetry } = props
   return (
     <>
       {items.map((item, i) => (
@@ -244,6 +255,7 @@ const BookPages = memo(function BookPages({ items, viewOf, texts, onRetry }: Boo
           title={item.title}
           view={viewOf(item.itemKey)}
           markdown={texts.get(item.itemKey) ?? null}
+          credit={credit}
           onRetry={() => onRetry(item.itemKey)}
         />
       ))}

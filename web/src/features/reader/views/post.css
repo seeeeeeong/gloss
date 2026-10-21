@@ -67,6 +67,12 @@
 .reader.post .item > .stale + h1 {
   margin-top: 12px;
 }
+.reader.post .item > h1 + .byline {
+  margin-top: 12px;
+}
+.reader.post .item > .byline + * {
+  margin-top: 36px;
+}
 .reader.post .prose h2 {
   margin-top: 48px;
 }
