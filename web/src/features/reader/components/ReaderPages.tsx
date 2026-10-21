@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import type { ItemView } from '@/features/reader/utils/reader'
-import type { Book } from '@/lib/books'
+import type { Book, SourceLink } from '@/lib/books'
 import { Prose } from './Prose'
 
 /**
@@ -21,11 +21,13 @@ type ItemProps = {
   title: string
   view: ItemView
   markdown: string | null
+  /** Where the contents came from, credited on every post. */
+  credit: SourceLink | null
   onRetry: () => void
 }
 
 /** One item of the book: its heading, then its post or how the post stands. */
-export function ItemArticle({ unit, number, title, view, markdown, onRetry }: ItemProps) {
+export function ItemArticle({ unit, number, title, view, markdown, credit, onRetry }: ItemProps) {
   return (
     <article className="item" data-unit={unit} aria-busy={view.kind === 'writing'}>
       {view.kind === 'written' && view.stale && (
@@ -41,12 +43,30 @@ export function ItemArticle({ unit, number, title, view, markdown, onRetry }: It
         {number && <span className="no">{number} </span>}
         {title}
       </h1>
+      {view.kind === 'written' && markdown !== null && <Byline credit={credit} />}
       <ItemBody view={view} markdown={markdown} onRetry={onRetry} />
     </article>
   )
 }
 
-function ItemBody({ view, markdown, onRetry }: Omit<ItemProps, 'unit' | 'number' | 'title'>) {
+/** Says a model wrote the post, so it is never taken for the book's text, and credits the contents' source. */
+function Byline({ credit }: { credit: SourceLink | null }) {
+  return (
+    <p className="byline">
+      AI 학습 콘텐츠 · 책 본문 요약 아님
+      {credit && (
+        <>
+          {' · 목차 출처 '}
+          <a className="dl" href={credit.url} target="_blank" rel="noopener noreferrer">
+            {credit.name}
+          </a>
+        </>
+      )}
+    </p>
+  )
+}
+
+function ItemBody({ view, markdown, onRetry }: Pick<ItemProps, 'view' | 'markdown' | 'onRetry'>) {
   const retry = (
     <div className="actions">
       <button type="button" className="btn sec sm" onClick={onRetry}>

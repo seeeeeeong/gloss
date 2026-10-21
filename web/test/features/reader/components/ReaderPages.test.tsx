@@ -2,9 +2,15 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { ItemArticle } from '@/features/reader/components/ReaderPages'
 import type { ItemView } from '@/features/reader/utils/reader'
+import type { SourceLink } from '@/lib/books'
 
 const noop = () => {}
-const article = (view: ItemView, markdown: string | null = null) =>
+const YES24 = { name: 'YES24', url: 'https://www.yes24.com/product/goods/101' }
+const article = (
+  view: ItemView,
+  markdown: string | null = null,
+  credit: SourceLink | null = YES24,
+) =>
   renderToStaticMarkup(
     <ItemArticle
       unit={3}
@@ -12,9 +18,11 @@ const article = (view: ItemView, markdown: string | null = null) =>
       title="운영체제가 할 일"
       view={view}
       markdown={markdown}
+      credit={credit}
       onRetry={noop}
     />,
   )
+const written = (): ItemView => ({ kind: 'written', stale: false })
 
 describe('ItemArticle', () => {
   it('shows a written post under its heading, as a unit of the flow', () => {
@@ -23,6 +31,26 @@ describe('ItemArticle', () => {
     expect(out).toContain('<h1 tabindex="-1"><span class="no">1.1 </span>운영체제가 할 일</h1>')
     expect(out).toContain('<h2>학습 목표</h2>')
     expect(out).not.toContain('이전 목차')
+  })
+
+  it('says under the title of a written post that a model wrote it, crediting the contents', () => {
+    expect(article(written(), '본문')).toContain(
+      '</h1><p class="byline">AI 학습 콘텐츠 · 책 본문 요약 아님 · 목차 출처 <a class="dl" href="https://www.yes24.com/product/goods/101" target="_blank" rel="noopener noreferrer">YES24</a></p><div class="prose">',
+    )
+  })
+
+  it('keeps the line and leaves the credit out for a book with no source to credit', () => {
+    expect(article(written(), '본문', null)).toContain(
+      '</h1><p class="byline">AI 학습 콘텐츠 · 책 본문 요약 아님</p>',
+    )
+  })
+
+  it('says nothing of who wrote a post that is not there to read', () => {
+    expect(article(written())).not.toContain('byline')
+    expect(article({ kind: 'writing' })).not.toContain('byline')
+    expect(article({ kind: 'failed', message: '글을 쓰지 못했어요.', fix: null })).not.toContain(
+      'byline',
+    )
   })
 
   it('puts the stale line and 다시 쓰기 above a post of an earlier contents', () => {

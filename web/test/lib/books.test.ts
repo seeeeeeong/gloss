@@ -8,6 +8,7 @@ import {
   editionParts,
   isBookId,
   searchPath,
+  sourceLinkOf,
   type TocItem,
   treeOf,
 } from '@/lib/books'
@@ -83,6 +84,19 @@ describe('creditOf', () => {
 
   it('credits no one for a book typed in', () => {
     expect(creditOf('manual')).toBeNull()
+  })
+})
+
+describe('sourceLinkOf', () => {
+  it('names the source of a book found in one, with its page', () => {
+    const url = 'https://www.yes24.com/product/goods/101'
+    expect(sourceLinkOf({ source: 'yes24', sourceUrl: url })).toEqual({ name: 'YES24', url })
+  })
+
+  it('credits no one for a book typed in, without a page or without a source', () => {
+    expect(sourceLinkOf({ source: 'manual', sourceUrl: null })).toBeNull()
+    expect(sourceLinkOf({ source: 'yes24', sourceUrl: null })).toBeNull()
+    expect(sourceLinkOf({})).toBeNull()
   })
 })
 

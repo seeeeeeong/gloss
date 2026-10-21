@@ -104,6 +104,17 @@ export function creditOf(source: string): string | null {
   return name ? `출처 ${name}` : null
 }
 
+export type SourceLink = { name: string; url: string }
+
+/** The source named and its page, null for a book typed in or one without a page. */
+export function sourceLinkOf(book: {
+  source?: string
+  sourceUrl?: string | null
+}): SourceLink | null {
+  const name = book.source ? sourceNameOf(book.source) : null
+  return name && book.sourceUrl ? { name, url: book.sourceUrl } : null
+}
+
 /** What tells one edition from another: who, which publisher, what year, and what kind if [withKind]. */
 export function editionOf(
   candidate: Pick<BookCandidate, 'authors' | 'publisher' | 'publishedOn' | 'kind'>,
