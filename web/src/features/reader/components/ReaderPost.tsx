@@ -2,12 +2,12 @@ import type { MouseEvent, RefObject } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { ancestorsOf, type ItemView } from '@/features/reader/utils/reader'
 import { lineOf, type ReadingSize } from '@/features/reader/utils/reading'
-import type { TocItem } from '@/lib/books'
+import { sourceLinkOf, type TocItem } from '@/lib/books'
 import { headingOf, readerHref } from '@/lib/posts'
-import { ItemArticle } from './ReaderPages'
+import { ItemArticle, type ReaderBook } from './ReaderPages'
 
 type Props = {
-  book: { id: string; title: string }
+  book: Pick<ReaderBook, 'id' | 'title' | 'source' | 'sourceUrl'>
   items: TocItem[]
   /** The index of the item shown. */
   at: number
@@ -59,6 +59,7 @@ export function ReaderPost(props: Props) {
           title={item.title}
           view={viewOf(item.itemKey)}
           markdown={markdown}
+          credit={sourceLinkOf(book)}
           onRetry={() => onRetry(item.itemKey)}
         />
       </div>

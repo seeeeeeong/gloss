@@ -1,4 +1,4 @@
-import { createRef } from 'react'
+import { type ComponentProps, createRef } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { ReaderPost } from '@/features/reader/components/ReaderPost'
@@ -21,10 +21,15 @@ const ITEMS = [
 const BOOK = { id: 'b1', title: '운영체제' }
 const noop = () => {}
 
-const post = (at: number, viewOf: (key: string) => ItemView, markdown: string | null = null) =>
+const post = (
+  at: number,
+  viewOf: (key: string) => ItemView,
+  markdown: string | null = null,
+  book: ComponentProps<typeof ReaderPost>['book'] = BOOK,
+) =>
   renderToStaticMarkup(
     <ReaderPost
-      book={BOOK}
+      book={book}
       items={ITEMS}
       at={at}
       viewOf={viewOf}
@@ -48,6 +53,17 @@ describe('ReaderPost', () => {
     expect(out).toContain('<article class="item" data-unit="1" aria-busy="false">')
     expect(out).toContain('<h1 tabindex="-1"><span class="no">1.1 </span>할 일</h1>')
     expect(out).toContain('<h2>학습 목표</h2>')
+  })
+
+  it('credits the source of the contents under the title', () => {
+    const url = 'https://www.yes24.com/product/goods/101'
+    const out = post(1, written, '본문', { ...BOOK, source: 'yes24', sourceUrl: url })
+    expect(out).toContain(
+      `</h1><p class="byline">AI 학습 콘텐츠 · 책 본문 요약 아님 · 목차 출처 <a class="dl" href="${url}" target="_blank" rel="noopener noreferrer">YES24</a></p>`,
+    )
+    expect(post(1, written, '본문')).toContain(
+      '<p class="byline">AI 학습 콘텐츠 · 책 본문 요약 아님</p>',
+    )
   })
 
   it('links the items before and after it', () => {
