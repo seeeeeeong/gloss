@@ -51,6 +51,7 @@ object TocParser {
         val number: String?,
         val title: String,
         val length: Int,
+        val chapter: Boolean,
     )
 
     private const val PART_RANK = 0
@@ -80,11 +81,11 @@ object TocParser {
         )
 
     fun parse(text: String): Result {
-        val lines = text.lines().mapNotNull(::lineOf)
+        val lines = sectioned(text.lines().mapNotNull(::lineOf))
         return when {
             lines.isEmpty() -> Result.Empty
             lines.size > MAX_ITEMS -> Result.TooManyItems
-            lines.any(::tooLong) -> Result.LineTooLong
+            lines.any { it.length > MAX_TITLE } -> Result.LineTooLong
             else -> treeOf(Lines(lines))?.let(Result::Parsed) ?: Result.TooDeep
         }
     }
@@ -107,16 +108,40 @@ object TocParser {
         val title = label?.let { content.substring(it.end).replace(SEPARATOR, "") }.orEmpty()
         // A label too long to be one is part of the title; a label alone on its line is the title, and
         // still places the line as a part or chapter.
-        return if (label == null || title.isEmpty()) {
-            Line(indent = indent, rank = label?.rank, number = null, title = content, length = lengthOf(text))
-        } else {
-            Line(indent = indent, rank = label.rank, number = label.number, title = title, length = lengthOf(text))
+        val labelled = label != null && title.isNotEmpty()
+        return Line(
+            indent = indent,
+            rank = label?.rank,
+            number = label?.number?.takeIf { labelled },
+            title = if (labelled) title else content,
+            length = lengthOf(text),
+            chapter = label?.chapter == true,
+        )
+    }
+
+    // A chapter labelled as one ("1장", "Chapter 01") numbers its sections bare, as "01. 티켓 판매" or
+    // "1. 운영체제 개념": those rank below it, and the dotted numbers under them one deeper still.
+    private fun sectioned(lines: List<Line>): List<Line> {
+        var inChapter = false
+        var shift = 0
+        return lines.map { line ->
+            if (line.rank == PART_RANK || line.chapter) {
+                inChapter = line.chapter
+                shift = 0
+                line
+            } else if (inChapter && line.rank != null) {
+                if (line.rank == CHAPTER_RANK) shift = 1
+                line.copy(rank = line.rank + shift)
+            } else {
+                line
+            }
         }
     }
 
     private class Label(
         val rank: Int,
         match: MatchResult,
+        val chapter: Boolean = false,
     ) {
         val number = match.groupValues[1].trim()
         val end = match.range.last + 1
@@ -132,7 +157,7 @@ object TocParser {
         return when {
             part != null -> Label(PART_RANK, part)
 
-            chapter != null -> Label(CHAPTER_RANK, chapter)
+            chapter != null -> Label(CHAPTER_RANK, chapter, chapter = true)
 
             // An indented bare number, as in "3 Ways to Win", starts a title; its indent places it.
             dotted == null || ('.' !in dotted.value && indent > 0) -> null
@@ -140,8 +165,6 @@ object TocParser {
             else -> Label(dotted.groupValues[1].count { it == '.' } + 1, dotted)
         }
     }
-
-    private fun tooLong(line: Line): Boolean = line.length > MAX_TITLE
 
     // As PostgreSQL's char_length counts, by code point.
     private fun lengthOf(text: String): Int = text.codePointCount(0, text.length)
