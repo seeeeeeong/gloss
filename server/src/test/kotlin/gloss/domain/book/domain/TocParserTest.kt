@@ -123,6 +123,57 @@ class TocParserTest {
     }
 
     @Test
+    fun `a bare number under a labelled chapter is its section, and what it indents sits under it`() {
+        val raw =
+            """
+            1장: 객체, 설계
+            01. 티켓 판매 애플리케이션 구현하기
+            02. 무엇이 문제인가
+               예상을 빗나가는 코드
+            2장: 객체지향 프로그래밍
+            01. 영화 예매 시스템
+            """.trimIndent()
+
+        assertThat(outline(raw)).containsExactly(
+            "1장 객체, 설계",
+            "  01 티켓 판매 애플리케이션 구현하기",
+            "  02 무엇이 문제인가",
+            "    - 예상을 빗나가는 코드",
+            "2장 객체지향 프로그래밍",
+            "  01 영화 예매 시스템",
+        )
+    }
+
+    @Test
+    fun `in contents that indent nothing, a chapter's bare numbers and closing lines are its sections`() {
+        val raw = "Chapter 01 운영체제의 시작\n1. 운영체제 개념\n2. 운영체제의 태동\n요약\n연습문제\nChapter 02 컴퓨터 시스템\n1. 하드웨어\n요약"
+
+        assertThat(outline(raw)).containsExactly(
+            "Chapter 01 운영체제의 시작",
+            "  1 운영체제 개념",
+            "  2 운영체제의 태동",
+            "  - 요약",
+            "  - 연습문제",
+            "Chapter 02 컴퓨터 시스템",
+            "  1 하드웨어",
+            "  - 요약",
+        )
+    }
+
+    @Test
+    fun `dotted numbers under a bare section go one deeper, bare numbers outside a chapter stay chapters`() {
+        assertThat(outline("1장 시작\n1. 설치\n1.1 내려받기\n2. 실행\n1부 응용\n1 Introduction\n1.1 Scope")).containsExactly(
+            "1장 시작",
+            "  1 설치",
+            "    1.1 내려받기",
+            "  2 실행",
+            "1부 응용",
+            "  1 Introduction",
+            "    1.1 Scope",
+        )
+    }
+
+    @Test
     fun `back matter after the last chapter returns to the top, a chapter's own closing section does not`() {
         assertThat(outline("1장 시작\n설치\n마치며\n2장 끝\n배포\n마치며\n용어집\n찾아보기")).containsExactly(
             "1장 시작",
