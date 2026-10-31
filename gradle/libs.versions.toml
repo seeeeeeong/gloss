@@ -8,7 +8,7 @@ ktlint = "1.8.0"
 archunit = "1.5.0"
 konsist = "0.18.1"
 spring-boot = "4.1.1"
-spring-modulith = "2.1.1"
+spring-modulith = "2.1.2"
 kotlin-jdsl = "3.9.0"
 commonmark = "0.30.1"
 
